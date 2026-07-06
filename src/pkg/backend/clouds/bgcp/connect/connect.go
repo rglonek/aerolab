@@ -45,8 +45,9 @@ func GetClient(creds *clouds.GCP, log *logger.Logger) (*http.Client, error) {
 
 // getDefaultClient gets an authenticated client for the Google Cloud Platform.
 // log is the logger to use for logging; all logging is done at the debug level.
-// quotaProject, when non-empty, is sent as the X-Goog-User-Project (billing /
-// quota) project on every request.
+// configuredProject is the project aerolab is configured to use; it is sent as
+// the X-Goog-User-Project (billing / quota) header only when the resolved
+// credentials have no project of their own (see quotaProjectFor).
 //
 // Callers inject this client with option.WithHTTPClient, which bypasses the
 // Google client library's own credential resolution. To stay faithful to how
@@ -58,14 +59,16 @@ func GetClient(creds *clouds.GCP, log *logger.Logger) (*http.Client, error) {
 // header and was insufficient for Workload Identity Federation principals.
 //
 // It also mirrors the gcloud CLI by sending the configured project as the
-// X-Goog-User-Project quota header. Workload Identity Federation principals
-// authenticate with a federated access token that is not associated with a
-// project of its own, so GCP APIs reject the request with 401 "Invalid
-// Credentials" unless a billing/quota project is supplied. The library only
-// derives this header from the credential file's quota_project_id, which the
-// google-github-actions/auth external_account file does not populate; gcloud
-// works because it sends the project from CLOUDSDK_CORE_PROJECT.
-func getDefaultClient(log *logger.Logger, quotaProject string) (*http.Client, error) {
+// X-Goog-User-Project quota header for Workload Identity Federation principals:
+// their federated access token is not associated with a project of its own, so
+// GCP APIs reject the request with 401 "Invalid Credentials" unless a
+// billing/quota project is supplied. The library only derives this header from
+// the credential file's quota_project_id, which the google-github-actions/auth
+// external_account file does not populate; gcloud works because it sends the
+// project from CLOUDSDK_CORE_PROJECT. For credentials that already carry a
+// project the header is omitted, so those principals are not newly required to
+// hold roles/serviceusage.serviceUsageConsumer.
+func getDefaultClient(log *logger.Logger, configuredProject string) (*http.Client, error) {
 	authCreds, err := detectDefaultAuthCredentials(log)
 	if err != nil {
 		return nil, err
@@ -73,10 +76,11 @@ func getDefaultClient(log *logger.Logger, quotaProject string) (*http.Client, er
 	opts := &httptransport.Options{
 		Credentials: authCreds,
 	}
-	if quotaProject != "" {
-		log.Debug("Setting X-Goog-User-Project quota project to %q", quotaProject)
+	credProjectID, _ := authCreds.ProjectID(context.Background())
+	if qp := quotaProjectFor(credProjectID, configuredProject); qp != "" {
+		log.Debug("Credentials have no associated project; setting X-Goog-User-Project quota project to %q", qp)
 		opts.Headers = http.Header{}
-		opts.Headers.Set("X-Goog-User-Project", quotaProject)
+		opts.Headers.Set("X-Goog-User-Project", qp)
 	}
 	client, err := httptransport.NewClient(opts)
 	if err != nil {

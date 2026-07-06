@@ -16,6 +16,7 @@ import (
 	"github.com/rglonek/logger"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
+	"google.golang.org/api/option"
 )
 
 // cloudPlatformScope is the OAuth2 scope requested for Application Default
@@ -83,6 +84,41 @@ func detectDefaultAuthCredentials(log *logger.Logger) (*auth.Credentials, error)
 	}
 	log.Debug("Using default credentials resolved via cloud.google.com/go/auth (WIF-capable)")
 	return authCreds, nil
+}
+
+// quotaProjectFor decides which project to send as the X-Goog-User-Project
+// (billing / quota) header. It returns configuredProject only when the resolved
+// credentials have no project of their own (credProjectID == ""), i.e. Workload
+// Identity Federation with direct federation, whose federated access tokens are
+// not associated with a project and are otherwise rejected with 401 "Invalid
+// Credentials".
+//
+// Credentials that already carry a project (service-account keys, GCE metadata,
+// impersonated WIF) return "" so we do NOT force the quota header on them.
+// Forcing it would newly require every such principal to hold
+// roles/serviceusage.serviceUsageConsumer on the quota project, turning working
+// setups into 403 PermissionDenied failures.
+func quotaProjectFor(credProjectID, configuredProject string) string {
+	if credProjectID == "" {
+		return configuredProject
+	}
+	return ""
+}
+
+// QuotaProjectOption returns a client option setting the X-Goog-User-Project
+// (billing / quota) header to configuredProject, but only when cli has no
+// project of its own (see quotaProjectFor). Otherwise it returns a no-op
+// option.WithQuotaProject("").
+//
+// Use this at option.WithCredentials call sites so that Workload Identity
+// Federation principals get a quota project (required) while ordinary
+// service-account principals are left unchanged.
+func QuotaProjectOption(cli *google.Credentials, configuredProject string) option.ClientOption {
+	credProjectID := ""
+	if cli != nil {
+		credProjectID = cli.ProjectID
+	}
+	return option.WithQuotaProject(quotaProjectFor(credProjectID, configuredProject))
 }
 
 // getOAuth2Client gets an authenticated client for the Google Cloud Platform.

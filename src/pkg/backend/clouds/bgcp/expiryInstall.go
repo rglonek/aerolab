@@ -249,7 +249,7 @@ func (s *b) allowUnauthenticated(ctx context.Context, projectID, region string) 
 		return err
 	}
 	log.Detail("Creating Cloud Run services client")
-	client, err := run.NewServicesClient(ctx, option.WithCredentials(cli), option.WithQuotaProject(s.credentials.Project))
+	client, err := run.NewServicesClient(ctx, option.WithCredentials(cli), connect.QuotaProjectOption(cli, s.credentials.Project))
 	if err != nil {
 		return fmt.Errorf("failed to create functions client: %w", err)
 	}
@@ -310,7 +310,7 @@ func (s *b) deployFunctionBucketCode(ctx context.Context, projectID, region stri
 
 	// Create Storage client
 	log.Detail("Creating Cloud Storage client")
-	client, err := storage.NewClient(ctx, option.WithCredentials(cli), option.WithQuotaProject(s.credentials.Project))
+	client, err := storage.NewClient(ctx, option.WithCredentials(cli), connect.QuotaProjectOption(cli, s.credentials.Project))
 	if err != nil {
 		return fmt.Errorf("failed to create storage client: %w", err)
 	}
@@ -659,7 +659,7 @@ func (s *b) deployFunction(ctx context.Context, projectID, region, token string,
 		return err
 	}
 	log.Detail("Creating Cloud Functions client")
-	client, err := functions.NewFunctionClient(ctx, option.WithCredentials(cli), option.WithQuotaProject(s.credentials.Project))
+	client, err := functions.NewFunctionClient(ctx, option.WithCredentials(cli), connect.QuotaProjectOption(cli, s.credentials.Project))
 	if err != nil {
 		return fmt.Errorf("failed to create functions v2 client: %w", err)
 	}
@@ -760,7 +760,7 @@ func (s *b) createSchedulerJob(ctx context.Context, projectID, region, token str
 		return err
 	}
 	log.Detail("Creating Cloud Scheduler client")
-	client, err := scheduler.NewCloudSchedulerClient(ctx, option.WithCredentials(cli), option.WithQuotaProject(s.credentials.Project))
+	client, err := scheduler.NewCloudSchedulerClient(ctx, option.WithCredentials(cli), connect.QuotaProjectOption(cli, s.credentials.Project))
 	if err != nil {
 		return fmt.Errorf("failed to create scheduler client: %w", err)
 	}

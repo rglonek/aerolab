@@ -206,15 +206,16 @@ func (s *b) getVolumePricesFromGCP() (backends.VolumePriceList, error) {
 	defer log.Detail("End")
 
 	ctx := context.Background()
-	creds, err := connect.GetCredentials(s.credentials, log.WithPrefix("AUTH: "))
+	// cloudbilling is an old-style google.golang.org/api client that does not
+	// authenticate correctly with option.WithCredentials under Workload Identity
+	// Federation; use the httptransport-backed client (as the compute path does).
+	cli, err := connect.GetClient(s.credentials, log.WithPrefix("AUTH: "))
 	if err != nil {
 		return nil, err
 	}
+	defer cli.CloseIdleConnections()
 
-	svc, err := cloudbilling.NewService(ctx,
-		option.WithCredentials(creds),
-		option.WithQuotaProject(s.credentials.Project),
-	)
+	svc, err := cloudbilling.NewService(ctx, option.WithHTTPClient(cli))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create cloudbilling service: %w", err)
 	}
@@ -413,7 +414,16 @@ func (s *b) getInstanceTypesFromGCP() (backends.InstanceTypeList, error) {
 	if errs != nil {
 		return nil, errs
 	}
-	return s.getInstancePrices(out)
+	// Pricing is best-effort: never let a pricing failure (e.g. cloudbilling API
+	// disabled, quota, or insufficient permissions) block operations that only
+	// need the instance-type catalog, such as cluster create. On failure, return
+	// the instance types without prices.
+	priced, err := s.getInstancePrices(out)
+	if err != nil {
+		log.Detail("Failed to retrieve instance pricing (continuing without prices): %s", err)
+		return out, nil
+	}
+	return priced, nil
 }
 
 func (s *b) getInstancePricesEnableService(out backends.InstanceTypeList) (backends.InstanceTypeList, error) {
@@ -508,11 +518,18 @@ func (s *b) getInstancePrices(out backends.InstanceTypeList) (backends.InstanceT
 	}
 
 	ctx := context.Background()
-	cli, err := connect.GetCredentials(s.credentials, log.WithPrefix("AUTH: "))
+	// cloudbilling is an old-style google.golang.org/api client; unlike the
+	// modern cloud.google.com/go clients it does not authenticate correctly with
+	// option.WithCredentials under Workload Identity Federation (the legacy
+	// transport yields a token GCP rejects with 401). Use the same
+	// httptransport-backed client as the compute path, which carries a
+	// WIF-capable token and the X-Goog-User-Project quota header.
+	cli, err := connect.GetClient(s.credentials, log.WithPrefix("AUTH: "))
 	if err != nil {
 		return nil, err
 	}
-	svc, err := cloudbilling.NewService(ctx, option.WithCredentials(cli), option.WithQuotaProject(s.credentials.Project))
+	defer cli.CloseIdleConnections()
+	svc, err := cloudbilling.NewService(ctx, option.WithHTTPClient(cli))
 	if err != nil {
 		if strings.Contains(err.Error(), "accessNotConfigured") {
 			return s.getInstancePricesEnableService(out)
