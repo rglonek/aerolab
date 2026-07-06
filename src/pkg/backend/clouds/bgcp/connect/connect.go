@@ -28,13 +28,13 @@ func GetClient(creds *clouds.GCP, log *logger.Logger) (*http.Client, error) {
 	switch creds.AuthMethod {
 	case clouds.GCPAuthMethodServiceAccount:
 		log.Debug("Attempting to use instance service account credentials")
-		return getDefaultClient(log)
+		return getDefaultClient(log, creds.Project)
 	case clouds.GCPAuthMethodLogin:
 		log.Debug("Attempting to use OAuth2 credentials")
 		return getOAuth2Client(log, creds.Login.TokenCacheFilePath, creds.Login.Browser, creds.Login.Secrets)
 	case clouds.GCPAuthMethodAny:
 		log.Debug("Attempting to use instance service account credentials")
-		if client, err := getDefaultClient(log); err == nil {
+		if client, err := getDefaultClient(log, creds.Project); err == nil {
 			return client, nil
 		}
 		log.Debug("Failed to use instance service account credentials; attempting to use OAuth2 credentials")
@@ -45,24 +45,40 @@ func GetClient(creds *clouds.GCP, log *logger.Logger) (*http.Client, error) {
 
 // getDefaultClient gets an authenticated client for the Google Cloud Platform.
 // log is the logger to use for logging; all logging is done at the debug level.
+// quotaProject, when non-empty, is sent as the X-Goog-User-Project (billing /
+// quota) project on every request.
 //
 // Callers inject this client with option.WithHTTPClient, which bypasses the
 // Google client library's own credential resolution. To stay faithful to how
 // aerolab v7 (and the GCP client libraries) authenticate, we build the client
 // through the library's own auth transport (httptransport.NewClient) from
 // Application Default Credentials resolved via the modern cloud.google.com/go/auth
-// stack. That transport attaches the OAuth2 bearer token AND the
-// credential-derived X-Goog-User-Project quota header and universe-domain
+// stack. That transport attaches the OAuth2 bearer token and universe-domain
 // handling -- unlike a bare oauth2.NewClient, which only sets the Authorization
 // header and was insufficient for Workload Identity Federation principals.
-func getDefaultClient(log *logger.Logger) (*http.Client, error) {
+//
+// It also mirrors the gcloud CLI by sending the configured project as the
+// X-Goog-User-Project quota header. Workload Identity Federation principals
+// authenticate with a federated access token that is not associated with a
+// project of its own, so GCP APIs reject the request with 401 "Invalid
+// Credentials" unless a billing/quota project is supplied. The library only
+// derives this header from the credential file's quota_project_id, which the
+// google-github-actions/auth external_account file does not populate; gcloud
+// works because it sends the project from CLOUDSDK_CORE_PROJECT.
+func getDefaultClient(log *logger.Logger, quotaProject string) (*http.Client, error) {
 	authCreds, err := detectDefaultAuthCredentials(log)
 	if err != nil {
 		return nil, err
 	}
-	client, err := httptransport.NewClient(&httptransport.Options{
+	opts := &httptransport.Options{
 		Credentials: authCreds,
-	})
+	}
+	if quotaProject != "" {
+		log.Debug("Setting X-Goog-User-Project quota project to %q", quotaProject)
+		opts.Headers = http.Header{}
+		opts.Headers.Set("X-Goog-User-Project", quotaProject)
+	}
+	client, err := httptransport.NewClient(opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build authenticated HTTP client: %w", err)
 	}

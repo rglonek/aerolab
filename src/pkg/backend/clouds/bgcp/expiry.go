@@ -46,7 +46,7 @@ func (s *b) ExpiryChangeConfiguration(logLevel int, expireEksctl bool, cleanupDN
 		if err != nil {
 			return fmt.Errorf("failed to get function: %w", err)
 		}
-		client, err := functions.NewFunctionClient(ctx, option.WithCredentials(cli))
+		client, err := functions.NewFunctionClient(ctx, option.WithCredentials(cli), option.WithQuotaProject(s.credentials.Project))
 		if err != nil {
 			return fmt.Errorf("failed to create function client: %w", err)
 		}
@@ -185,7 +185,7 @@ func (s *b) ExpiryChangeFrequency(intervalMinutes int, zones ...string) error {
 	if err != nil {
 		return err
 	}
-	client, err := scheduler.NewCloudSchedulerClient(ctx, option.WithCredentials(cli))
+	client, err := scheduler.NewCloudSchedulerClient(ctx, option.WithCredentials(cli), option.WithQuotaProject(s.credentials.Project))
 	if err != nil {
 		return err
 	}
@@ -236,7 +236,7 @@ func (s *b) VolumesChangeExpiry(volumes backends.VolumeList, expiry time.Time) e
 }
 
 func (s *b) getScheduler(ctx context.Context, cli *google.Credentials, region string) (*schedulerpb.Job, error) {
-	client, err := scheduler.NewCloudSchedulerClient(ctx, option.WithCredentials(cli))
+	client, err := scheduler.NewCloudSchedulerClient(ctx, option.WithCredentials(cli), option.WithQuotaProject(s.credentials.Project))
 	if err != nil {
 		return nil, err
 	}
@@ -253,7 +253,7 @@ func (s *b) getScheduler(ctx context.Context, cli *google.Credentials, region st
 }
 
 func (s *b) getFunction(ctx context.Context, cli *google.Credentials, region string) (*functionspb.Function, error) {
-	client, err := functions.NewFunctionClient(ctx, option.WithCredentials(cli))
+	client, err := functions.NewFunctionClient(ctx, option.WithCredentials(cli), option.WithQuotaProject(s.credentials.Project))
 	if err != nil {
 		return nil, err
 	}
@@ -338,7 +338,7 @@ func (s *b) enableService(names ...string) error {
 	if err != nil {
 		return err
 	}
-	client, err := serviceusage.NewClient(ctx, option.WithCredentials(cli))
+	client, err := serviceusage.NewClient(ctx, option.WithCredentials(cli), option.WithQuotaProject(s.credentials.Project))
 	if err != nil {
 		return err
 	}
@@ -377,7 +377,7 @@ func (s *b) listEnabledServices() (names []string, err error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to get credentials: %w", err)
 	}
-	client, err := serviceusage.NewClient(ctx, option.WithCredentials(cli))
+	client, err := serviceusage.NewClient(ctx, option.WithCredentials(cli), option.WithQuotaProject(s.credentials.Project))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create serviceusage client: %w", err)
 	}
@@ -497,7 +497,7 @@ func (s *b) ExpiryV7Check() (bool, []string, error) {
 	for _, region := range enabledRegions {
 		// Check for v7 Cloud Function "aerolab-expiries" (with 's')
 		v7FunctionFound := false
-		funcClient, err := functions.NewFunctionClient(ctx, option.WithCredentials(cli))
+		funcClient, err := functions.NewFunctionClient(ctx, option.WithCredentials(cli), option.WithQuotaProject(s.credentials.Project))
 		if err != nil {
 			log.Detail("Failed to create function client for region %s: %s", region, err)
 			continue
@@ -514,7 +514,7 @@ func (s *b) ExpiryV7Check() (bool, []string, error) {
 
 		// Check for v7 Cloud Scheduler Job "aerolab-expiries" (with 's')
 		v7SchedulerFound := false
-		schedClient, err := scheduler.NewCloudSchedulerClient(ctx, option.WithCredentials(cli))
+		schedClient, err := scheduler.NewCloudSchedulerClient(ctx, option.WithCredentials(cli), option.WithQuotaProject(s.credentials.Project))
 		if err != nil {
 			log.Detail("Failed to create scheduler client for region %s: %s", region, err)
 			continue

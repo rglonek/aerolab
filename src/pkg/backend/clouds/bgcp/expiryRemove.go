@@ -104,7 +104,7 @@ func (s *b) removeSchedulerJob(region string, cli *google.Credentials) error {
 	defer log.Detail("End (region=%s)", region)
 	ctx := context.Background()
 	log.Detail("Creating Cloud Scheduler client")
-	client, err := scheduler.NewCloudSchedulerClient(ctx, option.WithCredentials(cli))
+	client, err := scheduler.NewCloudSchedulerClient(ctx, option.WithCredentials(cli), option.WithQuotaProject(s.credentials.Project))
 	if err != nil {
 		return fmt.Errorf("failed to create scheduler client: %w", err)
 	}
@@ -146,7 +146,7 @@ func (s *b) removeFunction(region string, cli *google.Credentials) error {
 	defer log.Detail("End (region=%s)", region)
 	ctx := context.Background()
 	log.Detail("Creating Cloud Functions client")
-	client, err := functions.NewFunctionClient(ctx, option.WithCredentials(cli))
+	client, err := functions.NewFunctionClient(ctx, option.WithCredentials(cli), option.WithQuotaProject(s.credentials.Project))
 	if err != nil {
 		return fmt.Errorf("failed to create functions client: %w", err)
 	}
@@ -276,7 +276,7 @@ func (s *b) deleteCloudRunService(ctx context.Context, cli *google.Credentials, 
 	log.Detail("Start (region=%s)", region)
 	defer log.Detail("End (region=%s)", region)
 
-	client, err := run.NewServicesClient(ctx, option.WithCredentials(cli))
+	client, err := run.NewServicesClient(ctx, option.WithCredentials(cli), option.WithQuotaProject(s.credentials.Project))
 	if err != nil {
 		return fmt.Errorf("create Cloud Run client: %w", err)
 	}
