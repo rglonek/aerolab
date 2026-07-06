@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 
+	"cloud.google.com/go/auth"
 	authcreds "cloud.google.com/go/auth/credentials"
 	"cloud.google.com/go/auth/oauth2adapt"
 	"github.com/aerospike/aerolab/pkg/backend/clouds"
@@ -50,20 +51,29 @@ func GetCredentials(creds *clouds.GCP, log *logger.Logger) (*google.Credentials,
 // Cloud Platform. log is the logger to use for logging; all logging is done at
 // the debug level.
 func getDefaultCredentials(log *logger.Logger) (*google.Credentials, error) {
-	return detectDefaultCredentials(log)
+	authCreds, err := detectDefaultAuthCredentials(log)
+	if err != nil {
+		return nil, err
+	}
+	// Adapt to *google.Credentials for the token-source based call paths
+	// (option.WithCredentials and the IAP token source). option.WithCredentials
+	// still routes through the client library's own auth transport, so it
+	// already behaves like aerolab v7; only the getDefaultClient path (below)
+	// needed to stop wrapping the token in a bare oauth2 client.
+	return oauth2adapt.Oauth2CredentialsFromAuthCredentials(authCreds), nil
 }
 
-// detectDefaultCredentials resolves Application Default Credentials using the
+// detectDefaultAuthCredentials resolves Application Default Credentials using the
 // modern cloud.google.com/go/auth stack. Unlike the legacy
 // golang.org/x/oauth2/google.FindDefaultCredentials path, this fully supports
 // Workload Identity Federation (external_account), impersonated service
 // accounts, executable/URL/file credential sources and the STS token exchange.
 //
-// The result is adapted back to *google.Credentials so existing call sites
-// (option.WithCredentials, oauth2.NewClient for option.WithHTTPClient, and the
-// IAP token source) keep working unchanged while carrying a WIF-capable token
-// source.
-func detectDefaultCredentials(log *logger.Logger) (*google.Credentials, error) {
+// It returns the native *auth.Credentials so getDefaultClient can hand it to the
+// client library's own HTTP transport (httptransport.NewClient) -- exactly how
+// the GCP client libraries authenticate internally, which is how aerolab v7
+// authenticated -- instead of wrapping it in a bare oauth2 client.
+func detectDefaultAuthCredentials(log *logger.Logger) (*auth.Credentials, error) {
 	authCreds, err := authcreds.DetectDefault(&authcreds.DetectOptions{
 		Scopes: []string{cloudPlatformScope},
 	})
@@ -72,7 +82,7 @@ func detectDefaultCredentials(log *logger.Logger) (*google.Credentials, error) {
 		return nil, err
 	}
 	log.Debug("Using default credentials resolved via cloud.google.com/go/auth (WIF-capable)")
-	return oauth2adapt.Oauth2CredentialsFromAuthCredentials(authCreds), nil
+	return authCreds, nil
 }
 
 // getOAuth2Client gets an authenticated client for the Google Cloud Platform.

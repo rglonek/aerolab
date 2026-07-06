@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 
+	"cloud.google.com/go/auth/httptransport"
 	"github.com/aerospike/aerolab/pkg/backend/clouds"
 	"github.com/aerospike/aerolab/pkg/utils/openbrowser"
 	"github.com/google/uuid"
@@ -45,17 +46,27 @@ func GetClient(creds *clouds.GCP, log *logger.Logger) (*http.Client, error) {
 // getDefaultClient gets an authenticated client for the Google Cloud Platform.
 // log is the logger to use for logging; all logging is done at the debug level.
 //
-// It builds the client from Application Default Credentials resolved via the
-// modern cloud.google.com/go/auth stack (see detectDefaultCredentials), so the
-// returned client carries a Workload Identity Federation-capable token source.
-// This matters because callers inject this client with option.WithHTTPClient,
-// which bypasses the Google client library's own credential resolution.
+// Callers inject this client with option.WithHTTPClient, which bypasses the
+// Google client library's own credential resolution. To stay faithful to how
+// aerolab v7 (and the GCP client libraries) authenticate, we build the client
+// through the library's own auth transport (httptransport.NewClient) from
+// Application Default Credentials resolved via the modern cloud.google.com/go/auth
+// stack. That transport attaches the OAuth2 bearer token AND the
+// credential-derived X-Goog-User-Project quota header and universe-domain
+// handling -- unlike a bare oauth2.NewClient, which only sets the Authorization
+// header and was insufficient for Workload Identity Federation principals.
 func getDefaultClient(log *logger.Logger) (*http.Client, error) {
-	creds, err := detectDefaultCredentials(log)
+	authCreds, err := detectDefaultAuthCredentials(log)
 	if err != nil {
 		return nil, err
 	}
-	return oauth2.NewClient(context.Background(), creds.TokenSource), nil
+	client, err := httptransport.NewClient(&httptransport.Options{
+		Credentials: authCreds,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to build authenticated HTTP client: %w", err)
+	}
+	return client, nil
 }
 
 // getOAuth2Client gets an authenticated client for the Google Cloud Platform.
