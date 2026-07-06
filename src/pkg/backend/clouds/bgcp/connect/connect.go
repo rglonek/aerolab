@@ -44,15 +44,18 @@ func GetClient(creds *clouds.GCP, log *logger.Logger) (*http.Client, error) {
 
 // getDefaultClient gets an authenticated client for the Google Cloud Platform.
 // log is the logger to use for logging; all logging is done at the debug level.
+//
+// It builds the client from Application Default Credentials resolved via the
+// modern cloud.google.com/go/auth stack (see detectDefaultCredentials), so the
+// returned client carries a Workload Identity Federation-capable token source.
+// This matters because callers inject this client with option.WithHTTPClient,
+// which bypasses the Google client library's own credential resolution.
 func getDefaultClient(log *logger.Logger) (*http.Client, error) {
-	ctx := context.Background()
-	client, err := google.DefaultClient(ctx, "https://www.googleapis.com/auth/cloud-platform")
-	if err == nil {
-		log.Debug("Using instance service account credentials")
-		return client, nil
+	creds, err := detectDefaultCredentials(log)
+	if err != nil {
+		return nil, err
 	}
-	log.Debug("No instance service account found: %v", err)
-	return nil, err
+	return oauth2.NewClient(context.Background(), creds.TokenSource), nil
 }
 
 // getOAuth2Client gets an authenticated client for the Google Cloud Platform.
@@ -68,7 +71,7 @@ func getOAuth2Client(log *logger.Logger, tokenCacheFilePath string, browser bool
 		ClientID:     secrets.ClientID,
 		ClientSecret: secrets.ClientSecret,
 		Scopes: []string{
-			"https://www.googleapis.com/auth/cloud-platform",
+			cloudPlatformScope,
 		},
 		Endpoint: google.Endpoint,
 	}

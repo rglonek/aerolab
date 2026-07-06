@@ -7,6 +7,8 @@ import (
 	"net"
 	"net/http"
 
+	authcreds "cloud.google.com/go/auth/credentials"
+	"cloud.google.com/go/auth/oauth2adapt"
 	"github.com/aerospike/aerolab/pkg/backend/clouds"
 	"github.com/aerospike/aerolab/pkg/utils/openbrowser"
 	"github.com/google/uuid"
@@ -14,6 +16,10 @@ import (
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 )
+
+// cloudPlatformScope is the OAuth2 scope requested for Application Default
+// Credentials. It is the superset scope accepted by all GCP APIs aerolab uses.
+const cloudPlatformScope = "https://www.googleapis.com/auth/cloud-platform"
 
 func GetCredentials(creds *clouds.GCP, log *logger.Logger) (*google.Credentials, error) {
 	if log == nil {
@@ -40,17 +46,33 @@ func GetCredentials(creds *clouds.GCP, log *logger.Logger) (*google.Credentials,
 	return nil, fmt.Errorf("unsupported auth method: %s", creds.AuthMethod)
 }
 
-// getDefaultClient gets an authenticated client for the Google Cloud Platform.
-// log is the logger to use for logging; all logging is done at the debug level.
+// getDefaultCredentials gets Application Default Credentials for the Google
+// Cloud Platform. log is the logger to use for logging; all logging is done at
+// the debug level.
 func getDefaultCredentials(log *logger.Logger) (*google.Credentials, error) {
-	ctx := context.Background()
-	creds, err := google.FindDefaultCredentials(ctx, "https://www.googleapis.com/auth/cloud-platform")
-	if err == nil {
-		log.Debug("Using instance service account credentials")
-		return creds, nil
+	return detectDefaultCredentials(log)
+}
+
+// detectDefaultCredentials resolves Application Default Credentials using the
+// modern cloud.google.com/go/auth stack. Unlike the legacy
+// golang.org/x/oauth2/google.FindDefaultCredentials path, this fully supports
+// Workload Identity Federation (external_account), impersonated service
+// accounts, executable/URL/file credential sources and the STS token exchange.
+//
+// The result is adapted back to *google.Credentials so existing call sites
+// (option.WithCredentials, oauth2.NewClient for option.WithHTTPClient, and the
+// IAP token source) keep working unchanged while carrying a WIF-capable token
+// source.
+func detectDefaultCredentials(log *logger.Logger) (*google.Credentials, error) {
+	authCreds, err := authcreds.DetectDefault(&authcreds.DetectOptions{
+		Scopes: []string{cloudPlatformScope},
+	})
+	if err != nil {
+		log.Debug("No default credentials found: %v", err)
+		return nil, err
 	}
-	log.Debug("No instance service account found: %v", err)
-	return nil, err
+	log.Debug("Using default credentials resolved via cloud.google.com/go/auth (WIF-capable)")
+	return oauth2adapt.Oauth2CredentialsFromAuthCredentials(authCreds), nil
 }
 
 // getOAuth2Client gets an authenticated client for the Google Cloud Platform.
@@ -66,7 +88,7 @@ func getOAuth2Credentials(log *logger.Logger, tokenCacheFilePath string, browser
 		ClientID:     secrets.ClientID,
 		ClientSecret: secrets.ClientSecret,
 		Scopes: []string{
-			"https://www.googleapis.com/auth/cloud-platform",
+			cloudPlatformScope,
 		},
 		Endpoint: google.Endpoint,
 	}
