@@ -1256,11 +1256,16 @@ func (s *b) CreateInstancesGetPrice(input *backends.CreateInstanceInput) (costPP
 			switch strings.ToLower(kv[0]) {
 			case "type":
 				diskType := kv[1]
+				// Volume pricing is best-effort: a pricing lookup failure (e.g.
+				// cloudbilling API unavailable, quota, or permissions) must not
+				// block cluster creation, which only needs the price to populate
+				// cost tags. Continue with zero disk cost on failure.
 				volumePrice, err := s.GetVolumePrice(backendSpecificParams.NetworkPlacement, diskType)
 				if err != nil {
-					return 0, 0, err
+					s.log.Detail("Failed to get volume price for %q (continuing without disk pricing): %s", diskType, err)
+				} else {
+					addCostGB += volumePrice.PricePerGBHour
 				}
-				addCostGB += volumePrice.PricePerGBHour
 			case "count":
 				count, err = strconv.ParseInt(kv[1], 10, 64)
 				if err != nil {
