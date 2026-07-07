@@ -967,59 +967,62 @@ func (c *InstancesCreateCmd) CreateInstances(system *System, inventory *backends
 	}
 	if system.Opts.Config.Backend.Type != "docker" {
 		system.Logger.Info("Getting price...")
+		// Pricing is best-effort: it only drives the cost-estimate printout
+		// below, so a lookup failure (e.g. cloudbilling unavailable, quota, or
+		// insufficient permissions under Workload Identity Federation) must not
+		// block instance creation. On failure, warn and skip the estimate.
 		costPPH, _, err := system.Backend.CreateInstancesGetPrice(createInstancesInput)
 		if err != nil {
-			return nil, err
-		}
-		pl, err := system.Backend.GetVolumePrices(backends.BackendType(system.Opts.Config.Backend.Type))
-		if err != nil {
-			return nil, err
-		}
-		disks := c.AWS.Disks
-		if system.Opts.Config.Backend.Type == "gcp" {
-			disks = c.GCP.Disks
-		}
-		costGB := 0.0
-		for _, disk := range disks {
-			size := 0
-			count := 1
-			t := ""
-			parts := strings.SplitSeq(disk, ",")
-			for part := range parts {
-				parts2 := strings.SplitN(part, "=", 2)
-				if len(parts2) != 2 {
+			system.Logger.Warn("Could not retrieve instance price, skipping cost estimate: %s", err)
+		} else if pl, err := system.Backend.GetVolumePrices(backends.BackendType(system.Opts.Config.Backend.Type)); err != nil {
+			system.Logger.Warn("Could not retrieve storage price, skipping cost estimate: %s", err)
+		} else {
+			disks := c.AWS.Disks
+			if system.Opts.Config.Backend.Type == "gcp" {
+				disks = c.GCP.Disks
+			}
+			costGB := 0.0
+			for _, disk := range disks {
+				size := 0
+				count := 1
+				t := ""
+				parts := strings.SplitSeq(disk, ",")
+				for part := range parts {
+					parts2 := strings.SplitN(part, "=", 2)
+					if len(parts2) != 2 {
+						continue
+					}
+					if parts2[0] == "size" {
+						size, _ = strconv.Atoi(parts2[1])
+					}
+					if parts2[0] == "count" {
+						count, _ = strconv.Atoi(parts2[1])
+					}
+					if parts2[0] == "type" {
+						t = parts2[1]
+					}
+				}
+				if size == 0 || t == "" {
 					continue
 				}
-				if parts2[0] == "size" {
-					size, _ = strconv.Atoi(parts2[1])
-				}
-				if parts2[0] == "count" {
-					count, _ = strconv.Atoi(parts2[1])
-				}
-				if parts2[0] == "type" {
-					t = parts2[1]
+				for _, p := range pl {
+					if system.Opts.Config.Backend.Type == "gcp" && !strings.HasPrefix(string(c.GCP.Zone), p.Region) {
+						continue
+					}
+					if system.Opts.Config.Backend.Type == "aws" && !strings.HasPrefix(awsRegion, p.Region) {
+						continue
+					}
+					if p.Type != t {
+						continue
+					}
+					costGB += float64(size) * float64(count) * p.PricePerGBHour
+					break
 				}
 			}
-			if size == 0 || t == "" {
-				continue
-			}
-			for _, p := range pl {
-				if system.Opts.Config.Backend.Type == "gcp" && !strings.HasPrefix(string(c.GCP.Zone), p.Region) {
-					continue
-				}
-				if system.Opts.Config.Backend.Type == "aws" && !strings.HasPrefix(awsRegion, p.Region) {
-					continue
-				}
-				if p.Type != t {
-					continue
-				}
-				costGB += float64(size) * float64(count) * p.PricePerGBHour
-				break
-			}
+			costGB = costGB * float64(c.Count)
+			system.Logger.Info("  Instance cost: hour: $%.2f, day: $%.2f, month: $%.2f", math.Ceil(costPPH*100)/100, math.Ceil(costPPH*24*100)/100, math.Ceil(costPPH*24*30*100)/100)
+			system.Logger.Info("  Storage cost: hour: $%.2f, day: $%.2f, month: $%.2f", math.Ceil(costGB*100)/100, math.Ceil(costGB*24*100)/100, math.Ceil(costGB*24*30*100)/100)
 		}
-		costGB = costGB * float64(c.Count)
-		system.Logger.Info("  Instance cost: hour: $%.2f, day: $%.2f, month: $%.2f", math.Ceil(costPPH*100)/100, math.Ceil(costPPH*24*100)/100, math.Ceil(costPPH*24*30*100)/100)
-		system.Logger.Info("  Storage cost: hour: $%.2f, day: $%.2f, month: $%.2f", math.Ceil(costGB*100)/100, math.Ceil(costGB*24*100)/100, math.Ceil(costGB*24*30*100)/100)
 	}
 	// Expose to callers whether interactive choices were made
 	c.interactiveChoicesMade = madeInteractiveChoices
