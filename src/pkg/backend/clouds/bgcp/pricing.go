@@ -209,7 +209,9 @@ func (s *b) getVolumePricesFromGCP() (backends.VolumePriceList, error) {
 	// cloudbilling is an old-style google.golang.org/api client that does not
 	// authenticate correctly with option.WithCredentials under Workload Identity
 	// Federation; use the httptransport-backed client (as the compute path does).
-	cli, err := connect.GetClient(s.credentials, log.WithPrefix("AUTH: "))
+	// GetBillingClient (not GetClient) forces the X-Goog-User-Project header: the
+	// SKU catalog is a global API and federated tokens 401 without a billing project.
+	cli, err := connect.GetBillingClient(s.credentials, log.WithPrefix("AUTH: "))
 	if err != nil {
 		return nil, err
 	}
@@ -523,8 +525,10 @@ func (s *b) getInstancePrices(out backends.InstanceTypeList) (backends.InstanceT
 	// option.WithCredentials under Workload Identity Federation (the legacy
 	// transport yields a token GCP rejects with 401). Use the same
 	// httptransport-backed client as the compute path, which carries a
-	// WIF-capable token and the X-Goog-User-Project quota header.
-	cli, err := connect.GetClient(s.credentials, log.WithPrefix("AUTH: "))
+	// WIF-capable token. GetBillingClient (not GetClient) forces the
+	// X-Goog-User-Project header: the SKU catalog is a global API and federated
+	// tokens 401 without a billing project.
+	cli, err := connect.GetBillingClient(s.credentials, log.WithPrefix("AUTH: "))
 	if err != nil {
 		return nil, err
 	}

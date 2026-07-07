@@ -19,6 +19,24 @@ import (
 )
 
 func GetClient(creds *clouds.GCP, log *logger.Logger) (*http.Client, error) {
+	return getClient(creds, log, false)
+}
+
+// GetBillingClient returns an authenticated HTTP client for the Cloud Billing
+// catalog API (cloudbilling.googleapis.com). Unlike GetClient it ALWAYS sends
+// the X-Goog-User-Project (billing / quota) header.
+//
+// The SKU catalog is a global, non project-scoped API: a Workload Identity
+// Federation access token has no project to bill the request against, so GCP
+// rejects it with 401 "Invalid Credentials" unless a quota project is supplied
+// explicitly. Project-scoped APIs (compute, serviceusage) derive their project
+// from the request URL and therefore work without the header, so GetClient only
+// sends it conditionally to avoid newly requiring roles/serviceusage.serviceUsageConsumer.
+func GetBillingClient(creds *clouds.GCP, log *logger.Logger) (*http.Client, error) {
+	return getClient(creds, log, true)
+}
+
+func getClient(creds *clouds.GCP, log *logger.Logger, forceQuotaProject bool) (*http.Client, error) {
 	if log == nil {
 		log = logger.NewLogger()
 	}
@@ -28,13 +46,13 @@ func GetClient(creds *clouds.GCP, log *logger.Logger) (*http.Client, error) {
 	switch creds.AuthMethod {
 	case clouds.GCPAuthMethodServiceAccount:
 		log.Debug("Attempting to use instance service account credentials")
-		return getDefaultClient(log, creds.Project)
+		return getDefaultClient(log, creds.Project, forceQuotaProject)
 	case clouds.GCPAuthMethodLogin:
 		log.Debug("Attempting to use OAuth2 credentials")
 		return getOAuth2Client(log, creds.Login.TokenCacheFilePath, creds.Login.Browser, creds.Login.Secrets)
 	case clouds.GCPAuthMethodAny:
 		log.Debug("Attempting to use instance service account credentials")
-		if client, err := getDefaultClient(log, creds.Project); err == nil {
+		if client, err := getDefaultClient(log, creds.Project, forceQuotaProject); err == nil {
 			return client, nil
 		}
 		log.Debug("Failed to use instance service account credentials; attempting to use OAuth2 credentials")
@@ -68,7 +86,7 @@ func GetClient(creds *clouds.GCP, log *logger.Logger) (*http.Client, error) {
 // project from CLOUDSDK_CORE_PROJECT. For credentials that already carry a
 // project the header is omitted, so those principals are not newly required to
 // hold roles/serviceusage.serviceUsageConsumer.
-func getDefaultClient(log *logger.Logger, configuredProject string) (*http.Client, error) {
+func getDefaultClient(log *logger.Logger, configuredProject string, forceQuotaProject bool) (*http.Client, error) {
 	authCreds, err := detectDefaultAuthCredentials(log)
 	if err != nil {
 		return nil, err
@@ -76,11 +94,20 @@ func getDefaultClient(log *logger.Logger, configuredProject string) (*http.Clien
 	opts := &httptransport.Options{
 		Credentials: authCreds,
 	}
-	credProjectID, _ := authCreds.ProjectID(context.Background())
-	if qp := quotaProjectFor(credProjectID, configuredProject); qp != "" {
-		log.Debug("Credentials have no associated project; setting X-Goog-User-Project quota project to %q", qp)
+	quotaProject := ""
+	if forceQuotaProject {
+		// Global (non project-scoped) APIs such as the Cloud Billing SKU catalog
+		// always need an explicit billing/quota project under federated (WIF)
+		// tokens; see GetBillingClient.
+		quotaProject = configuredProject
+	} else {
+		credProjectID, _ := authCreds.ProjectID(context.Background())
+		quotaProject = quotaProjectFor(credProjectID, configuredProject)
+	}
+	if quotaProject != "" {
+		log.Debug("Setting X-Goog-User-Project quota project to %q", quotaProject)
 		opts.Headers = http.Header{}
-		opts.Headers.Set("X-Goog-User-Project", qp)
+		opts.Headers.Set("X-Goog-User-Project", quotaProject)
 	}
 	client, err := httptransport.NewClient(opts)
 	if err != nil {
