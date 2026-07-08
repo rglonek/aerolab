@@ -768,9 +768,13 @@ func (c *InstancesCreateCmd) CreateInstances(system *System, inventory *backends
 	if parseErr != nil {
 		return nil, fmt.Errorf("invalid --docker-swap-limit: %w", parseErr)
 	}
+	dockerNetworkPlacement := ""
+	if c.Docker.NetworkName != "" {
+		dockerNetworkPlacement = "," + c.Docker.NetworkName
+	}
 	dockerParams := &bdocker.CreateInstanceParams{
 		Image:             nil,
-		NetworkPlacement:  c.Docker.NetworkName,
+		NetworkPlacement:  dockerNetworkPlacement,
 		Disks:             c.Docker.Disks,
 		Firewalls:         c.Docker.ExposePorts,
 		Cmd:               strslice.StrSlice{},
