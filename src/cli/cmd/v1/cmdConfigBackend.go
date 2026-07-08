@@ -26,6 +26,7 @@ type ConfigBackendCmd struct {
 	SshKeyPath     flags.Filename `short:"p" long:"key-path" description:"Specify a custom path to store SSH keys in, default: ${HOME}/.config/aerolab" webtype:"text"`
 	Region         string         `short:"r" long:"region" description:"Specify a list of regions to enable, comma-separated" default:""`
 	InventoryCache bool           `short:"c" long:"inventory-cache" description:"Enable local inventory cache - use only if not sharing the GCP/AWS project/account with other users"`
+	SkipPricing    bool           `long:"skip-pricing" description:"AWS/GCP: skip all cost/pricing lookups (billing/pricing APIs); instance-type and volume catalogs are still returned, just without prices. Useful under GCP Workload Identity Federation, where the billing API rejects federated tokens, or whenever the caller lacks pricing permissions"`
 
 	AWSProfile     string `short:"P" long:"aws-profile" description:"AWS: provide a profile to use; setting this ignores the AWS_PROFILE env variable"`
 	AWSNoPublicIps bool   `long:"aws-nopublic-ip" description:"AWS: if set, aerolab will not request public IPs, and will operate on private IPs only"`
@@ -80,6 +81,9 @@ func (c *ConfigBackendCmd) Execute(args []string) error {
 		if !slices.Contains(webParams, "gcp-auto-enable-services") {
 			c.GCPAutoEnableServices = false
 		}
+		if !slices.Contains(webParams, "skip-pricing") {
+			c.SkipPricing = false
+		}
 	} else {
 		if !inslice.HasString(os.Args[1:], "--aws-nopublic-ip") {
 			c.AWSNoPublicIps = false
@@ -92,6 +96,9 @@ func (c *ConfigBackendCmd) Execute(args []string) error {
 		}
 		if !inslice.HasString(os.Args[1:], "--gcp-auto-enable-services") {
 			c.GCPAutoEnableServices = false
+		}
+		if !inslice.HasString(os.Args[1:], "--skip-pricing") {
+			c.SkipPricing = false
 		}
 	}
 
@@ -157,6 +164,7 @@ func (c *ConfigBackendCmd) Execute(args []string) error {
 		fmt.Printf("Config.Backend.AWSProfile = %s\n", c.AWSProfile)
 		fmt.Printf("Config.Backend.Region = %s\n", c.Region)
 		fmt.Printf("Config.Backend.AWSNoPublicIps = %v\n", c.AWSNoPublicIps)
+		fmt.Printf("Config.Backend.SkipPricing = %v\n", c.SkipPricing)
 	}
 	if c.Type == "gcp" {
 		fmt.Printf("Config.Backend.Project = %s\n", c.Project)
@@ -166,6 +174,7 @@ func (c *ConfigBackendCmd) Execute(args []string) error {
 		fmt.Printf("Config.Backend.GCPNoPublicIps = %v\n", c.GCPNoPublicIps)
 		fmt.Printf("Config.Backend.GCPUseIAP = %v\n", c.GCPUseIAP)
 		fmt.Printf("Config.Backend.GCPAutoEnableServices = %v\n", c.GCPAutoEnableServices)
+		fmt.Printf("Config.Backend.SkipPricing = %v\n", c.SkipPricing)
 	}
 	if c.Type == "docker" && c.Arch != "" {
 		fmt.Printf("Config.Backend.Arch = %s\n", c.Arch)
@@ -189,6 +198,7 @@ func (c *ConfigBackendCmd) Execute(args []string) error {
 			GCPBrowser:          !c.GCPNoBrowser,
 			GCPClientID:         c.GCPClientID,
 			GCPClientSecret:     c.GCPClientSecret,
+			SkipPricing:         c.SkipPricing,
 		}
 		err = system.GetBackend(false)
 		if err != nil {
@@ -282,6 +292,9 @@ func (c *ConfigBackendCmd) ExecTypeSet(system *System, args []string) error {
 		if !slices.Contains(webParams, "gcp-no-browser") {
 			c.GCPNoBrowser = false
 		}
+		if !slices.Contains(webParams, "skip-pricing") {
+			c.SkipPricing = false
+		}
 	} else {
 		if !slices.Contains(os.Args, "--check-access") {
 			c.CheckAccess = false
@@ -303,6 +316,9 @@ func (c *ConfigBackendCmd) ExecTypeSet(system *System, args []string) error {
 		}
 		if !slices.Contains(os.Args, "--gcp-no-browser") && !slices.Contains(os.Args, "-b") {
 			c.GCPNoBrowser = false
+		}
+		if !slices.Contains(os.Args, "--skip-pricing") {
+			c.SkipPricing = false
 		}
 	}
 
@@ -348,6 +364,7 @@ func (c *ConfigBackendCmd) ExecTypeSet(system *System, args []string) error {
 		GCPClientSecret:       c.GCPClientSecret,
 		GCPUseIAP:             c.GCPUseIAP,
 		GCPAutoEnableServices: c.GCPAutoEnableServices,
+		SkipPricing:           c.SkipPricing,
 	}
 	err = system.GetBackend(false)
 	if err != nil {

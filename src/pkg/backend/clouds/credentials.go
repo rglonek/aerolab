@@ -25,6 +25,11 @@ type AWS struct {
 	AuthMethod AWSAuthMethod   `yaml:"authMethod" json:"authMethod"`
 	Static     StaticAWSConfig `yaml:"static" json:"static"`
 	Shared     SharedAWSConfig `yaml:"shared" json:"shared"`
+	// SkipPricing, when true, disables all cost/pricing lookups (the AWS
+	// Pricing API, spot-price history and volume pricing). Instance-type and
+	// volume catalogs are still returned, just without prices. Useful when the
+	// caller lacks pricing permissions or wants to avoid the extra API calls.
+	SkipPricing bool `yaml:"skipPricing" json:"skipPricing"`
 }
 
 type AWSAuthMethod string
@@ -57,6 +62,12 @@ type GCP struct {
 	// non-interactive contexts. When false, aerolab prompts interactively and
 	// errors in non-interactive contexts if a required service is not enabled.
 	AutoEnableServices bool `yaml:"autoEnableServices" json:"autoEnableServices"`
+	// SkipPricing, when true, disables all cost/pricing lookups (the Cloud
+	// Billing SKU catalog for instance and volume prices). Instance-type and
+	// volume catalogs are still returned, just without prices. Useful under
+	// Workload Identity Federation, where the billing API rejects federated
+	// tokens, or whenever the caller lacks billing permissions.
+	SkipPricing bool `yaml:"skipPricing" json:"skipPricing"`
 }
 
 type GCPAuthMethod string

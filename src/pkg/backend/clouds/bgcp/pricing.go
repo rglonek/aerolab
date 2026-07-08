@@ -205,6 +205,11 @@ func (s *b) getVolumePricesFromGCP() (backends.VolumePriceList, error) {
 	log.Detail("Start")
 	defer log.Detail("End")
 
+	if s.credentials != nil && s.credentials.SkipPricing {
+		log.Detail("Pricing disabled (skip-pricing); returning empty volume price list")
+		return backends.VolumePriceList{}, nil
+	}
+
 	ctx := context.Background()
 	// cloudbilling is an old-style google.golang.org/api client that does not
 	// authenticate correctly with option.WithCredentials under Workload Identity
@@ -420,6 +425,10 @@ func (s *b) getInstanceTypesFromGCP() (backends.InstanceTypeList, error) {
 	// disabled, quota, or insufficient permissions) block operations that only
 	// need the instance-type catalog, such as cluster create. On failure, return
 	// the instance types without prices.
+	if s.credentials != nil && s.credentials.SkipPricing {
+		log.Detail("Pricing disabled (skip-pricing); returning instance types without prices")
+		return out, nil
+	}
 	priced, err := s.getInstancePrices(out)
 	if err != nil {
 		log.Detail("Failed to retrieve instance pricing (continuing without prices): %s", err)

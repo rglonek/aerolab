@@ -150,6 +150,10 @@ func (s *b) getVolumePricesFromCache() ([]*volumePrice, error) {
 
 func (s *b) getVolumePricesFromAWS() ([]*volumePrice, error) {
 	log := s.log.WithPrefix("getVolumePricesFromAWS")
+	if s.credentials != nil && s.credentials.SkipPricing {
+		log.Detail("Pricing disabled (skip-pricing); returning empty volume price list")
+		return []*volumePrice{}, nil
+	}
 	log.Detail("Start")
 	defer log.Detail("End")
 	cli, err := getPricingClient(s.credentials, aws.String("us-east-1"))
@@ -377,6 +381,13 @@ func (s *b) getInstanceTypesFromAWS() ([]*instanceType, error) {
 	log := s.log.WithPrefix("getInstanceTypesFromAWS: job=" + shortuuid.New() + " ")
 	log.Detail("Start")
 	defer log.Detail("End")
+	// When pricing is disabled we still fetch the instance-type catalog from
+	// EC2, but skip the spot-price history and the AWS Pricing API on-demand
+	// lookups, returning instance types without prices.
+	skipPricing := s.credentials != nil && s.credentials.SkipPricing
+	if skipPricing {
+		log.Detail("Pricing disabled (skip-pricing); fetching instance types without prices")
+	}
 	// get instance types from AWS
 	itypes := []*instanceType{}
 	ilock := new(sync.Mutex)
@@ -385,7 +396,7 @@ func (s *b) getInstanceTypesFromAWS() ([]*instanceType, error) {
 	wg := new(sync.WaitGroup)
 	var errs error
 	for _, region := range s.regions {
-		wg.Add(2)
+		wg.Add(1)
 		log.Detail("Getting instance types for region %s", region)
 		go func(region string) {
 			defer wg.Done()
@@ -442,34 +453,44 @@ func (s *b) getInstanceTypesFromAWS() ([]*instanceType, error) {
 				errs = errors.Join(errs, err)
 			}
 		}(region)
-		log.Detail("Getting spot prices for region %s", region)
-		go func(region string) {
-			defer wg.Done()
-			defer log.Detail("Done getting spot prices for region %s", region)
-			ec2cli, err := getEc2Client(s.credentials, aws.String(region))
-			if err != nil {
-				errs = errors.Join(errs, err)
-				return
-			}
-			prices, err := s.getSpotPricesFromAWS(ec2cli)
-			if err != nil {
-				errs = errors.Join(errs, err)
-				return
-			}
-			ilock.Lock()
-			spotPrices[region] = prices
-			ilock.Unlock()
-		}(region)
+		if !skipPricing {
+			wg.Add(1)
+			log.Detail("Getting spot prices for region %s", region)
+			go func(region string) {
+				defer wg.Done()
+				defer log.Detail("Done getting spot prices for region %s", region)
+				ec2cli, err := getEc2Client(s.credentials, aws.String(region))
+				if err != nil {
+					errs = errors.Join(errs, err)
+					return
+				}
+				prices, err := s.getSpotPricesFromAWS(ec2cli)
+				if err != nil {
+					errs = errors.Join(errs, err)
+					return
+				}
+				ilock.Lock()
+				spotPrices[region] = prices
+				ilock.Unlock()
+			}(region)
+		}
 	}
 
-	// get instance prices from AWS
-	log.Detail("Getting instance prices from AWS")
-	cli, err := getPricingClient(s.credentials, aws.String("us-east-1"))
-	if err != nil {
-		return nil, err
-	}
+	// get instance prices from AWS (skipped when pricing is disabled)
 	prices := []*instanceTypePrice{}
+	var cli *pricing.Client
+	if !skipPricing {
+		log.Detail("Getting instance prices from AWS")
+		var err error
+		cli, err = getPricingClient(s.credentials, aws.String("us-east-1"))
+		if err != nil {
+			return nil, err
+		}
+	}
 	for _, region := range s.regions {
+		if skipPricing {
+			break
+		}
 		wg.Add(1)
 		go func(region string) {
 			log.Detail("Getting instance prices from AWS for region %s", region)
