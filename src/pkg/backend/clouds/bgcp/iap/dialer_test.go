@@ -2,7 +2,9 @@ package iap
 
 import (
 	"errors"
+	"net"
 	"strings"
+	"sync"
 	"testing"
 
 	"golang.org/x/oauth2"
@@ -49,6 +51,85 @@ func TestMakeDialer_DefaultsInterfaceToNic0(t *testing.T) {
 	})
 	if d == nil {
 		t.Fatal("MakeDialer returned nil dialer")
+	}
+}
+
+// panickyConn reproduces the failure mode of cedws/iapc's *iap.Conn: Write
+// sends on a channel that Close closes, so any Write after Close panics with
+// "send on closed channel". It lets us assert that safeConn neutralises that
+// without depending on a live IAP tunnel.
+type panickyConn struct {
+	net.Conn // nil; only Write/Close are exercised
+	ch       chan struct{}
+	once     sync.Once
+}
+
+func newPanickyConn() *panickyConn {
+	c := &panickyConn{ch: make(chan struct{}, 1)}
+	// drain sends so a live Write does not block
+	go func() {
+		for range c.ch {
+		}
+	}()
+	return c
+}
+
+func (c *panickyConn) Write(b []byte) (int, error) {
+	c.ch <- struct{}{} // panics if ch is closed, exactly like iapc
+	return len(b), nil
+}
+
+func (c *panickyConn) Close() error {
+	c.once.Do(func() { close(c.ch) })
+	return nil
+}
+
+func TestSafeConn_WriteAfterCloseDoesNotPanic(t *testing.T) {
+	sc := &safeConn{Conn: newPanickyConn()}
+	if err := sc.Close(); err != nil {
+		t.Fatalf("Close returned error: %v", err)
+	}
+	// Without the guard this Write would panic with "send on closed channel".
+	n, err := sc.Write([]byte("hello"))
+	if n != 0 || !errors.Is(err, net.ErrClosed) {
+		t.Fatalf("expected (0, net.ErrClosed) after close, got (%d, %v)", n, err)
+	}
+	// Close must be idempotent.
+	if err := sc.Close(); err != nil {
+		t.Fatalf("second Close returned error: %v", err)
+	}
+}
+
+func TestSafeConn_WriteBeforeCloseSucceeds(t *testing.T) {
+	sc := &safeConn{Conn: newPanickyConn()}
+	if n, err := sc.Write([]byte("hi")); err != nil || n != 2 {
+		t.Fatalf("expected (2, nil) before close, got (%d, %v)", n, err)
+	}
+	if err := sc.Close(); err != nil {
+		t.Fatalf("Close returned error: %v", err)
+	}
+}
+
+func TestSafeConn_ConcurrentWriteClose(t *testing.T) {
+	// Hammer Write against Close from many goroutines: the guard must ensure
+	// the underlying (panicky) conn never sees a Write concurrent with / after
+	// its Close, so the test process must not panic.
+	for iter := 0; iter < 200; iter++ {
+		sc := &safeConn{Conn: newPanickyConn()}
+		var wg sync.WaitGroup
+		for w := 0; w < 8; w++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				_, _ = sc.Write([]byte("x"))
+			}()
+		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_ = sc.Close()
+		}()
+		wg.Wait()
 	}
 }
 
