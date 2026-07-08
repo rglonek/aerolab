@@ -3,19 +3,19 @@ name: Aerolab testing revamp
 overview: "Revamp aerolab v8 testing into a clean, CI-enforced pyramid: fast unit tests, mock-based tests at the backends.Backend/Cloud boundary and around extracted pure provider logic, and Go-based integration tests (real Docker in CI, real AWS/GCP gated opt-in) that replace the bash test.sh suite."
 todos:
   - id: foundation
-    content: Add Makefile test targets (test/test-cover/test-docker/test-cloud) and a test.yml GitHub Actions workflow running lint + unit/mock + docker integration; define build-tag scheme (integration_docker/integration_cloud).
+    content: Add Makefile test targets (test/test-cover/test-docker/test-cloud) that run `go test` from the `src` module root (covering `cli/`, `pkg/`, and `tests/` together, not just `cli/`) and a test.yml GitHub Actions workflow running lint + unit/mock + docker integration; define build-tag scheme (integration_docker/integration_cloud).
     status: pending
   - id: testsupport
-    content: Create shared test-support package with hand-written FakeBackend (backends.Backend) and FakeCloud (backends.Cloud), inventory/instance fixtures, RegisterBackend cleanup helper, and a quiet test logger.
+    content: Create shared test-support package with hand-written FakeBackend (backends.Backend) and FakeCloud (backends.Cloud), inventory/instance fixtures, RegisterBackend cleanup helper, an Initialize()-env-isolation helper (AEROLAB_HOME/AEROLAB_TELEMETRY_DISABLE), and a quiet test logger.
     status: pending
   - id: init-seam
-    content: Add additive Init.BackendOverride seam in src/cli/cmd/v1/initialize.go so Initialize can accept an injected backends.Backend for tests.
+    content: Add additive Init.BackendOverride seam in src/cli/cmd/v1/initialize.go so Initialize can accept an injected backends.Backend for tests, and require the test-support env-isolation helper wherever Initialize is exercised in tests.
     status: pending
   - id: provider-pure
     content: Extract and unit-test pure provider logic in baws/bgcp/bdocker (SDK-response mappers, tag/filter builders, pricing math, userdata templating, zone/name parsing) with table-driven tests.
     status: pending
   - id: cli-command-tests
-    content: Add MainFunction unit tests for high-traffic CLI commands using FakeBackend + BackendOverride + seeded inventory (validation, multi-cluster fan-out, node filtering, error paths); register FakeCloud for list-action commands.
+    content: Add MainFunction unit tests for high-traffic CLI commands using FakeBackend + BackendOverride + seeded inventory (validation, multi-cluster fan-out, node filtering, error paths); register FakeCloud for list-action commands; use the env-isolation helper for any test going through the full Initialize path.
     status: pending
   - id: fill-gaps
     content: "Add unit tests for currently-untested packages: conf, expiry (pure logic), utils/*, webui handlers, and extend sshexec Exec/SFTP tests via the ClientConf.Dialer seam."
@@ -43,7 +43,7 @@ Scope decisions (already confirmed with the user):
 
 ## Repo orientation (read first)
 
-- Go module root for the CLI: `/Users/rglonek/Code/aerolab/src` (module `github.com/aerospike/aerolab`, Go 1.26.4). There is a root `go.work`; the build uses `GOWORK=off GOFLAGS=-mod=vendor` (see `src/Makefile` lines 12-13). All `go test` invocations must mirror this or they will try to hit the network / use go.work.
+- Go module root: `/Users/rglonek/Code/aerolab/src` (module `github.com/aerospike/aerolab`, Go 1.26.4). `cli/`, `pkg/`, and `tests/` are all **sibling directories directly under this single module** (there is no separate `cli` module) - `pkg/...` and `tests/...` are NOT reachable via `go test ./...` run from inside `cli/`. Any test target must run from the `src` root (or explicitly list `./cli/... ./pkg/... ./tests/...`) to cover the whole codebase. The one exception is `pkg/expiry/gcp`, which has its own nested `go.mod` (also listed in the root `go.work`) and is therefore automatically excluded from a root-level `./...` - that's intentional, its GCP Cloud Function is out of unit-test scope (see Phase 6). There is a root `go.work`; the build uses `GOWORK=off GOFLAGS=-mod=vendor` (see `src/Makefile` lines 12-13). All `go test` invocations must mirror this or they will try to hit the network / use go.work.
 - Vendored deps live in `src/vendor`. `testify` (`github.com/stretchr/testify v1.11.1`) is already vendored.
 - Run all `go` commands from `/Users/rglonek/Code/aerolab/src` unless noted.
 - Build tags already in use: `noagi`, `noaerolabmcp`, `noaws`, `nogcp`, `nodocker`. Do not break these.
@@ -72,6 +72,7 @@ Key files/dirs:
 - Gotcha #1: inventory list actions (`InstanceList.Exec`, `.Terminate`, `.Stop`, `.Start`, `VolumeList.*`, etc.) dispatch through the package-global `cloudList` via `ListBackendTypes()`, not through the injected `Backend`. To exercise those in a unit test you must `RegisterBackend(BackendType("..."), fakeCloud)` and give your fixture instances that `BackendType`. `cloudList` is global -> such tests must run serially and clean up their registration.
 - Gotcha #2: `CreateInstances/CreateVolume/CreateFirewall/Expiry*` on the `Backend` facade route through `b.enabledBackends[type]` (per-instance), so mocking the `Backend` interface alone is enough for those.
 - Seam to add (only production change): `Init.BackendOverride backends.Backend` so command `MainFunction`s can be driven through the normal `Initialize` path with a fake. Details in Phase 3.
+- Gotcha #3: `Initialize()` (initialize.go:106) has real-filesystem side effects independent of the backend: it resolves `AerolabRootDir()` (honors `AEROLAB_HOME` override - see `cli/cmd/v1/aerolabRootDir_{linux,darwin,windows}.go`), creates a real config dir + ini file + `v8` marker file, and calls `TelemetrySend()` **synchronously**, which does `os.MkdirAll` on `<home>/telemetry` before it even checks `AEROLAB_TELEMETRY_DISABLE` (telemetry.go:67-92). Any test that calls `Initialize()` - even ones only injecting `BackendOverride` - MUST set `AEROLAB_HOME` to a per-test temp dir and `AEROLAB_TELEMETRY_DISABLE=1` first, or it will read/write the real developer's or CI runner's home config directory. This must be a mandatory helper in the Phase 2 test-support package (`t.Setenv` both vars), not something each of the ~50 command tests re-implements ad hoc.
 
 ## Test Taxonomy (target)
 
@@ -95,29 +96,30 @@ Build-tag scheme (new):
 
 Files: `src/Makefile` (edit), new `.github/workflows/test.yml`.
 
-1. Add Makefile targets (mirror existing env: `GOWORK=off`, `GOFLAGS=-mod=vendor`). Suggested:
+1. Add Makefile targets (mirror existing env: `GOWORK=off`, `GOFLAGS=-mod=vendor`). Run from the `src` module root (NOT `cd cli`) so `./...` covers `cli/`, `pkg/`, and `tests/` together - `pkg/` and `tests/` are siblings of `cli/`, not descendants, so a `cd cli && go test ./...` style target would silently skip almost everything Phases 2/4/6/7 add. Suggested (these targets live in `src/Makefile`, so `.` below is already `src/`):
 
 ```make
 .PHONY: test
 test:
-	cd cli && go test -mod=vendor -race -shuffle=on -timeout=10m ./...
+	go test -mod=vendor -race -shuffle=on -timeout=10m ./...
 
 .PHONY: test-cover
 test-cover:
-	cd cli && go test -mod=vendor -race -coverprofile=../coverage.out -covermode=atomic ./...
-	cd cli && go tool cover -func=../coverage.out | tail -n1
+	go test -mod=vendor -race -coverprofile=coverage.out -covermode=atomic ./...
+	go tool cover -func=coverage.out | tail -n1
 
 .PHONY: test-docker
 test-docker:
-	cd cli && go test -mod=vendor -tags=integration_docker -timeout=60m ./...
+	go test -mod=vendor -tags=integration_docker -timeout=60m ./...
 
 .PHONY: test-cloud
 test-cloud:
-	cd cli && go test -mod=vendor -tags=integration_cloud -timeout=180m ./...
+	go test -mod=vendor -tags=integration_cloud -timeout=180m ./...
 ```
 
 Notes:
-- Confirm the module layout for `go test ./...` (module root is `src`, CLI package under `src/cli`). If `pkg/...` tests must run too, either run from `src` (`go test ./pkg/... ./cli/...`) or add a `test-all` target. Verify with `cd src && GOWORK=off go list ./... | head` before finalizing paths.
+- Verified: module root is `src` (single `go.mod`); `cli/`, `pkg/`, `tests/` are sibling directories under it, so `./...` from `src` reaches all three in one invocation. `pkg/expiry/gcp` has its own nested `go.mod` and is correctly excluded automatically - no special-casing needed. Confirm with `cd src && GOWORK=off GOFLAGS=-mod=vendor go list ./...` that the expected package count includes `cli/...`, `pkg/...`, and `tests/...` entries before finalizing.
+- Because these targets no longer `cd`, running `make -C src test` (or `make test` from within `src/`) is required; if invoked from the repo root, add `-C src` or a thin wrapper target there.
 - Ensure `-race` works with cgo disabled builds; the build uses `CGO_ENABLED=0` for release but `-race` needs cgo. Run tests with default cgo (do NOT set `CGO_ENABLED=0` in the test target).
 
 2. Create `.github/workflows/test.yml` triggered on `pull_request` and `push`:
@@ -126,7 +128,7 @@ Notes:
    - Job `docker-integration`: ubuntu-latest (Docker preinstalled), `make -C src test-docker`. Allow-fail initially is optional; prefer required once green.
    - Do NOT add cloud or installer suites to PR CI. Add a separate `workflow_dispatch` job `cloud-integration` gated behind repo secrets for later manual runs.
 
-3. Acceptance: `make -C src test` runs and passes locally with no cloud creds and no Docker; `test.yml` shows lint + unit jobs on a PR.
+3. Acceptance: `make -C src test` runs and passes locally with no cloud creds and no Docker; a deliberately-broken test placed under `src/pkg/...` (not just `src/cli/...`) is detected by `make -C src test`, proving the target isn't silently scoped to `cli/` only; `test.yml` shows lint + unit jobs on a PR.
 
 ---
 
@@ -142,8 +144,9 @@ New package: `src/pkg/backend/backendtest/` (importable by both `pkg/...` and `c
 - `fixtures.go` - builders for synthetic inventory objects, e.g. `NewInstance(clusterName string, nodeNo int, opts...)`, `NewInventory(instances ...*backends.Instance)`, `NewVolume(...)`. Inspect the concrete structs in `backends/instances.go`, `volumes.go`, `images.go`, `networks.go`, `firewalls.go` for required fields (BackendType, ClusterName, NodeNo, State/LifeCycleState, etc.).
 - `register.go` - `func RegisterFakeCloud(t *testing.T, bt backends.BackendType, c backends.Cloud)` that calls `backends.RegisterBackend(bt, c)` and `t.Cleanup(...)` to restore/remove it. Because `cloudList` is a package global with no public deregister, either (a) add a small `UnregisterBackend`/`SnapshotRegistry`/`RestoreRegistry` test helper to `backends/backend.go` (low-risk, additive), or (b) overwrite with a no-op on cleanup. Prefer (a): add `func snapshotCloudList()`/`func restoreCloudList(...)` exported only for tests, or guard with a build tag. Document that these tests must not use `t.Parallel()`.
 - `logger.go` - `func QuietLogger() *logger.Logger` wrapping `github.com/rglonek/logger` at a high threshold (e.g. `logger.CRITICAL`) so test output stays clean.
+- `isolate.go` - `func IsolateHome(t *testing.T) string` that calls `t.Setenv("AEROLAB_HOME", t.TempDir())` and `t.Setenv("AEROLAB_TELEMETRY_DISABLE", "1")`, returning the temp home path. Mandatory for any test that calls `cmd/v1.Initialize(...)` (directly or via a command's `Execute`), because `Initialize` unconditionally touches `AerolabRootDir()` and runs `TelemetrySend()` synchronously before checking the disable flag (see Gotcha #3 above). `t.Setenv` already forbids `t.Parallel()` on the caller, which matches the existing no-parallel constraint from the `cloudList` registry gotcha.
 
-Acceptance: `go build ./pkg/backend/backendtest/...` compiles; a smoke test constructs a `FakeBackend`, seeds an inventory, and asserts `GetInventory().Instances.Count()`.
+Acceptance: `go build ./pkg/backend/backendtest/...` compiles; a smoke test constructs a `FakeBackend`, seeds an inventory, and asserts `GetInventory().Instances.Count()`; a second smoke test calls `Initialize` with `BackendOverride` set after `IsolateHome(t)` and asserts no files are written outside the returned temp dir.
 
 ---
 
@@ -168,9 +171,9 @@ if i.BackendOverride != nil {
 }
 ```
 
-This is additive and nil-default, so no production behavior changes. It lets a test call `Initialize(&Init{InitBackend:true, BackendOverride: fake, SkipArgsParsing:true}, ...)` and get a `System` wired to the fake without touching cloud SDKs.
+This is additive and nil-default, so no production behavior changes. It lets a test call `Initialize(&Init{InitBackend:true, BackendOverride: fake, SkipArgsParsing:true}, ...)` and get a `System` wired to the fake without touching cloud SDKs. Every such test must first call `backendtest.IsolateHome(t)` (Phase 2) - `BackendOverride` only replaces the backend, it does nothing about the `AerolabRootDir`/telemetry side effects `Initialize` performs before `.backend()` is ever reached.
 
-3. Acceptance: existing build/tests still pass; a new test constructs a `System` via `Initialize` with `BackendOverride` and confirms `system.Backend` is the fake.
+3. Acceptance: existing build/tests still pass; a new test calls `backendtest.IsolateHome(t)`, then constructs a `System` via `Initialize` with `BackendOverride` and confirms `system.Backend` is the fake and no writes land outside the isolated temp home.
 
 ---
 
@@ -192,7 +195,7 @@ Acceptance: measurable coverage increase in `pkg/backend/clouds/*` (report `go t
 
 ## Phase 5 - CLI command unit tests (highest leverage)
 
-Pattern (from `src/cli/cmd/v1/README.md`): each command's `Execute` calls `Initialize`, then a `MainFunction(system, inventory, logger, args, action)`. Test the `MainFunction` directly with a `FakeBackend` (Phase 2) + seeded inventory, so no `Initialize` side effects are needed; use `Init.BackendOverride` (Phase 3) only when you need the full `Initialize` path.
+Pattern (from `src/cli/cmd/v1/README.md`): each command's `Execute` calls `Initialize`, then a `MainFunction(system, inventory, logger, args, action)`. Test the `MainFunction` directly with a `FakeBackend` (Phase 2) + seeded inventory, so no `Initialize` side effects are needed; use `Init.BackendOverride` (Phase 3) only when you need the full `Initialize` path, and always pair it with `backendtest.IsolateHome(t)` (Phase 2) so the test doesn't write to the real `~/.aerolab` config dir or trip telemetry.
 
 What to assert per command: argument/flag validation, required-field errors, multi-cluster comma fan-out, node-range filtering (`WithNodeNo`), inventory selection (`WithClusterName`, `WithState`), and error propagation from the fake. For commands that drive inventory list actions (`InstanceList.Exec`, `.Terminate`, etc.), register a `FakeCloud` via the Phase 2 helper and set fixture `BackendType` to match.
 
@@ -277,6 +280,8 @@ Acceptance: default `go test ./...` (no tags) contains zero tests that require D
 - `src/tests/README.md` + a Testing section in README/CONTRIBUTING.
 
 ## Risks / Notes
+- All Makefile test targets must run from the `src` module root, not `cd cli`. `cli/`, `pkg/`, `tests/` are siblings under one module; scoping to `cli/` would silently exclude the majority of the suite (all of Phases 2/4/6/7). Verified against the actual repo layout - see "Repo orientation" above.
+- Any test that calls `Initialize()` (directly, or via `BackendOverride`) must call `backendtest.IsolateHome(t)` first, or it will write to the real `~/.aerolab`-equivalent home directory and touch the synchronous `TelemetrySend()` path. Verified against `initialize.go`/`telemetry.go` - see Gotcha #3 above.
 - Global `cloudList` singleton forces list-action tests to be serial and to restore the registry; the test-support `Register` helper must enforce this (no `t.Parallel()`).
 - The `Cloud` interface is large (~90 methods across Cloud+Backend); the hand-written fakes are sizable but written once and default-safe as the interface evolves.
 - GCP has no local emulator; provider logic is covered by pure-logic unit tests + opt-in real-cloud integration only.
