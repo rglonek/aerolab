@@ -1,0 +1,75 @@
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+# Cancel superseded runs on the same ref to save CI minutes.
+concurrency:
+  group: tests-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit:
+    name: Unit + mock tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.4'
+          cache-dependency-path: src/go.sum
+      - name: Run unit + mock tests
+        # The module root is src/; ./... covers cli/ and pkg/.
+        # Integration tests are behind build tags and excluded here.
+        run: make -C src test
+
+  lint:
+    name: Lint (non-blocking)
+    runs-on: ubuntu-latest
+    # Lint is informational for now: there is no committed golangci config and
+    # the historical backlog is not yet clean, so do not block PRs on it.
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.4'
+          cache-dependency-path: src/go.sum
+      - name: go vet
+        working-directory: src
+        env:
+          GOWORK: off
+          GOFLAGS: -mod=vendor
+        run: go vet ./...
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          working-directory: src
+          args: --timeout=10m
+
+  docker-integration:
+    name: Docker integration tests
+    runs-on: ubuntu-latest
+    # These tests need a real Docker daemon and hit external download endpoints,
+    # so they are heavy/slow. Do not run them on every PR; run on pushes to the
+    # default branch and on manual dispatch. Promote to a required PR check once
+    # the ported e2e Docker suite is stable.
+    if: github.event_name != 'pull_request'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.4'
+          cache-dependency-path: src/go.sum
+      - name: Run docker integration tests
+        run: make -C src test-docker

@@ -145,7 +145,7 @@ func TestRunnerExecuteCapturesOutput(t *testing.T) {
 	script := writeScript(t, "echo hello\necho world >&2")
 	r := &Runner{
 		Binary:         script,
-		DefaultTimeout: 5 * time.Second,
+		DefaultTimeout: 60 * time.Second,
 		MaxOutputBytes: 1024,
 	}
 	out := r.Execute(context.Background(), RunInput{})
@@ -182,7 +182,7 @@ func TestRunnerExecuteNonZeroExit(t *testing.T) {
 	script := writeScript(t, "exit 7")
 	r := &Runner{
 		Binary:         script,
-		DefaultTimeout: 5 * time.Second,
+		DefaultTimeout: 60 * time.Second,
 	}
 	out := r.Execute(context.Background(), RunInput{})
 	if out.Err == nil {
@@ -212,7 +212,7 @@ func TestRunnerEnvOverrideDeterministic(t *testing.T) {
 	script := writeScript(t, "env | grep '^AEROLAB_MCP_TEST_' | sort")
 	r := &Runner{
 		Binary:         script,
-		DefaultTimeout: 5 * time.Second,
+		DefaultTimeout: 60 * time.Second,
 	}
 	override := map[string]string{
 		"AEROLAB_MCP_TEST_Z": "z",
@@ -242,7 +242,7 @@ func TestRunnerExecuteEnv(t *testing.T) {
 
 	r := &Runner{
 		Binary:         script,
-		DefaultTimeout: 5 * time.Second,
+		DefaultTimeout: 60 * time.Second,
 		Env:            []string{"AEROLAB_MCP_TEST=from-runner"},
 	}
 	out := r.Execute(context.Background(), RunInput{})

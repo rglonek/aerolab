@@ -50,18 +50,20 @@ func Compare(a, b string) int {
 	return 0
 }
 
-// Latest returns the latest version of a and b
+// Latest returns the latest (newer) version of a and b.
 func Latest(a, b string) string {
 	if Compare(a, b) < 0 {
-		return a
-	}
-	return b
-}
-
-// Oldest returns the oldest version of a and b
-func Oldest(a, b string) string {
-	if Compare(a, b) < 0 {
+		// a is older than b
 		return b
 	}
 	return a
+}
+
+// Oldest returns the oldest (older) version of a and b.
+func Oldest(a, b string) string {
+	if Compare(a, b) < 0 {
+		// a is older than b
+		return a
+	}
+	return b
 }

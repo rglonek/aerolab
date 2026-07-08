@@ -35,6 +35,21 @@ func RegisterBackend(name BackendType, c Cloud) {
 	cloudList[name] = c
 }
 
+// LookupBackend returns the Cloud currently registered for the given backend
+// type, if any. It exists primarily so tests can snapshot and later restore the
+// registry when they inject a fake Cloud for a backend type.
+func LookupBackend(name BackendType) (Cloud, bool) {
+	c, ok := cloudList[name]
+	return c, ok
+}
+
+// UnregisterBackend removes any Cloud registered for the given backend type.
+// It is primarily used by tests to restore the registry to its prior state
+// after temporarily registering a fake Cloud.
+func UnregisterBackend(name BackendType) {
+	delete(cloudList, name)
+}
+
 func (b *backend) AddRegion(backendType BackendType, names ...string) error {
 	if _, ok := cloudList[backendType]; !ok {
 		return fmt.Errorf("backend type %s not found", backendType)

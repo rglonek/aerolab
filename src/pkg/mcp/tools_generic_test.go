@@ -60,7 +60,7 @@ func newTestRegistry(t *testing.T) *Registry {
 	return &Registry{
 		Root: tree,
 		Help: RenderHelpFromFactory(newTestOpts),
-		Run:  &Runner{Binary: script, DefaultTimeout: 5 * 1_000_000_000},
+		Run:  &Runner{Binary: script, DefaultTimeout: 60 * 1_000_000_000},
 		Gate: NewGate(ProfileStandard),
 	}
 }

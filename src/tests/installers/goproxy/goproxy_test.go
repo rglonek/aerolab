@@ -1,3 +1,5 @@
+//go:build integration_docker
+
 package goproxy_test
 
 import (

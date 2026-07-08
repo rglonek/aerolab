@@ -1,3 +1,5 @@
+//go:build integration_docker
+
 package vscode_test
 
 import (

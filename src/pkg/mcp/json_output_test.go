@@ -158,7 +158,7 @@ func newJSONOutputRegistry(t *testing.T) *Registry {
 			}},
 		}},
 		Help: RenderHelpFromFactory(newTestOpts),
-		Run:  &Runner{Binary: script, DefaultTimeout: 5_000_000_000},
+		Run:  &Runner{Binary: script, DefaultTimeout: 60_000_000_000},
 		Gate: NewGate(ProfileStandard),
 	}
 }

@@ -150,6 +150,32 @@ check:
 	golangci-lint run ./...
 	echo "===== Done"
 
+## Testing targets.
+## The module root is this directory (src/), so ./... covers both cli/ and pkg/.
+## GOFLAGS=-mod=vendor and GOWORK=off are exported above and inherited here.
+## Default `test` runs only hermetic unit + mock tests (no cloud creds, no Docker).
+## Integration tests are gated behind build tags:
+##   integration_docker - needs a running Docker daemon (CI-runnable on Linux)
+##   integration_cloud  - needs real AWS/GCP credentials (opt-in, manual only)
+## Note: -race requires cgo, so these targets intentionally do not set CGO_ENABLED=0.
+
+.PHONY: test
+test:
+	go test -race -shuffle=on -timeout=10m ./...
+
+.PHONY: test-cover
+test-cover:
+	go test -race -shuffle=on -timeout=10m -covermode=atomic -coverprofile=coverage.out ./...
+	go tool cover -func=coverage.out | tail -n1
+
+.PHONY: test-docker
+test-docker:
+	go test -tags=integration_docker -timeout=60m ./tests/...
+
+.PHONY: test-cloud
+test-cloud:
+	go test -tags=integration_cloud -timeout=180m ./tests/...
+
 ## actual code
 
 OS := $(shell uname -o)

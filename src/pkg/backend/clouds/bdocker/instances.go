@@ -508,6 +508,17 @@ func (s *b) InstancesStart(instances backends.InstanceList, waitDur time.Duratio
 				return reterr
 			}
 		}
+		// A stopped container reports no published ports: the Docker API only
+		// populates NetworkSettings.Ports (and thus container.Summary.Ports)
+		// while the container is running. The instance structs handed to us were
+		// built from the pre-start inventory, so their cached summary has an
+		// empty port list and a possibly-stale IP. Re-list the just-started
+		// containers and refresh each instance's cached summary/IP. Without this,
+		// the ssh-ready probe below (and any exec that runs before the next
+		// inventory refresh) resolves SSH's host port to 0 and can never connect.
+		if err := s.refreshStartedInstances(cli, ids, instances); err != nil {
+			return err
+		}
 	}
 
 	// Docker reports the container as Running but sshd / docker-exec may not be
@@ -522,6 +533,54 @@ func (s *b) InstancesStart(instances backends.InstanceList, waitDur time.Duratio
 		log.Detail("Waiting for instances to be ssh-ready (budget: %s)", remaining)
 		if !s.waitForSSHReady(instances, remaining, log) {
 			return fmt.Errorf("instances started but failed to become ssh-ready within %s", waitDur)
+		}
+	}
+	return nil
+}
+
+// refreshStartedInstances re-lists the containers in a zone and refreshes the
+// cached container summary (and private IP) on each instance whose ID is in
+// ids. This is required after starting a container because Docker only reports
+// published ports and network settings for running containers; the summary
+// captured while the container was stopped has an empty port list, which would
+// otherwise cause SSH connections to resolve to host port 0.
+func (s *b) refreshStartedInstances(cli *client.Client, ids []string, instances backends.InstanceList) error {
+	f := filters.NewArgs()
+	if !s.listAllProjects {
+		f.Add("label", TAG_AEROLAB_PROJECT+"="+s.project)
+	}
+	fresh, err := cli.ContainerList(context.Background(), container.ListOptions{
+		Size:    true,
+		All:     true,
+		Filters: f,
+	})
+	if err != nil {
+		return err
+	}
+	byID := make(map[string]container.Summary, len(fresh))
+	for _, c := range fresh {
+		byID[c.ID] = c
+	}
+	idSet := make(map[string]struct{}, len(ids))
+	for _, id := range ids {
+		idSet[id] = struct{}{}
+	}
+	for _, inst := range instances {
+		if _, ok := idSet[inst.InstanceID]; !ok {
+			continue
+		}
+		c, ok := byID[inst.InstanceID]
+		if !ok {
+			continue
+		}
+		getInstanceDetail(inst).Docker = c
+		if c.NetworkSettings != nil {
+			for _, n := range c.NetworkSettings.Networks {
+				if n != nil && n.IPAddress != "" {
+					inst.IP.Private = n.IPAddress
+				}
+				break
+			}
 		}
 	}
 	return nil

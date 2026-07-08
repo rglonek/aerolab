@@ -86,6 +86,7 @@ type Init struct {
 	ExistingInventory  *backends.Inventory // existing inventory, if requested to be set by the caller
 	AllBackendsHelp    bool                // if true, show help for all backends, not just the selected one
 	SkipArgsParsing    bool                // if true, skip CLI argument parsing - use this when using aerolab as a library
+	BackendOverride    backends.Backend    // test-only: if non-nil, Initialize uses this backend instead of constructing a real one; nil in all production call sites
 }
 
 type InitBackend struct {
@@ -373,6 +374,13 @@ func (s *System) GetBackend(pollInventoryHourly bool) error {
 }
 
 func (i *Init) backend(s *System, pollInventoryHourly bool) error {
+	// Test-only injection: if a backend was supplied directly, use it and skip
+	// all real backend construction (no cloud SDKs, no credentials, no config
+	// file reads). This is nil in every production call site.
+	if i.BackendOverride != nil {
+		s.Backend = i.BackendOverride
+		return nil
+	}
 	// If no ExistingInventory was provided, check whether the parent webui
 	// process wrote an inventory snapshot file for us. This avoids hitting
 	// cloud APIs on every subprocess startup.

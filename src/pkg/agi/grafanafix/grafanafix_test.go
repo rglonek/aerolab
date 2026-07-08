@@ -50,6 +50,12 @@ func stopGrafana() ([]byte, error) {
 }
 
 func TestAll(t *testing.T) {
+	// This test requires a locally installed Grafana (via Homebrew) and mutates
+	// system paths under /usr/local. It is opt-in only; set AEROLAB_TEST_GRAFANA=1
+	// to run it. It is skipped by default so `go test ./...` stays hermetic.
+	if os.Getenv("AEROLAB_TEST_GRAFANA") == "" {
+		t.Skip("skipping grafana integration test; set AEROLAB_TEST_GRAFANA=1 to run")
+	}
 	if out, err := stopGrafana(); err != nil {
 		t.Fatal(string(out))
 	}

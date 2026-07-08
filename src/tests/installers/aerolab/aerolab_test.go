@@ -1,3 +1,5 @@
+//go:build integration_docker
+
 package aerolab_test
 
 import (

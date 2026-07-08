@@ -35,6 +35,12 @@ func tempIngestDirs(t *testing.T, root string) string {
 }
 
 func TestAll(t *testing.T) {
+	// This test downloads real log archives from an external SFTP/S3 source and
+	// is therefore not hermetic. It is opt-in only; set AEROLAB_TEST_INGEST_SOURCES=1
+	// (and provide the LOGINGEST_SFTPSOURCE_*/LOGINGEST_S3SOURCE_* env) to run it.
+	if os.Getenv("AEROLAB_TEST_INGEST_SOURCES") == "" {
+		t.Skip("skipping ingest source-download test; set AEROLAB_TEST_INGEST_SOURCES=1 to run")
+	}
 	os.Remove("cpu.pprof")
 	os.RemoveAll("ingest")
 	// t.Setenv is auto-restored at end of test; previous Setenv
@@ -118,6 +124,10 @@ func TestAll(t *testing.T) {
 }
 
 func TestPart(t *testing.T) {
+	// See TestAll: requires external SFTP/S3 log sources; opt-in only.
+	if os.Getenv("AEROLAB_TEST_INGEST_SOURCES") == "" {
+		t.Skip("skipping ingest source-download test; set AEROLAB_TEST_INGEST_SOURCES=1 to run")
+	}
 	t.Log("Setting up config")
 	// Ensure CPU profiling is off for this test even if a previous
 	// test leaked the env var (TestAll uses t.Setenv now, but be
