@@ -41,6 +41,17 @@ func TestCloudSecretsLifecycle(t *testing.T) {
 
 	var sl secretsList
 	mustJSON(t, c.run("cloud", "secrets", "list", "-o", "json"), &sl)
+
+	// Clean up every secret we own with our marker description, registered
+	// before the assertion below so it still runs if the assertion fails.
+	t.Cleanup(func() {
+		for _, s := range sl.Secrets {
+			if s.Description == "aerolab" {
+				c.run("cloud", "secrets", "delete", "--secret-id", s.ID)
+			}
+		}
+	})
+
 	found := 0
 	for _, s := range sl.Secrets {
 		if s.Description == "aerolab" {
@@ -49,13 +60,6 @@ func TestCloudSecretsLifecycle(t *testing.T) {
 	}
 	if found < 1 {
 		t.Fatalf("expected at least one 'aerolab' secret, got %d", found)
-	}
-
-	// Clean up every secret we own with our marker description.
-	for _, s := range sl.Secrets {
-		if s.Description == "aerolab" {
-			c.run("cloud", "secrets", "delete", "--secret-id", s.ID)
-		}
 	}
 }
 

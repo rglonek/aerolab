@@ -577,8 +577,8 @@ func (s *b) refreshStartedInstances(cli *client.Client, ids []string, instances 
 			for _, n := range c.NetworkSettings.Networks {
 				if n != nil && n.IPAddress != "" {
 					inst.IP.Private = n.IPAddress
+					break
 				}
-				break
 			}
 		}
 	}
