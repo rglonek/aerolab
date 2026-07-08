@@ -100,6 +100,7 @@ type InitBackend struct {
 	GCPClientSecret       string               // GCP client secret used for authentication - if not set, a default auth account will be used
 	GCPUseIAP             bool                 // whether to route SSH/SFTP through Google IAP TCP forwarding instead of dialing the routable instance IP
 	GCPAutoEnableServices bool                 // whether to auto-enable required GCP services without prompting
+	SkipPricing           bool                 // whether to skip all cost/pricing lookups (AWS Pricing API / GCP Cloud Billing catalog); catalogs are still returned without prices
 }
 
 func Initialize(i *Init, command []string, params any, args ...string) (*System, error) {
@@ -402,6 +403,7 @@ func (i *Init) backend(s *System, pollInventoryHourly bool) error {
 			GCPClientSecret:       s.Opts.Config.Backend.GCPClientSecret,
 			GCPUseIAP:             s.Opts.Config.Backend.GCPUseIAP,
 			GCPAutoEnableServices: s.Opts.Config.Backend.GCPAutoEnableServices,
+			SkipPricing:           s.Opts.Config.Backend.SkipPricing,
 		}
 	}
 	if s.Opts.Config.Backend.Type == "" || s.Opts.Config.Backend.Type == "none" {
@@ -440,6 +442,7 @@ func (i *Init) backend(s *System, pollInventoryHourly bool) error {
 				Shared: clouds.SharedAWSConfig{
 					Profile: s.Opts.Config.Backend.AWSProfile,
 				},
+				SkipPricing: i.Backend.SkipPricing,
 			},
 			GCP: clouds.GCP{
 				Project:    s.Opts.Config.Backend.Project,
@@ -451,6 +454,7 @@ func (i *Init) backend(s *System, pollInventoryHourly bool) error {
 				},
 				UseIAP:             i.Backend.GCPUseIAP,
 				AutoEnableServices: i.Backend.GCPAutoEnableServices,
+				SkipPricing:        i.Backend.SkipPricing,
 			},
 			DOCKER: clouds.DOCKER{
 				EnableDefaultFromEnv: true,

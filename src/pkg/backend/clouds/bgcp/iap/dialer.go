@@ -16,6 +16,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"sync"
 
 	iaplib "github.com/cedws/iapc/iap"
 	"golang.org/x/oauth2"
@@ -55,8 +56,54 @@ func MakeDialer(ts oauth2.TokenSource, t Target) Dialer {
 		if err != nil {
 			return nil, annotateDialError(t, err)
 		}
-		return conn, nil
+		return &safeConn{Conn: conn}, nil
 	}
+}
+
+// safeConn wraps the cedws/iapc *iap.Conn so that a Write racing with (or
+// following) Close returns an error instead of panicking.
+//
+// iapc's Conn.Close() closes an internal channel that Conn.Write() sends on
+// without any guard, so ANY Write after Close panics with
+// "send on closed channel" (iapc/iap/iap.go:229). During ordinary SSH teardown
+// the golang.org/x/crypto/ssh mux loop can still be flushing an outbound packet
+// (e.g. a channel close/EOF acknowledgement) at the very moment ssh.Client.Close
+// closes the underlying net.Conn -- which is exactly the panic seen when running
+// `aerolab attach shell` over an IAP tunnel:
+//
+//	panic: send on closed channel
+//	  github.com/cedws/iapc/iap.(*Conn).Write ... iap.go:229
+//	  golang.org/x/crypto/ssh.(*channel).handlePacket ...
+//	  golang.org/x/crypto/ssh.(*mux).loop ...
+//
+// A real TCP net.Conn returns an error (not a panic) on write-after-close, and
+// the ssh package already tolerates that. This wrapper restores that contract:
+// the RWMutex guarantees Conn.Write and Conn.Close never overlap and that no
+// Write is dispatched to the underlying conn once Close has run.
+type safeConn struct {
+	net.Conn
+	mu     sync.RWMutex
+	closed bool
+}
+
+func (c *safeConn) Write(b []byte) (int, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.closed {
+		return 0, net.ErrClosed
+	}
+	return c.Conn.Write(b)
+}
+
+func (c *safeConn) Close() error {
+	c.mu.Lock()
+	if c.closed {
+		c.mu.Unlock()
+		return nil
+	}
+	c.closed = true
+	c.mu.Unlock()
+	return c.Conn.Close()
 }
 
 // annotateDialError adds operator-actionable hints to the most common IAP
