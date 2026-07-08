@@ -70,27 +70,87 @@ func (o *ExecOutput) addWarn(f string, params ...any) {
 	o.Warn = append(o.Warn, fmt.Sprintf(f, params...))
 }
 
+// Exec prepares and runs a command over SSH with retry semantics (see
+// ExecWithRetry). It does not register a shutdown cleanup job; callers that need
+// signal-driven interruption should use ExecWithRetry with a cleanup name.
 func Exec(i *ExecInput) *ExecOutput {
+	return ExecWithRetry(i, "")
+}
+
+// ExecWithRetry prepares and runs a command over SSH, honoring i.MaxRetries /
+// i.RetrySleep. On failure it retries with a freshly-dialed connection, which
+// lets it recover from transient issues such as a mid-command channel teardown
+// ("wait: remote command exited without exit status or exit signal") that
+// happens when a node's SSH connection briefly drops while the script is still
+// running. cleanupName, when non-empty, registers an early shutdown cleanup job
+// that force-closes the live connection on signal (SIGINT/SIGTERM); once that
+// fires the loop stops retrying and the returned error is reported as
+// "interrupted".
+//
+// This is the entry point the backends use for instance command execution so
+// that the documented --max-retries / --retry-sleep behavior actually applies
+// to the command itself and not just to the initial dial and SFTP transfers.
+func ExecWithRetry(i *ExecInput, cleanupName string) *ExecOutput {
 	maxRetries := max(i.MaxRetries, 0)
 	retrySleep := i.RetrySleep
 	if retrySleep <= 0 {
 		retrySleep = 5 * time.Second
 	}
 
+	var (
+		mu          sync.Mutex
+		curSession  *ssh.Session
+		curConn     *ssh.Client
+		interrupted bool
+	)
+	if cleanupName != "" {
+		shutdown.AddEarlyCleanupJob(cleanupName, func(isSignal bool) {
+			if !isSignal {
+				return
+			}
+			mu.Lock()
+			interrupted = true
+			s, c := curSession, curConn
+			mu.Unlock()
+			if s != nil {
+				s.Close()
+			}
+			if c != nil {
+				c.Close()
+			}
+		})
+	}
+	isInterrupted := func() bool {
+		mu.Lock()
+		defer mu.Unlock()
+		return interrupted
+	}
+
 	var lastOutput *ExecOutput
 	for attempt := 0; attempt <= maxRetries; attempt++ {
 		session, conn, err := ExecPrepare(i)
 		if err != nil {
-			lastOutput = &ExecOutput{
-				Err: err,
+			lastOutput = &ExecOutput{Err: err}
+			if isInterrupted() {
+				lastOutput.Err = errors.New("interrupted")
+				return lastOutput
 			}
 			if attempt < maxRetries {
 				time.Sleep(retrySleep)
 				continue
 			}
+			break
+		}
+		mu.Lock()
+		curSession, curConn = session, conn
+		mu.Unlock()
+
+		lastOutput = ExecRun(session, conn, i)
+
+		if isInterrupted() {
+			lastOutput.Err = errors.New("interrupted")
 			return lastOutput
 		}
-		lastOutput = ExecRun(session, conn, i)
 		if lastOutput.Err == nil {
 			return lastOutput
 		}
