@@ -23,17 +23,24 @@ jobs:
         with:
           go-version: '1.26.4'
           cache-dependency-path: src/go.sum
+      - name: Set up Node
+        # The webui build (part of `go generate`) needs Node/npm.
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: web/webui/package-lock.json
       - name: Run unit + mock tests
         # The module root is src/; ./... covers cli/ and pkg/.
+        # `make test` runs `go generate` first to produce the //go:embed inputs
+        # (agiproxy.tgz, expiry zip, webui dist/*, embed_*.txt), which are not
+        # committed and are required for the packages to compile.
         # Integration tests are behind build tags and excluded here.
         run: make -C src test
 
   lint:
-    name: Lint (non-blocking)
+    name: go vet
     runs-on: ubuntu-latest
-    # Lint is informational for now: there is no committed golangci config and
-    # the historical backlog is not yet clean, so do not block PRs on it.
-    continue-on-error: true
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -42,18 +49,25 @@ jobs:
         with:
           go-version: '1.26.4'
           cache-dependency-path: src/go.sum
+      - name: Set up Node
+        # The webui build (part of `go generate`) needs Node/npm.
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: web/webui/package-lock.json
+      - name: Generate embedded assets
+        # Produces the //go:embed inputs (agiproxy.tgz, expiry zip, webui dist/*,
+        # embed_*.txt) which are not committed but are required for the packages
+        # to compile. Without this `go vet` fails on a fresh checkout with
+        # "pattern ...: no matching files found".
+        run: make -C src generate
       - name: go vet
         working-directory: src
         env:
           GOWORK: off
           GOFLAGS: -mod=vendor
         run: go vet ./...
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@v6
-        with:
-          version: latest
-          working-directory: src
-          args: --timeout=10m
 
   docker-integration:
     name: Docker integration tests
@@ -71,5 +85,14 @@ jobs:
         with:
           go-version: '1.26.4'
           cache-dependency-path: src/go.sum
+      - name: Set up Node
+        # The webui build (part of `go generate`) needs Node/npm.
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: web/webui/package-lock.json
       - name: Run docker integration tests
+        # `make test-docker` runs `go generate` first to produce the //go:embed
+        # inputs required for the packages to compile.
         run: make -C src test-docker
