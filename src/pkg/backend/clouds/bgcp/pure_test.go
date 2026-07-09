@@ -158,6 +158,21 @@ func TestUnsanitizeHelpers(t *testing.T) {
 	}
 }
 
+func TestIsGpuMachineType(t *testing.T) {
+	gpu := []string{"a2-highgpu-1g", "a2-megagpu-16g", "a3-highgpu-8g", "a3-megagpu-8g", "a4-highgpu-8g", "g2-standard-4"}
+	for _, in := range gpu {
+		if !isGpuMachineType(in) {
+			t.Errorf("isGpuMachineType(%q) = false, want true", in)
+		}
+	}
+	notGpu := []string{"n1-standard-1", "e2-medium", "c3-standard-4", "t2a-standard-1", ""}
+	for _, in := range notGpu {
+		if isGpuMachineType(in) {
+			t.Errorf("isGpuMachineType(%q) = true, want false", in)
+		}
+	}
+}
+
 func TestNormalizeAerospikeVersionGCP(t *testing.T) {
 	cases := []struct{ in, want string }{
 		{"", ""},

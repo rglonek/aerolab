@@ -109,7 +109,7 @@ type InstancesCreateCmdGcp struct {
 	IAMInstanceProfile string          `long:"instance-profile" description:"IAM instance profile to use for the instances"`
 	MinCPUPlatform     string          `long:"min-cpu-platform" description:"Minimum CPU platform to use for the instances"`
 	GVNIC              bool            `long:"gvnic" description:"Use Google Virtual NIC (gVNIC) instead of the default VirtIO NIC; required for highest network performance and for some newer instance types"`
-	OnHostMaintenance  string          `long:"on-host-maintenance" description:"On-host maintenance policy: MIGRATE or TERMINATE; defaults to MIGRATE (or TERMINATE for spot)"`
+	OnHostMaintenance  string          `long:"on-host-maintenance" description:"On-host maintenance policy: MIGRATE or TERMINATE; defaults to MIGRATE (or TERMINATE for spot and GPU instance types, e.g. A2/A3/A4/G2)"`
 	CustomDNS          InstanceDNS     `group:"Automated Custom GCP DNS" namespace:"dns" description:"backend-gcp"`
 }
 

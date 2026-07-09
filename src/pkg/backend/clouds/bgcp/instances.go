@@ -74,7 +74,8 @@ type CreateInstanceParams struct {
 	// optional: if specified, and Image==nil, will lookup this image ID and use it (for custom images)
 	// format: projects/<project>/global/images/<image>
 	CustomImageID string `yaml:"customImageID" json:"customImageID"`
-	// optional: the on-host maintenance policy for the instance(node); if not set, will default to MIGRATE (or TERMINATE for spot)
+	// optional: the on-host maintenance policy for the instance(node); if not set, will default to MIGRATE
+	// (or TERMINATE for spot instances and GPU machine types, e.g. A2/A3/A4/G2, which do not support live migration)
 	// valid values: MIGRATE, TERMINATE
 	OnHostMaintenance string `yaml:"onHostMaintenance" json:"onHostMaintenance"`
 	// optional: if true, the instance(node) will use Google Virtual NIC (gVNIC) instead of the default VirtIO NIC
@@ -137,6 +138,22 @@ func fetchLabelFingerprint(ctx context.Context, client *compute.InstancesClient,
 		return "", nil, err
 	}
 	return inst.GetLabelFingerprint(), inst.GetLabels(), nil
+}
+
+// gpuMachineFamilyPrefixes lists GCP machine type families that have GPUs
+// built in and therefore do not support live migration; GCP requires these
+// to use onHostMaintenance=TERMINATE.
+var gpuMachineFamilyPrefixes = []string{"a2-", "a3-", "a4-", "g2-"}
+
+// isGpuMachineType returns true if the given machine type belongs to a GPU
+// machine family (e.g. a2-highgpu-1g, a3-highgpu-8g, g2-standard-4).
+func isGpuMachineType(instanceType string) bool {
+	for _, prefix := range gpuMachineFamilyPrefixes {
+		if strings.HasPrefix(instanceType, prefix) {
+			return true
+		}
+	}
+	return false
 }
 
 func getArchitecture(instance *computepb.Instance) backends.Architecture {
@@ -1753,6 +1770,10 @@ func (s *b) CreateInstances(input *backends.CreateInstanceInput, waitDur time.Du
 	case backendSpecificParams.OnHostMaintenance != "":
 		onHostMaintenance = backendSpecificParams.OnHostMaintenance
 	case backendSpecificParams.SpotInstance:
+		onHostMaintenance = "TERMINATE"
+	case isGpuMachineType(backendSpecificParams.InstanceType):
+		// GPU-attached machine families (A2, A3, A4, G2) do not support live
+		// migration; GCP rejects onHostMaintenance=MIGRATE for these.
 		onHostMaintenance = "TERMINATE"
 	default:
 		onHostMaintenance = "MIGRATE"
