@@ -26,10 +26,11 @@ aerolab config backend -t docker
 
 | Option | Description |
 |--------|-------------|
-| `-t, --type` | Backend type: `docker`, `aws`, or `gcp` |
+| `-t, --type` | Backend type: `docker`, `aws`, `gcp`, or `none` |
 | `-r, --region` | Regions (comma-separated for multiple) |
 | `-c, --inventory-cache` | Enable inventory cache |
-| `-p, --key-path` | Custom SSH key path |
+| `-p, --key-path` | Custom SSH key path (default: `~/.config/aerolab`) |
+| `--skip-pricing` | AWS/GCP: skip all cost/pricing lookups. Instance-type and volume catalogs are still returned (needed for create), just without prices. Useful under GCP Workload Identity Federation (the billing API rejects federated tokens) or whenever the caller lacks pricing permissions |
 | `--check-access` | Check access to backend |
 
 ### Docker Backend
@@ -39,8 +40,10 @@ aerolab config backend -t docker
 ```
 
 **Docker Options:**
-- `-a, --docker-arch` - Force architecture (`amd64` or `arm64`)
+- `-a, --docker-arch` - Force architecture (`amd64` or `arm64`); requires multiarch support
 - `-d, --temp-dir` - Custom temporary directory (useful for WSL2)
+- `--docker-registry-region` - Region for the pre-built template image registry (`na`, `eu`, or `disabled`)
+- `--docker-registry-url` - URL for the pre-built template image registry (set to empty to disable)
 
 **Examples:**
 ```bash
@@ -99,6 +102,13 @@ aerolab config backend -t gcp -r us-central1 -o project-id
 
 **GCP Options:**
 - `-o, --project` - GCP project ID (required)
+- `-m, --gcp-auth-method` - Authentication method: `any`, `login`, or `service-account`
+- `-b, --gcp-no-browser` - Don't open a browser when authenticating with the `login` method
+- `-i, --gcp-client-id` - GCP client ID to use
+- `-s, --gcp-client-secret` - GCP client secret to use
+- `--gcp-nopublic-ip` - Don't request public IPs; operate on private IPs only
+- `--gcp-use-iap` - Route SSH/SFTP through IAP TCP forwarding instead of dialing the instance IP (see the [GCP getting started guide](../getting-started/gcp.md))
+- `--gcp-auto-enable-services` - Automatically enable required GCP APIs when missing, without prompting (see [GCP Services](../getting-started/gcp-services.md))
 
 **Examples:**
 ```bash

@@ -36,41 +36,77 @@ Create raw compute instances without Aerospike installation.
 ### Basic Usage
 
 ```bash
-aerolab instances create -n myinstances -c 2 -d ubuntu -i 24.04
+aerolab instances create -n myinstances -c 2 --os ubuntu --version 24.04
 ```
 
 ### Common Options
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `-n, --name` | Instance cluster name | `mydc` |
+| `-n, --cluster-name` | Instance cluster name | `mydc` |
 | `-c, --count` | Number of instances | `1` |
-| `-d, --distro` | Distribution (ubuntu, centos, rocky, debian, amazon) | Required |
-| `-i, --distro-version` | Distribution version | Required |
-| `-P, --parallel-threads` | Number of parallel threads | `10` |
+| `-N, --name` | Name of a single instance (only when `--count` is 1) | |
+| `--os` | OS distribution (ubuntu, centos, rocky, debian, amazon) | `ubuntu` |
+| `--version` | OS version (e.g., `24.04`, `22.04`) | `24.04` |
+| `--arch` | Architecture override (`amd64`, `arm64`) | |
+| `-p, --parallel-ssh-threads` | Number of parallel SSH threads | `10` |
+| `-t, --tag` | Tags to add, format `k=v` (can be specified multiple times) | |
+
+**Note:** Backend-specific options below are grouped under a namespace, so each
+flag is prefixed with `aws.`, `gcp.`, or `docker.` (e.g. `--aws.instance`, not
+`--instance-type`). This differs from `cluster create`, whose backend flags are
+flat (`--aws-disk`, not `--aws.disk`).
 
 ### Backend-Specific Options
 
+**AWS (`--aws.*`):**
+- `--aws.instance` - Instance type
+- `--aws.disk` - Disk specification: `type={gp3|gp2|io2|io1},size={GB}[,iops={cnt}][,throughput={mb/s}][,count=5][,encrypted=true|false]`
+- `--aws.expire` - Expiry time (default: `30h`)
+- `--aws.placement` - Region name, VPC-ID, or subnet-ID
+- `--aws.firewall` - Extra security group names (can be specified multiple times)
+- `--aws.no-public-ip` - Disable public IP assignment
+- `--aws.spot` - Create a spot instance
+
+**GCP (`--gcp.*`):**
+- `--gcp.instance` - Instance type
+- `--gcp.zone` - Zone name
+- `--gcp.disk` - Disk specification: `type={pd-*,hyperdisk-*,local-ssd}[,size={GB}][,iops={cnt}][,throughput={mb/s}][,count=5]`
+- `--gcp.expire` - Expiry time (default: `30h`)
+- `--gcp.firewall` - Extra firewall rule names (can be specified multiple times)
+- `--gcp.no-public-ip` - Disable public IP assignment
+- `--gcp.spot` - Create a spot instance
+
+**Docker (`--docker.*`):**
+- `--docker.network` - Name of the Docker network to attach the instances to (default: `default`)
+- `--docker.expose` - Port exposure, format `[+]{hostPort}:{containerPort}`
+
+### Examples
+
 **AWS:**
-- `-I, --instance-type` - Instance type
-- `--aws-disk` - Disk specifications
-- `--aws-expire` - Expiry time
-- `--tags` - Custom tags
-- `--secgroup-name` - Security groups
+```bash
+aerolab instances create -n myinstances -c 2 --os ubuntu --version 24.04 \
+  --aws.instance t3a.xlarge --aws.disk type=gp3,size=20 --aws.expire=8h
+```
 
 **GCP:**
-- `--instance` - Instance type
-- `--zone` - Zone name
-- `--gcp-disk` - Disk specifications
-- `--gcp-expire` - Expiry time
-- `--label` - Custom labels
+```bash
+aerolab instances create -n myinstances -c 2 --os ubuntu --version 24.04 \
+  --gcp.instance e2-standard-4 --gcp.disk type=pd-ssd,size=20 --gcp.expire=8h
+```
+
+**Docker:**
+```bash
+aerolab instances create -n myinstances -c 2 --os ubuntu --version 24.04 \
+  --docker.network my-aerolab-net
+```
 
 ## Instances Grow
 
 Add more instances to an existing instance cluster.
 
 ```bash
-aerolab instances grow -n myinstances -c 2 -d ubuntu -i 24.04
+aerolab instances grow -n myinstances -c 2 --os ubuntu --version 24.04
 ```
 
 ## Instances Apply
@@ -79,17 +115,39 @@ Automatically adjust the instance cluster to match a desired size.
 
 ```bash
 # Grow to 5 instances
-aerolab instances apply -n myinstances -c 5 -d ubuntu -i 24.04
+aerolab instances apply -n myinstances -c 5
 
 # Shrink to 2 instances (requires --force)
 aerolab instances apply -n myinstances -c 2 --force
 ```
+
+**Note:** `instances apply` does not take `--os`/`--version` — it reuses the
+existing cluster's configuration when growing.
 
 This command will:
 - Create the cluster if it doesn't exist
 - Grow the cluster if current size < desired size
 - Shrink the cluster if current size > desired size (with `--force`)
 - Do nothing if already at desired size
+
+## Instance Filters
+
+`list`, `attach`, `start`, `stop`, `restart`, `destroy`, `add-tags`,
+`remove-tags`, `assign-firewalls`, `remove-firewalls`, and `change-expiry` all
+select their target instances through a shared, **namespaced** filter group
+(`--filter.*`), not the `-n`/`-l` flags used by `cluster` commands:
+
+| Option | Description |
+|--------|-------------|
+| `--filter.cluster-name` | Filter by cluster name |
+| `--filter.node-no` | Filter by node number(s), e.g. `1,2,3,10-15` |
+| `--filter.name` | Filter by instance name |
+| `--filter.owner` | Filter by owner |
+| `--filter.type` | Filter by instance type (`aerolab.type` tag) |
+| `--filter.backend` | Filter by backend type |
+| `--filter.tag` | Filter by tag, format `k=v` |
+
+Omitting all filters targets every instance across all clusters.
 
 ## Instances List
 
@@ -100,7 +158,7 @@ List all instances across all clusters.
 aerolab instances list
 
 # List specific cluster
-aerolab instances list -n myinstances
+aerolab instances list --filter.cluster-name myinstances
 
 # JSON output
 aerolab instances list -o json
@@ -118,16 +176,16 @@ Control instance power state.
 aerolab instances start
 
 # Start specific cluster
-aerolab instances start -n myinstances
+aerolab instances start --filter.cluster-name myinstances
 
 # Start specific nodes
-aerolab instances start -n myinstances -l 1-3
+aerolab instances start --filter.cluster-name myinstances --filter.node-no 1-3
 
 # Stop instances
-aerolab instances stop -n myinstances
+aerolab instances stop --filter.cluster-name myinstances
 
 # Restart instances
-aerolab instances restart -n myinstances
+aerolab instances restart --filter.cluster-name myinstances
 ```
 
 ## Instances Attach
@@ -136,13 +194,13 @@ Attach to instances and run commands.
 
 ```bash
 # Attach to all instances
-aerolab instances attach -l all -- ls /tmp
+aerolab instances attach -- ls /tmp
 
-# Attach in parallel
-aerolab instances attach -l all --parallel -- hostname
+# Attach to a specific cluster
+aerolab instances attach --filter.cluster-name myinstances -- hostname
 
 # Attach to specific nodes
-aerolab instances attach -n myinstances -l 1,3 -- uptime
+aerolab instances attach --filter.cluster-name myinstances --filter.node-no 1,3 -- uptime
 ```
 
 ## Instances Update Hosts File
@@ -150,8 +208,12 @@ aerolab instances attach -n myinstances -l 1,3 -- uptime
 Update the /etc/hosts file on instances with cluster information.
 
 ```bash
-aerolab instances update-hosts-file -n myinstances
+aerolab instances update-hosts-file
 ```
+
+**Options:** `-o, --on` (update hosts file only on these clusters), `-w, --with`
+(include only instances from these clusters in the generated file); both
+default to all clusters.
 
 ## Tag Management
 
@@ -159,10 +221,10 @@ Add or remove tags from instances (AWS/GCP only).
 
 ```bash
 # Add tags
-aerolab instances add-tags -n myinstances --tag env=production --tag team=devops
+aerolab instances add-tags --filter.cluster-name myinstances --tag env=production --tag team=devops
 
 # Remove tags
-aerolab instances remove-tags -n myinstances --tag team
+aerolab instances remove-tags --filter.cluster-name myinstances --tag team
 ```
 
 ## Firewall Management
@@ -171,10 +233,10 @@ Assign or remove firewalls/security groups from instances (AWS/GCP only).
 
 ```bash
 # Assign firewall
-aerolab instances assign-firewalls -n myinstances --firewall my-custom-fw
+aerolab instances assign-firewalls --filter.cluster-name myinstances --firewall my-custom-fw
 
 # Remove firewall
-aerolab instances remove-firewalls -n myinstances --firewall my-custom-fw
+aerolab instances remove-firewalls --filter.cluster-name myinstances --firewall my-custom-fw
 ```
 
 ## Change Expiry
@@ -183,10 +245,10 @@ Change the expiry time of instances (AWS/GCP only).
 
 ```bash
 # Set new expiry time
-aerolab instances change-expiry -n myinstances --expire 24h
+aerolab instances change-expiry --filter.cluster-name myinstances --expire-in 24h
 
 # Remove expiry (set to 0)
-aerolab instances change-expiry -n myinstances --expire 0
+aerolab instances change-expiry --filter.cluster-name myinstances --expire-in 0
 ```
 
 ## Instances Destroy
@@ -195,10 +257,10 @@ Destroy instances.
 
 ```bash
 # Destroy entire cluster (requires --force)
-aerolab instances destroy -n myinstances --force
+aerolab instances destroy --filter.cluster-name myinstances --force
 
 # Destroy specific nodes
-aerolab instances destroy -n myinstances -l 4-5 --force
+aerolab instances destroy --filter.cluster-name myinstances --filter.node-no 4-5 --force
 ```
 
 ## Differences from Cluster Commands

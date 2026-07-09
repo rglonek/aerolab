@@ -9,6 +9,7 @@ Commands for viewing and managing all Aerolab resources.
 - `inventory genders` - Export inventory in genders format
 - `inventory hostfile` - Export inventory in /etc/hosts format
 - `inventory instance-types` - List available instance types (AWS/GCP)
+- `inventory expire` - Expire resources in the current aerolab project that are past their expiry time
 - `inventory delete-project-resources` - Delete all project resources
 - `inventory refresh-disk-cache` - Refresh inventory disk cache
 - `inventory migrate` - Migrate v7 resources to v8 format (AWS/GCP only)
@@ -169,6 +170,25 @@ Shows available instance types with:
 - CPU information
 - Memory information
 - Pricing (if available)
+
+## Inventory Expire
+
+Expire resources in the current aerolab project that are already past their
+configured expiry time (does not set or change expiry itself — see
+[Config Expiry Management](config.md#config-aws) for that).
+
+### Basic Usage
+
+```bash
+aerolab inventory expire
+```
+
+### Options
+
+| Option | Description |
+|--------|-------------|
+| `--aws-expire-eksctl` | AWS only: also expire associated eksctl (EKS) resources |
+| `--cleanup-dns` | Also clean up DNS records for expired resources |
 
 ## Inventory Delete-Project-Resources
 

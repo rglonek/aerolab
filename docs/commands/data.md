@@ -245,6 +245,7 @@ Same options as `data insert` for targeting records:
 | `-z, --pk-end-number` | Ending primary key number | `1000` |
 | `-d, --run-direct` | Run directly from current machine | `false` |
 | `-u, --multi-thread` | Number of threads | `0` |
+| `-D, --durable-delete` | Use durable deletes | `false` |
 
 ### Examples
 

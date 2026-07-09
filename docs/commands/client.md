@@ -6,13 +6,15 @@ Client commands enable you to create and manage client machines for various purp
 
 - `client create` - Create new client machines (none, base, tools, ams, vscode, graph, eksctl)
 - `client grow` - Add machines to existing client groups
-- `client configure` - Configure client machines (ams, firewall, tools)
+- `client configure` - Configure client machines (ams, firewall, tools, expiry)
+- `client template` - Manage client template images (pre-built images for faster client creation)
 - `client list` - List all client machine groups
 - `client start` - Start client machines
 - `client stop` - Stop client machines
 - `client destroy` - Destroy client machines
 - `client attach` - Attach to a client machine (shorthand for `attach client`)
 - `client share` - Share client access via SSH public key
+- `client update-hosts-file` - Update the hosts file on client machines
 
 ## Client Types
 
@@ -20,35 +22,35 @@ Client commands enable you to create and manage client machines for various purp
 Vanilla OS image with no modifications. Useful for custom setups.
 
 ```bash
-aerolab client create none -n myclient -d ubuntu -i 24.04
+aerolab client create none -n myclient --os ubuntu --version 24.04
 ```
 
 ### Base
 Simple base image with basic tools installed.
 
 ```bash
-aerolab client create base -n myclient -d ubuntu -i 24.04
+aerolab client create base -n myclient --os ubuntu --version 24.04
 ```
 
 ### Tools
 Aerospike tools (asbench, asadm, asinfo, asloglatency) pre-installed.
 
 ```bash
-aerolab client create tools -n tools -d ubuntu -i 24.04
+aerolab client create tools -n tools --os ubuntu --version 24.04
 ```
 
 ### AMS
 Aerospike Monitoring Stack with Prometheus, Grafana, and Loki.
 
 ```bash
-aerolab client create ams -n ams -d ubuntu -i 24.04 \
+aerolab client create ams -n ams --os ubuntu --version 24.04 \
   -s mycluster -S graph-client
 ```
 
 **AMS Options:**
 - `--grafana-version` - Grafana version (default: `latest`)
 - `--prometheus-version` - Prometheus version (default: `latest`)
-| `-s, --clusters` | Clusters to monitor (comma-separated) |
+- `-s, --clusters` - Clusters to monitor (comma-separated)
 - `-S, --clients` - Graph clients to monitor (comma-separated)
 - `--dashboards` - Custom dashboards YAML file
 - `--debug-dashboards` - Enable debug output for dashboard installation
@@ -57,22 +59,25 @@ aerolab client create ams -n ams -d ubuntu -i 24.04 \
 VSCode Server for browser-based development.
 
 ```bash
-aerolab client create vscode -n ide -d ubuntu -i 24.04
+aerolab client create vscode -n ide --os ubuntu --version 24.04
 ```
 
 ### Graph
 Graph database client for Aerospike Graph.
 
 ```bash
-aerolab client create graph -n graph -d ubuntu -i 24.04 \
-  -s mycluster
+aerolab client create graph -n graph --os ubuntu --version 24.04 \
+  -C mycluster
 ```
+
+`-C, --cluster-name` seeds the graph service from an existing Aerospike
+cluster (default: `mydc`); use `--seed` instead to point at a raw `IP:PORT`.
 
 ### EksCtl
 Client machine with eksctl pre-configured for Kubernetes Aerospike deployments.
 
 ```bash
-aerolab client create eksctl -n k8s-admin -d ubuntu -i 24.04
+aerolab client create eksctl -n k8s-admin --os ubuntu --version 24.04
 ```
 
 ---
@@ -84,65 +89,68 @@ Create new client machines.
 ### Basic Usage
 
 ```bash
-aerolab client create <type> -n <name> -d <distro> -i <version> [options]
+aerolab client create <type> -n <name> --os <distro> --version <version> [options]
 ```
 
 ### Common Options
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `-n, --name` | Client group name | `client` |
+| `-n, --group-name` | Client group name | `client` |
 | `-c, --count` | Number of client machines | `1` |
-| `-d, --distro` | Distribution (ubuntu, centos, rocky, debian, amazon) | Required |
-| `-i, --distro-version` | Distribution version | Required |
+| `--os` | OS distribution (ubuntu, centos, rocky, debian, amazon) | `ubuntu` |
+| `--version` | OS version (e.g., `24.04`, `22.04`) | `24.04` |
 | `--type-override` | Override auto-detected client type | (empty) |
-| `-P, --parallel-threads` | Number of parallel threads | `10` |
+| `--threads` | Number of parallel threads | `10` |
+| `-t, --tag` | Tags to add, format `k=v` (can be specified multiple times) | |
+
+**Note:** Backend-specific options are grouped under a namespace, so each flag
+is prefixed with `aws.`, `gcp.`, or `docker.` (e.g. `--aws.instance`, not
+`--instance-type`) — the same pattern used by [`instances create`](instances.md#instances-create).
 
 ### Docker Backend Options
 
 ```bash
-aerolab client create tools -n tools -d ubuntu -i 24.04 \
-  -c 2 --docker-expose 9100:9100
+aerolab client create tools -n tools --os ubuntu --version 24.04 \
+  -c 2 --docker.expose 9100:9100
 ```
 
 | Option | Description |
 |--------|-------------|
-| `--docker-expose` | Expose ports (format: `host:container` or `+host:container` for cumulative) |
+| `--docker.expose` | Expose ports (format: `[+]{hostPort}:{containerPort}`; `+` maps to next available port) |
+| `--docker.network` | Docker network name to attach to (default: `default`) |
 
 ### AWS Backend Options
 
 ```bash
-aerolab client create tools -n tools -d ubuntu -i 24.04 \
-  -I t3a.medium --aws-disk type=gp3,size=20 --aws-expire=4h
+aerolab client create tools -n tools --os ubuntu --version 24.04 \
+  --aws.instance t3a.medium --aws.disk type=gp3,size=20 --aws.expire=4h
 ```
 
 | Option | Description |
 |--------|-------------|
-| `-I, --instance-type` | Instance type (e.g., `t3a.medium`) |
-| `--aws-disk` | Disk spec: `type={gp3\|gp2},size={GB}[,count=N]` |
-| `--aws-expire` | Expiry time (e.g., `4h`, `30m`) |
-| `-U, --subnet-id` | Subnet ID or availability zone |
-| `-L, --public-ip` | Enable public IP |
-| `--secgroup-name` | Security group names |
-| `--tags` | Custom tags (format: `key=value`) |
+| `--aws.instance` | Instance type (e.g., `t3a.medium`) |
+| `--aws.disk` | Disk spec: `type={gp3\|gp2\|io2\|io1},size={GB}[,count=N]` |
+| `--aws.expire` | Expiry time (e.g., `4h`, `30m`) |
+| `--aws.placement` | Subnet ID, availability zone, or region |
+| `--aws.no-public-ip` | Disable public IP assignment |
+| `--aws.firewall` | Extra security group names |
 
 ### GCP Backend Options
 
 ```bash
-aerolab client create tools -n tools -d ubuntu -i 24.04 \
-  --instance e2-medium --gcp-disk type=pd-ssd,size=20
+aerolab client create tools -n tools --os ubuntu --version 24.04 \
+  --gcp.instance e2-medium --gcp.disk type=pd-ssd,size=20
 ```
 
 | Option | Description |
 |--------|-------------|
-| `--instance` | Instance type (e.g., `e2-medium`) |
-| `--zone` | Zone name (e.g., `us-central1-a`) |
-| `--gcp-disk` | Disk spec: `type=pd-ssd[,size={GB}][,count=N]` |
-| `--gcp-expire` | Expiry time |
-| `--external-ip` | Enable public IP |
-| `--firewall` | Firewall rule names |
-| `--label` | Custom labels |
-| `--tag` | Network tags |
+| `--gcp.instance` | Instance type (e.g., `e2-medium`) |
+| `--gcp.zone` | Zone name (e.g., `us-central1-a`) |
+| `--gcp.disk` | Disk spec: `type=pd-ssd[,size={GB}][,count=N]` |
+| `--gcp.expire` | Expiry time |
+| `--gcp.no-public-ip` | Disable public IP assignment |
+| `--gcp.firewall` | Firewall rule names |
 
 ---
 
@@ -247,6 +255,19 @@ aerolab client configure tools -n tools -m ams
 aerolab client configure tools -n tools -l 1,2 -m my-ams
 ```
 
+### Configure Expiry
+
+Change (or remove) the expiry time of client machines (AWS/GCP only).
+
+```bash
+aerolab client configure expiry -n tools -e 24h
+```
+
+**Options:**
+- `-n, --group-name` - Client group name (default: `client`)
+- `-l, --machines` - Specific machines (default: all)
+- `-e, --expiry` - Expiry duration from now, e.g. `1D12h`, `2W`, `1Y6M` (default: `30h`; use `0` to remove expiry)
+
 ---
 
 ## Client List
@@ -334,22 +355,39 @@ Share client access with other users via SSH public key.
 ### Basic Usage
 
 ```bash
-aerolab client share -n tools -k ~/.ssh/id_rsa.pub
+aerolab client share -n tools -f ~/.ssh/id_rsa.pub
 ```
 
 **Options:**
-- `-n, --group-name` - Client group name
-- `-l, --machines` - Specific machines (default: all)
-- `-k, --key-file` - SSH public key file path
+- `-n, --name` - Client name (default: `client`)
+- `-f, --pubkey` - Path to the SSH public key to import
+- `-p, --parallel-threads` - Number of parallel threads (default: `10`)
+
+**Note:** unlike `configure`/`start`/`stop`/`destroy`, `client share` has no
+`-l, --machines` filter — it applies to every machine in the named group(s).
 
 **Example:**
 ```bash
-# Share access to all machines
-aerolab client share -n ams -k ~/.ssh/team_key.pub
+# Share access to all machines in the ams group
+aerolab client share -n ams -f ~/.ssh/team_key.pub
 
-# Share with specific machines
-aerolab client share -n tools -l 1,2 -k ~/.ssh/developer.pub
+# Share with multiple groups
+aerolab client share -n tools,ams -f ~/.ssh/developer.pub
 ```
+
+---
+
+## Client Update Hosts File
+
+Update the /etc/hosts file on client machines with cluster information.
+
+```bash
+aerolab client update-hosts-file
+```
+
+**Options:** `-o, --on` (update hosts file only on these clusters), `-w, --with`
+(include only instances from these clusters in the generated file); both
+default to all clusters.
 
 ---
 
@@ -365,10 +403,10 @@ aerolab cluster create -n prod -c 3 -d ubuntu -i 24.04 -v '8.*'
 aerolab cluster add exporter -n prod
 
 # 3. Create AMS client
-aerolab client create ams -n ams -d ubuntu -i 24.04 -s prod
+aerolab client create ams -n ams --os ubuntu --version 24.04 -s prod
 
 # 4. Create tools client for benchmarking
-aerolab client create tools -n tools -d ubuntu -i 24.04
+aerolab client create tools -n tools --os ubuntu --version 24.04
 
 # 5. Configure tools to send logs to AMS
 aerolab client configure tools -n tools -m ams
@@ -383,16 +421,16 @@ aerolab client list
 
 ```bash
 # Create VSCode IDE client
-aerolab client create vscode -n ide -d ubuntu -i 24.04
+aerolab client create vscode -n ide --os ubuntu --version 24.04
 
 # Create tools client
-aerolab client create tools -n dev-tools -d ubuntu -i 24.04
+aerolab client create tools -n dev-tools --os ubuntu --version 24.04
 
 # Create graph client
-aerolab client create graph -n graph-dev -d ubuntu -i 24.04 -s mycluster
+aerolab client create graph -n graph-dev --os ubuntu --version 24.04 -C mycluster
 
 # Share access with team
-aerolab client share -n ide,dev-tools,graph-dev -k ~/.ssh/team.pub
+aerolab client share -n ide,dev-tools,graph-dev -f ~/.ssh/team.pub
 ```
 
 ### Multi-Region XDR with Monitoring
@@ -406,7 +444,7 @@ aerolab xdr create-clusters -n us-east -N eu-west,ap-south \
 aerolab cluster add exporter -n us-east,eu-west,ap-south
 
 # Create AMS for monitoring all regions
-aerolab client create ams -n global-ams -d ubuntu -i 24.04 \
+aerolab client create ams -n global-ams --os ubuntu --version 24.04 \
   -s us-east,eu-west,ap-south
 
 # Access monitoring
@@ -417,7 +455,7 @@ aerolab client list
 
 ```bash
 # Create eksctl client
-aerolab client create eksctl -n k8s-admin -d ubuntu -i 24.04
+aerolab client create eksctl -n k8s-admin --os ubuntu --version 24.04
 
 # Attach to client
 aerolab client attach -n k8s-admin -l 1
