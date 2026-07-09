@@ -95,7 +95,7 @@ type ClusterCreateCmdGcp struct {
 	VolLabels           []string        `long:"gcp-vol-label" description:"apply custom labels to volume; format: key=value; this parameter can be specified multiple times" simplemode:"false"`
 	VolSize             int             `long:"gcp-vol-size" description:"set volume size in GB" simplemode:"false"`
 	TerminateOnPoweroff bool            `long:"gcp-terminate-on-poweroff" description:"if set, when shutdown or poweroff is executed from the instance itself, it will be stopped AND terminated" simplemode:"false"`
-	OnHostMaintenance   string          `long:"on-host-maintenance-policy" description:"on-host maintenance policy: MIGRATE or TERMINATE; defaults to MIGRATE (or TERMINATE for spot)" simplemode:"false"`
+	OnHostMaintenance   string          `long:"on-host-maintenance-policy" description:"on-host maintenance policy: MIGRATE or TERMINATE; defaults to MIGRATE (or TERMINATE for spot and GPU instance types, e.g. A2/A3/A4/G2)" simplemode:"false"`
 	MinCPUPlatform      string          `long:"gcp-min-cpu-platform" description:"set the minimum CPU platform; see https://cloud.google.com/compute/docs/instances/specify-min-cpu-platform"`
 	GVNIC               bool            `long:"gcp-gvnic" description:"use Google Virtual NIC (gVNIC) instead of the default VirtIO NIC; required for highest network performance and for some newer instance types"`
 	IAMInstanceProfile  string          `long:"gcp-instance-profile" description:"IAM instance profile to use for the instances"`
