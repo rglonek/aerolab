@@ -3744,7 +3744,9 @@ func (d *backendGcp) DeployCluster(v backendVersion, name string, nodeCount int,
 		}
 
 		op, err := instancesClient.Insert(ctx, req)
-		if err != nil && (strings.Contains(err.Error(), "OnHostMaintenance must be set to TERMINATE") || strings.Contains(err.Error(), "not support live migration")) {
+		if err != nil && onHostMaintenance != "TERMINATE" && (strings.Contains(err.Error(), "OnHostMaintenance must be set to TERMINATE") ||
+			strings.Contains(err.Error(), "not support live migration") ||
+			(strings.Contains(err.Error(), "onHostMaintenance") && strings.Contains(err.Error(), "TERMINATE"))) {
 			req.InstanceResource.Scheduling.OnHostMaintenance = proto.String("TERMINATE")
 			onHostMaintenance = "TERMINATE"
 			log.Print("OnHostMaintenance mode not supported, attempting to switch to TERMINATE")
