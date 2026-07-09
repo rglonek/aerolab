@@ -239,15 +239,18 @@ aerolab aerospike is-stable
 
 ### Options
 
-| Option | Description |
-|--------|-------------|
-| `-n, --name` | Cluster name |
-| `-l, --nodes` | Node list |
-| `-w, --wait` | Wait for stability |
-| `-o, --timeout` | Timeout in seconds (0 = no timeout) | `0` |
-| `-i, --ignore-migrations` | Ignore migrations when checking stability |
-| `--namespace` | Namespace to check (default: all) |
-| `-v, --verbose` | Verbose output |
+| Option | Description | Default |
+|--------|-------------|---------|
+| `-n, --name` | Cluster name(s), comma separated, or `all` | `mydc` |
+| `-l, --nodes` | Only consider the given nodes, e.g. `--nodes=1-4,7,8` | (all) |
+| `-w, --wait` | Wait for stability | |
+| `-o, --wait-timeout` | Timeout in seconds for `-w` (0 = no timeout) | `0` |
+| `-i, --ignore-migrations` | Ignore migrations when checking stability | |
+| `-k, --ignore-cluster-key` | Do not check that the cluster key matches on all nodes | |
+| `-c, --not-cluster-key` | If this cluster key is matched, treat it as no-match | |
+| `-m, --namespace` | Namespace to check | `test` |
+| `-t, --threads` | Threads to use | `10` |
+| `-v, --verbose` | Verbose output | |
 
 ### Examples
 
@@ -273,7 +276,7 @@ aerolab aerospike is-stable -n mydc -w -o 30 -i
 
 **Check specific namespace:**
 ```bash
-aerolab aerospike is-stable -n mydc --namespace test
+aerolab aerospike is-stable -n mydc -m test
 ```
 
 ### Output

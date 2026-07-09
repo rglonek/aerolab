@@ -15,6 +15,7 @@ Cluster management commands allow you to create, manage, and operate Aerospike c
 - `cluster partition` - Manage disk partitions for clusters
 - `cluster attach` - Attach to cluster nodes (shorthand for `attach shell`)
 - `cluster share` - Share cluster access via SSH public key
+- `cluster update-hosts-file` - Update the hosts file on cluster nodes
 
 ## Cluster Create
 
@@ -40,12 +41,20 @@ aerolab cluster create -c 2 -d ubuntu -i 24.04 -v '8.*'
 | `-o, --customconf` | Custom aerospike config file path | |
 | `-z, --toolsconf` | Custom astools config file path | |
 | `-m, --mode` | Heartbeat mode (mcast/mesh/default) | `mesh` |
-| `-P, --parallel-threads` | Number of parallel threads | `10` |
+| `-p, --parallel-threads` | Number of parallel threads | `10` |
 
 ### Docker Backend
 
 ```bash
 aerolab cluster create -c 2 -d ubuntu -i 24.04 -v '8.*'
+```
+
+**Docker Options:**
+- `--network` - Name of a non-default Docker network to attach the nodes to. Manage networks with `aerolab config docker list-networks` / `prune-networks`.
+
+**Example (custom network):**
+```bash
+aerolab cluster create -c 2 -d ubuntu -i 24.04 -v '8.*' --network my-aerolab-net
 ```
 
 ### AWS Backend
@@ -363,13 +372,13 @@ Manage disk partitions for clusters (AWS/GCP only).
 Create disk partitions:
 
 ```bash
-aerolab cluster partition create -p 16,16,16,16,16,16
+aerolab cluster partition create -p 25,25,25,25
 ```
 
-This creates 6 partitions of 16GB each.
+This creates 4 partitions, each 25% of the total disk space (percentages must sum to 100 or less).
 
 **Options:**
-- `-p, --partitions` - Partition sizes in GB (comma-separated)
+- `-p, --partitions` - Partition sizes as a percentage of total disk space (comma-separated); omit to remove all partitions
 - `-n, --name` - Cluster name
 - `-l, --nodes` - Node list
 
@@ -427,8 +436,8 @@ aerolab cluster attach -n mydc -l 1
 | Option | Description |
 |--------|-------------|
 | `-n, --name` | Cluster name |
-| `-l, --nodes` | Node list (`all` for all nodes) |
-| `--parallel` | Execute in parallel on all nodes |
+| `-l, --node` | Node list (`all` for all nodes) |
+| `-p, --parallel` | Execute in parallel on all nodes |
 
 ### Examples
 
@@ -454,7 +463,7 @@ Share cluster access via SSH public key (AWS/GCP only).
 ### Basic Usage
 
 ```bash
-aerolab cluster share -n mydc -k /path/to/public-key.pub
+aerolab cluster share -n mydc -f /path/to/public-key.pub
 ```
 
 This imports the SSH public key to allow access to cluster nodes.
@@ -464,7 +473,9 @@ This imports the SSH public key to allow access to cluster nodes.
 | Option | Description |
 |--------|-------------|
 | `-n, --name` | Cluster name |
-| `-k, --key-path` | Path to SSH public key file |
+| `-l, --nodes` | Node list, comma separated (default: all) |
+| `-f, --pubkey` | Path to SSH public key file |
+| `-p, --parallel-threads` | Number of parallel threads (default: `10`) |
 
 ## Common Workflows
 

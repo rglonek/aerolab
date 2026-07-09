@@ -529,7 +529,7 @@ curl -X DELETE "http://localhost:8080/api/jobs/abc123XYZ-1706889600?force=true"
 Jobs are stored in the AeroLab home directory:
 
 ```
-~/.aerolab/restapi/commands/
+~/.config/aerolab/restapi/commands/
 ├── {user}/
 │   ├── {jobId}/
 │   │   ├── command.json    # Job metadata

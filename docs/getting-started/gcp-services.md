@@ -54,7 +54,7 @@ Enabled only when the relevant feature is used.
 | Service | Auto-enabled by AeroLab? | Used for |
 | --- | --- | --- |
 | `iap.googleapis.com` | Yes, when `--gcp-use-iap` is set | Routing SSH/SFTP through [Identity-Aware Proxy TCP forwarding](https://cloud.google.com/iap/docs/using-tcp-forwarding) instead of dialing instance IPs. Enabled at `config backend` time when the flag is set. |
-| `cloudbilling.googleapis.com` | Yes, on first pricing lookup | Retrieving instance-type and volume pricing shown in the inventory / `instance-types` listings. Enabled lazily the first time pricing is fetched if it isn't already on. |
+| `cloudbilling.googleapis.com` | Yes, on first pricing lookup | Retrieving instance-type and volume pricing shown in the inventory / `instance-types` listings. Enabled lazily the first time pricing is fetched if it isn't already on. Skipped entirely when the backend is configured with `--skip-pricing` (see below). |
 
 ### Resource expiry automation
 
@@ -107,3 +107,20 @@ gcloud services enable \
 
 Omit `iap.googleapis.com` if you are not using `--gcp-use-iap`, and omit the
 expiry block if you are not using resource expiry automation.
+
+## Skipping pricing lookups
+
+Under Workload Identity Federation the Cloud Billing catalog API rejects
+federated tokens, and some principals simply lack pricing permissions. Pricing
+is always best-effort (failures only warn), but every `create` still makes the
+round-trip. To opt out entirely — removing both the latency and the warnings —
+configure the backend with `--skip-pricing`:
+
+```bash
+aerolab config backend -t gcp -r us-central1 -o your-project-id --skip-pricing
+```
+
+Instance-type and volume catalogs are still returned (they are required for
+`create`), just without prices, and `cloudbilling.googleapis.com` is never
+called. The setting is sticky and persisted to the AeroLab config; it applies to
+both AWS and GCP.

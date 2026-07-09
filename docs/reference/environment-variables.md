@@ -6,7 +6,7 @@ Aerolab supports several environment variables for configuration and behavior co
 
 | Variable | Values | Description |
 |----------|--------|-------------|
-| `AEROLAB_HOME` | FILEPATH | Override the default `~/.aerolab` home directory |
+| `AEROLAB_HOME` | FILEPATH | Override the default `~/.config/aerolab` home directory |
 | `AEROLAB_LOG_LEVEL` | 0-6 | Set log level: 0=NONE, 1=CRITICAL, 2=ERROR, 3=WARN, 4=INFO, 5=DEBUG, 6=DETAIL |
 | `AEROLAB_PROJECT` | PROJECTNAME | Set project name (Aerolab v8 has a notion of projects; setting this will make it work on resources other than in the 'default' aerolab project) |
 | `AEROLAB_DISABLE_UPGRADE_CHECK` | true | If set to a non-empty value, aerolab will not check if upgrades are available |
@@ -30,7 +30,7 @@ Override the default home directory where Aerolab stores configuration and data.
 
 ### Default
 
-`~/.aerolab`
+`~/.config/aerolab` (AeroLab 7.x used `~/.aerolab`)
 
 ### Example
 
