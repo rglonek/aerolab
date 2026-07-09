@@ -159,21 +159,30 @@ check:
 ##   integration_cloud  - needs real AWS/GCP credentials (opt-in, manual only)
 ## Note: -race requires cgo, so these targets intentionally do not set CGO_ENABLED=0.
 
+## generate produces the files consumed by //go:embed directives (agiproxy.tgz,
+## expiry.linux.amd64.zip, webui dist/*, cli/cmd/v1/embed_*.txt). These are not
+## committed, so `go build`, `go vet` and `go test` all fail on a fresh checkout
+## until this has run. `prep` runs it as part of a build; CI runs it directly
+## before test/vet. Requires: go, zip, and node/npm (for the webui build).
+.PHONY: generate
+generate:
+	go generate ./...
+
 .PHONY: test
-test:
+test: generate
 	go test -race -shuffle=on -timeout=10m ./...
 
 .PHONY: test-cover
-test-cover:
+test-cover: generate
 	go test -race -shuffle=on -timeout=10m -covermode=atomic -coverprofile=coverage.out ./...
 	go tool cover -func=coverage.out | tail -n1
 
 .PHONY: test-docker
-test-docker:
+test-docker: generate
 	go test -tags=integration_docker -timeout=60m ./tests/...
 
 .PHONY: test-cloud
-test-cloud:
+test-cloud: generate
 	go test -tags=integration_cloud -timeout=180m ./tests/...
 
 ## actual code
