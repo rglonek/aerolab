@@ -30,7 +30,7 @@ Override the default home directory where Aerolab stores configuration and data.
 
 ### Default
 
-`~/.config/aerolab` (AeroLab 7.x used `~/.aerolab`)
+`~/.config/aerolab`
 
 ### Example
 
