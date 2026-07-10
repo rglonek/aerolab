@@ -32,9 +32,9 @@ jobs:
           cache-dependency-path: web/webui/package-lock.json
       - name: Run unit + mock tests
         # The module root is the repo root; ./... covers cli/ and pkg/.
-        # `make test` runs `go generate` first to produce the //go:embed inputs
-        # (agiproxy.tgz, expiry zip, webui dist/*, embed_*.txt), which are not
-        # committed and are required for the packages to compile.
+        # `make test` runs `go generate` first: most //go:embed inputs are
+        # committed, but expiry.linux.amd64.zip is not, and make builds with
+        # -tags=embedexpiry which requires it.
         # Integration tests are behind build tags and excluded here.
         run: make test
 
@@ -49,20 +49,12 @@ jobs:
         with:
           go-version: '1.26.4'
           cache-dependency-path: go.sum
-      - name: Set up Node
-        # The webui build (part of `go generate`) needs Node/npm.
-        uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-          cache: npm
-          cache-dependency-path: web/webui/package-lock.json
-      - name: Generate embedded assets
-        # Produces the //go:embed inputs (agiproxy.tgz, expiry zip, webui dist/*,
-        # embed_*.txt) which are not committed but are required for the packages
-        # to compile. Without this `go vet` fails on a fresh checkout with
-        # "pattern ...: no matching files found".
-        run: make generate
       - name: go vet
+        # Runs without -tags=embedexpiry, i.e. it vets the exact configuration
+        # library consumers get via `go get` (expiry stub + committed embed
+        # assets). No generate step needed: the only non-committed embed input
+        # (expiry.linux.amd64.zip) is behind the embedexpiry build tag, and the
+        # tagged configuration is compiled by `make test` in the unit job.
         env:
           GOWORK: off
           GOFLAGS: -mod=vendor

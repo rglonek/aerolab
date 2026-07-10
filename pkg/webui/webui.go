@@ -12,7 +12,9 @@ import (
 //go:generate bash -c "cd ../../web && ./build.sh"
 
 // WebUIFS contains the embedded web UI assets built from web/webui/
-// The dist/ directory contains the Vite build output.
+// The dist/ directory contains the Vite build output. It is committed so
+// this package is importable as a library without a generate step; run
+// `go generate` (or `make generate`) after changing web/webui/ to refresh it.
 //
 //go:embed dist/*
 var WebUIFS embed.FS

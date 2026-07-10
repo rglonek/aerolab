@@ -260,6 +260,9 @@ func (s *b) ExpiryInstall(intervalMinutes int, logLevel int, expireEksctl bool, 
 }
 
 func (s *b) expiryInstall(zone string, log *logger.Logger, intervalMinutes int, expireEksctl bool, cleanupDNS bool, logLevel int, onUpdateKeepOriginalSettings bool, esys []*backends.ExpirySystem, isUpdate bool) error {
+	if len(backends.ExpiryBinary) == 0 {
+		return backends.ErrNoExpiryBinary
+	}
 	if isUpdate && onUpdateKeepOriginalSettings {
 		var e *backends.ExpirySystem
 		for _, esys := range esys {

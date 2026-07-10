@@ -7,7 +7,8 @@ echo "INFO: Starting website build..."
 # agiproxy
 echo "INFO: Building agiproxy..."
 cd agiproxy
-tar -zcf ../../pkg/agi/agiproxy.tgz *
+# gzip -n: no embedded timestamp, so the committed archive stays byte-stable
+tar -cf - * | gzip -n > ../../pkg/agi/agiproxy.tgz
 cd ..
 
 # webui - React application

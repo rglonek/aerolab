@@ -297,6 +297,9 @@ func (s *b) allowUnauthenticated(ctx context.Context, projectID, region string) 
 }
 
 func (s *b) deployFunctionBucketCode(ctx context.Context, projectID, region string) error {
+	if len(backends.ExpiryBinary) == 0 {
+		return backends.ErrNoExpiryBinary
+	}
 	log := s.log.WithPrefix("deployFunctionBucketCode: job=" + shortuuid.New() + " ")
 	log.Detail("Start (region=%s)", region)
 	defer log.Detail("End (region=%s)", region)

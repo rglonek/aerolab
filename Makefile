@@ -9,7 +9,10 @@ INSTALLSIGNER := "$(aerolab_installsigner)"
 APPLEID := "$(aerolab_appleid)"
 APPLEPW := "$(aerolab_applepw)"
 TEAMID := "$(aerolab_teamid)"
-export GOFLAGS := -mod=vendor
+# -tags=embedexpiry embeds the generated expiry function zip; without the tag
+# (plain `go build` / library consumers) a stub is compiled instead so the
+# module is importable straight from a checkout or the module proxy.
+export GOFLAGS := -mod=vendor -tags=embedexpiry
 export GOWORK := off
 
 ## available make commands
@@ -140,7 +143,7 @@ clean:
 	rm -f bin/aerolab
 
 .PHONY: check
-check:
+check: generate
 	cd cli
 	echo "===== Vetting CLI..."
 	go vet -diff -fix ./...
@@ -159,11 +162,12 @@ check:
 ##   integration_cloud  - needs real AWS/GCP credentials (opt-in, manual only)
 ## Note: -race requires cgo, so these targets intentionally do not set CGO_ENABLED=0.
 
-## generate produces the files consumed by //go:embed directives (agiproxy.tgz,
-## expiry.linux.amd64.zip, webui dist/*, cli/cmd/v1/embed_*.txt). These are not
-## committed, so `go build`, `go vet` and `go test` all fail on a fresh checkout
-## until this has run. `prep` runs it as part of a build; CI runs it directly
-## before test/vet. Requires: go, zip, and node/npm (for the webui build).
+## generate refreshes the files consumed by //go:embed directives. Most embed
+## inputs (agiproxy.tgz, webui dist/*, cli/cmd/v1/embed_*.txt, expiry.version.txt)
+## are committed, so a fresh checkout builds without this step. The exception is
+## expiry.linux.amd64.zip, which is not committed and only embedded in
+## -tags=embedexpiry builds (GOFLAGS above sets the tag, so all make targets
+## need generate). Requires: go, zip, and node/npm (for the webui build).
 .PHONY: generate
 generate:
 	go generate ./...
@@ -267,9 +271,15 @@ else
 endif
 endif
 
+## prep stamps the real version info into the committed cli/cmd/v1/embed_*.txt
+## defaults (branch from VERSION.md, current commit hash, edition tail).
+## These files are committed with placeholder contents so the module is
+## importable as a library; only release-style builds restamp them.
 .PHONY: prep
 prep:
 	go generate ./...
+	git rev-parse --short=7 HEAD > cli/cmd/v1/embed_commit.txt
+	cd cli/cmd/v1 && bash version.sh
 	printf -- "-unofficial" > cli/cmd/v1/embed_tail.txt
 
 .PHONY: compile_linux_amd64

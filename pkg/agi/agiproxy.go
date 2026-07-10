@@ -5,7 +5,9 @@ import (
 	_ "embed"
 )
 
-//go:generate sh -c "cd ../../web/agiproxy && tar -zcf ../../pkg/agi/agiproxy.tgz *"
+// agiproxy.tgz is committed so this package is importable without a generate
+// step; gzip -n keeps the archive byte-stable across regenerations.
+//go:generate sh -c "cd ../../web/agiproxy && tar -cf - * | gzip -n > ../../pkg/agi/agiproxy.tgz"
 
 // AgiProxyWeb contains the embedded web UI assets for the AGI proxy.
 // This tarball is generated from web/agiproxy/ and contains:

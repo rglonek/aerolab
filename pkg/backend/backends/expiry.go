@@ -2,14 +2,20 @@ package backends
 
 import (
 	_ "embed"
+	"errors"
 )
 
 //go:generate bash -c "cd ../../expiry && bash compile.sh"
-//go:embed expiry.linux.amd64.zip
-var ExpiryBinary []byte
 
 //go:embed expiry.version.txt
 var ExpiryVersion string
+
+// ErrNoExpiryBinary is returned by expiry deployment paths when this build
+// does not carry the embedded expiry function binary. The binary is only
+// embedded when building with -tags=embedexpiry (the Makefile does this);
+// plain `go build`/`go get` builds get a stub so the module is importable
+// without running `go generate` first.
+var ErrNoExpiryBinary = errors.New("this build does not include the embedded expiry binary; build aerolab via make (or with -tags=embedexpiry after running `go generate ./...`) to deploy expiry systems")
 
 type ExpiryList struct {
 	ExpirySystems []*ExpirySystem `yaml:"expirySystems" json:"expirySystems"`
