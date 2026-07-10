@@ -169,68 +169,11 @@ If you're upgrading from AeroLab v7.x, see the **[Migration Guide](migration-gui
 
 ## Quick Start Example
 
-### Docker Backend
-
-```bash
-# Configure Docker backend
-aerolab config backend -t docker
-
-# Create a 2-node cluster
-aerolab cluster create -c 2 -d ubuntu -i 24.04 -v '8.*'
-
-# Check cluster status
-aerolab cluster list
-
-# Start Aerospike
-aerolab aerospike start
-
-# Check if cluster is stable
-aerolab aerospike is-stable -w
-
-# View cluster status
-aerolab aerospike status
-```
-
-### AWS Backend
-
-```bash
-# Configure AWS backend (requires AWS credentials in ~/.aws/credentials)
-aerolab config backend -t aws -r us-east-1
-
-# Create a 2-node cluster with expiry
-aerolab cluster create -c 2 -d ubuntu -i 24.04 -v '8.*' \
-  -I t3a.xlarge \
-  --aws-disk type=gp3,size=20 \
-  --aws-expire=8h
-
-# Start cluster
-aerolab cluster start
-
-# Start Aerospike
-aerolab aerospike start
-```
-
-### GCP Backend
-
-```bash
-# Authenticate with GCP first (required)
-gcloud auth application-default login
-
-# Configure GCP backend
-aerolab config backend -t gcp -r us-central1 -o your-project-id
-
-# Create a 2-node cluster with expiry
-aerolab cluster create -c 2 -d ubuntu -i 24.04 -v '8.*' \
-  --instance e2-standard-4 \
-  --gcp-disk type=pd-ssd,size=20 \
-  --gcp-expire=8h
-
-# Start cluster
-aerolab cluster start
-
-# Start Aerospike
-aerolab aerospike start
-```
+Pick a backend and follow its guide for prerequisites, gotchas (private-only VPCs, GCP IAP,
+etc.), and a working quick start: [Docker](getting-started/docker.md),
+[AWS](getting-started/aws.md), [GCP](getting-started/gcp.md). Everything after
+`cluster create` — starting/stopping, attach, files, cleanup — is the same on every backend:
+see [Common Operations](getting-started/common-operations.md).
 
 ## Common Workflows
 

@@ -100,7 +100,9 @@ Deploy Aerospike clusters on AWS EC2 instances. Ideal for production-like testin
 aerolab config backend -t aws -r us-east-1
 ```
 
-Running in a private-only VPC? Add `--aws-nopublic-ip` to skip public IP assignment — see [Disable Public IPs](aws.md#optional-disable-public-ips).
+**Gotcha:** running in a private-only VPC? `--aws-nopublic-ip` stops Aerolab requesting a
+public IP, but there's no AWS equivalent of GCP's IAP tunnel — you need your own VPN,
+peering, or bastion access to reach the instances. See [Disable Public IPs](aws.md#optional-disable-public-ips).
 
 → **[AWS Getting Started Guide](aws.md)**
 
@@ -112,7 +114,10 @@ Deploy Aerospike clusters on Google Cloud Compute Engine. Ideal for production-l
 aerolab config backend -t gcp -r us-central1 -o your-project-id
 ```
 
-Running in a private-only VPC? Add `--gcp-nopublic-ip` to skip public IP assignment, and `--gcp-use-iap` to route SSH/SFTP through [Identity-Aware Proxy](https://cloud.google.com/iap/docs/using-tcp-forwarding) instead of dialing the instance IP — see [Route SSH/SFTP through IAP](gcp.md#optional-route-sshsftp-through-iap).
+**Gotchas:** running in a private-only VPC needs a Cloud NAT (Aerolab checks and aborts
+`cluster create` without one) and, if you also want SSH/SFTP to work without a
+VPN/peering, `--gcp-use-iap` to route through [Identity-Aware Proxy](https://cloud.google.com/iap/docs/using-tcp-forwarding) — it's independent of `--gcp-nopublic-ip`, so you opt into
+each separately. See [Route SSH/SFTP through IAP](gcp.md#optional-route-sshsftp-through-iap).
 
 → **[GCP Getting Started Guide](gcp.md)**
 
@@ -133,3 +138,6 @@ aerolab aerospike is-stable -w
 # View cluster status
 aerolab aerospike status
 ```
+
+Everything after that — starting/stopping, attach, file transfer, cleanup — works the same
+regardless of backend: see [Common Operations](common-operations.md).
