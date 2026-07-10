@@ -100,6 +100,8 @@ Deploy Aerospike clusters on AWS EC2 instances. Ideal for production-like testin
 aerolab config backend -t aws -r us-east-1
 ```
 
+Running in a private-only VPC? Add `--aws-nopublic-ip` to skip public IP assignment — see [Disable Public IPs](aws.md#optional-disable-public-ips).
+
 → **[AWS Getting Started Guide](aws.md)**
 
 ### GCP Backend
@@ -109,6 +111,8 @@ Deploy Aerospike clusters on Google Cloud Compute Engine. Ideal for production-l
 ```bash
 aerolab config backend -t gcp -r us-central1 -o your-project-id
 ```
+
+Running in a private-only VPC? Add `--gcp-nopublic-ip` to skip public IP assignment, and `--gcp-use-iap` to route SSH/SFTP through [Identity-Aware Proxy](https://cloud.google.com/iap/docs/using-tcp-forwarding) instead of dialing the instance IP — see [Route SSH/SFTP through IAP](gcp.md#optional-route-sshsftp-through-iap).
 
 → **[GCP Getting Started Guide](gcp.md)**
 
