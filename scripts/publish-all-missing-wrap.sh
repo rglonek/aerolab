@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-AEROLAB="${SCRIPT_DIR}/../src/tests/cli/aerolab"
+AEROLAB="${SCRIPT_DIR}/../tests/cli/aerolab"
 
 ARCH=""
 DRY_RUN=()

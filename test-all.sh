@@ -3,7 +3,7 @@
 # test-all.sh — set the test variables and run every tier in order.
 # Edit the values below to match your environment, then run: ./test-all.sh
 #
-# Run from the src/ directory (same place as the Makefile).
+# Run from the repo root (same place as the Makefile).
 
 set -e
 

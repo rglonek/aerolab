@@ -2,7 +2,7 @@
 
 Aerolab's tests are pure Go (`go test`) and are split into tiers by cost and
 required infrastructure. There are no bash test harnesses; everything runs
-through `go test` and the `src/Makefile` targets.
+through `go test` and the `Makefile` targets.
 
 ## Tiers at a glance
 
@@ -12,14 +12,14 @@ through `go test` and the `src/Makefile` targets.
 | Docker integration | `integration_docker` | a running Docker daemon | `make test-docker` | pushes / manual |
 | Cloud integration | `integration_cloud` | real AWS/GCP creds + Aerospike Cloud | `make test-cloud` | opt-in / manual |
 
-All targets run from `src/` (the Go module root) and export
+All targets run from the repo root (the Go module root) and export
 `GOWORK=off` / `GOFLAGS=-mod=vendor`.
 
 ## Unit + mock tests (default)
 
 ```sh
-make -C src test        # -race -shuffle=on, hermetic
-make -C src test-cover   # + coverage.out summary
+make test        # -race -shuffle=on, hermetic
+make test-cover   # + coverage.out summary
 ```
 
 These must stay hermetic: no network, no Docker, no cloud credentials, no
@@ -47,7 +47,7 @@ test-only `Init.BackendOverride` seam in `cli/cmd/v1/initialize.go`.
 ## Docker integration tests (`integration_docker`)
 
 ```sh
-make -C src test-docker
+make test-docker
 # or
 GOWORK=off GOFLAGS=-mod=vendor go test -tags=integration_docker ./tests/... 
 ```
@@ -59,7 +59,7 @@ or the daemon is unreachable.
 ## Cloud integration tests (`integration_cloud`)
 
 ```sh
-make -C src test-cloud
+make test-cloud
 ```
 
 Covers `tests/backend` (AWS/GCP backend behavior) and the `tests/e2e` cloud

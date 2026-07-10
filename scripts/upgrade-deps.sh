@@ -7,21 +7,21 @@ SKIP_UPGRADE=0
 [ "$1" == "--skip-upgrade" ] && SKIP_UPGRADE=1
 
 # update main app
-pushd ../src
+pushd ..
 [ "$SKIP_UPGRADE" -eq 0 ] && go get -u ./...
 go mod tidy
 GOWORK=off go mod vendor
 popd
 
 # not doing this since expiry uses the main go.mod (should it really?)
-#pushd ../src/pkg/expiry
+#pushd ../pkg/expiry
 #go get -u ./...
 #go mod tidy
 #GOWORK=off go mod vendor
 #popd
 
 # update gcp expiry app since it's a separate module
-pushd ../src/pkg/expiry/gcp
+pushd ../pkg/expiry/gcp
 [ "$SKIP_UPGRADE" -eq 0 ] && go get -u ./...
 go mod tidy
 GOWORK=off go mod vendor
@@ -34,6 +34,6 @@ bash new-expiry-version.sh
 bash new-agi-version.sh
 
 # regenerate the main app dependencies
-pushd ../src/
+pushd ../
 go generate ./...
 popd

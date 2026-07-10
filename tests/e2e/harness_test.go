@@ -1,16 +1,16 @@
 //go:build integration_docker || integration_cloud
 
 // Package e2e_test contains end-to-end integration tests that drive the real
-// aerolab binary. They replace the legacy src/tests/cli/test.sh suite.
+// aerolab binary. They replace the legacy tests/cli/test.sh suite.
 //
 // There are two tiers, selected by build tag:
 //
 //   - integration_docker : Docker-backend tests, CI-runnable on any Linux/mac
-//     host with Docker. Run with `make -C src test-docker` or
+//     host with Docker. Run with `make test-docker` or
 //     `go test -tags=integration_docker ./tests/e2e/...`.
 //   - integration_cloud  : AWS/GCP + Aerospike Cloud tests. These need real
 //     cloud credentials and are opt-in/manual. Run with
-//     `make -C src test-cloud` or `go test -tags=integration_cloud ./tests/e2e/...`.
+//     `make test-cloud` or `go test -tags=integration_cloud ./tests/e2e/...`.
 //
 // Requirements:
 //   - The aerolab binary. By default the harness builds it once from source into

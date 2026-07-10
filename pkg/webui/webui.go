@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-//go:generate bash -c "cd ../../../web && ./build.sh"
+//go:generate bash -c "cd ../../web && ./build.sh"
 
 // WebUIFS contains the embedded web UI assets built from web/webui/
 // The dist/ directory contains the Vite build output.

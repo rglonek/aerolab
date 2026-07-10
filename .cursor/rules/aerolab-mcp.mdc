@@ -1,6 +1,6 @@
 ---
 description: Guidelines for working on the aerolab MCP server (pkg/mcp and cmdMcp.go)
-globs: src/pkg/mcp/**,src/cli/cmd/v1/cmdMcp.go
+globs: pkg/mcp/**,cli/cmd/v1/cmdMcp.go
 alwaysApply: false
 ---
 
@@ -8,8 +8,8 @@ alwaysApply: false
 
 `aerolab mcp` runs a [Model Context Protocol](https://modelcontextprotocol.io/) server that exposes every aerolab subcommand as an MCP tool. It is implemented in:
 
-- `src/cli/cmd/v1/cmdMcp.go` — thin CLI entry point, wires flags into `pkg/mcp`
-- `src/pkg/mcp/` — the actual server: tool registration, argv building, subprocess execution, help rendering, gating, and transport
+- `cli/cmd/v1/cmdMcp.go` — thin CLI entry point, wires flags into `pkg/mcp`
+- `pkg/mcp/` — the actual server: tool registration, argv building, subprocess execution, help rendering, gating, and transport
 
 End-user documentation lives at `docs/mcp.md`. Keep that file in sync whenever you change behavior visible to an agent (tool names, profiles, flags, JSON schema, error messages).
 

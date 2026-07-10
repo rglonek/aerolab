@@ -38,7 +38,7 @@ jobs:
                   ADDCOMMIT: ${{ inputs.addCommit }}
               run: |
                 export PATH=/usr/local/go/bin:/usr/local/bin:$PATH
-                cd ~/work/aerolab/aerolab/src && make cleanall
+                cd ~/work/aerolab/aerolab && make cleanall
                 if [ "${ADDCOMMIT}" = "false" ]; then make official compile_linux_amd64 compile_linux_arm64; fi
                 if [ "${ADDCOMMIT}" != "false" ]; then make prerelease compile_linux_amd64 compile_linux_arm64; fi
                 exit 0
@@ -47,7 +47,7 @@ jobs:
                   ADDCOMMIT: ${{ inputs.addCommit }}
               run: |
                 export PATH=/usr/local/go/bin:/usr/local/bin:$PATH
-                cd ~/work/aerolab/aerolab/src && make pkg-linux
+                cd ~/work/aerolab/aerolab && make pkg-linux
             - name: setup GPG
               uses: aerospike/shared-workflows/devops/setup-gpg@v0.1.0
               with:
@@ -113,7 +113,7 @@ jobs:
                   ADDCOMMIT: ${{ inputs.addCommit }}
               run: |
                 export PATH=/usr/local/go/bin:/usr/local/bin:$PATH
-                cd ~/work/aerolab/aerolab/src && make cleanall
+                cd ~/work/aerolab/aerolab && make cleanall
                 if [ "${ADDCOMMIT}" = "false" ]; then make official compile_windows_amd64 compile_windows_arm64; fi
                 if [ "${ADDCOMMIT}" != "false" ]; then make prerelease compile_windows_amd64 compile_windows_arm64; fi
                 exit 0
@@ -122,7 +122,7 @@ jobs:
                   ADDCOMMIT: ${{ inputs.addCommit }}
               run: |
                 export PATH=/usr/local/go/bin:/usr/local/bin:$PATH
-                cd ~/work/aerolab/aerolab/src && make pkg-windows-zip
+                cd ~/work/aerolab/aerolab && make pkg-windows-zip
             - name: "Export artifacts"
               uses: actions/upload-artifact@v4
               with:
@@ -148,7 +148,7 @@ jobs:
                   ADDCOMMIT: ${{ inputs.addCommit }}
               run: |
                 export PATH=/usr/local/go/bin:/usr/local/bin:$PATH
-                cd ~/work/aerolab/aerolab/src && make cleanall
+                cd ~/work/aerolab/aerolab && make cleanall
                 if [ "${ADDCOMMIT}" = "false" ]; then make official compile_darwin_amd64 compile_darwin_arm64; fi
                 if [ "${ADDCOMMIT}" != "false" ]; then make prerelease compile_darwin_amd64 compile_darwin_arm64; fi
                 exit 0
@@ -183,7 +183,7 @@ jobs:
                 export aerolab_signer="${xaerolab_signer}"
                 export aerolab_installsigner="${xaerolab_installsigner}"
                 export aerolab_teamid="${xaerolab_teamid}"
-                export PATH=/usr/local/go/bin:/usr/local/bin:$PATH && cd ~/work/aerolab/aerolab/src && make macos-build-all && make macos-notarize-all
+                export PATH=/usr/local/go/bin:/usr/local/bin:$PATH && cd ~/work/aerolab/aerolab && make macos-build-all && make macos-notarize-all
             - name: "Export artifacts"
               uses: actions/upload-artifact@v4
               with:

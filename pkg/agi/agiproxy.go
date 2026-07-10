@@ -5,7 +5,7 @@ import (
 	_ "embed"
 )
 
-//go:generate sh -c "cd ../../../web/agiproxy && tar -zcf ../../src/pkg/agi/agiproxy.tgz *"
+//go:generate sh -c "cd ../../web/agiproxy && tar -zcf ../../pkg/agi/agiproxy.tgz *"
 
 // AgiProxyWeb contains the embedded web UI assets for the AGI proxy.
 // This tarball is generated from web/agiproxy/ and contains:

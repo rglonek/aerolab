@@ -5,7 +5,7 @@ description: Guidelines for web UI development and interface components
 # Web UI Development Guidelines
 
 ## WebUI Package Structure
-The [webui package](mdc:src/pkg/webui/website.go) provides comprehensive web interface components:
+The [webui package](mdc:pkg/webui/website.go) provides comprehensive web interface components:
 
 - **Website Installation** - Extract embedded web assets
 - **Page Rendering** - Complete page structure definitions
@@ -234,4 +234,4 @@ page.HideInventory = webui.HideInventory{
 - Ensure accessibility compliance
 - Test across different screen sizes
 
-Refer to [webui README](mdc:src/pkg/webui/README.md) for comprehensive web UI documentation.
+Refer to [webui README](mdc:pkg/webui/README.md) for comprehensive web UI documentation.

@@ -5,7 +5,7 @@ description: Guidelines for AGI log processing and Grafana integration
 # AGI (Aerospike Grafana Integration) Guidelines
 
 ## Log Ingestion Workflow
-The [AGI ingest package](mdc:src/pkg/agi/ingest/run.go) follows a structured pipeline:
+The [AGI ingest package](mdc:pkg/agi/ingest/run.go) follows a structured pipeline:
 
 1. **Download** - Retrieve logs from S3, SFTP, or local sources
 2. **Unpack** - Decompress and extract log files
@@ -35,13 +35,13 @@ err = ingest.RunWithConfig(config)
 ## Grafana Integration Components
 
 ### Plugin Backend
-The [plugin package](mdc:src/pkg/agi/plugin/init.go) provides Grafana datasource backend:
+The [plugin package](mdc:pkg/agi/plugin/init.go) provides Grafana datasource backend:
 - Query processing and caching
 - Metrics and timeseries data handling
 - Concurrent request management
 
 ### Dashboard Management
-The [grafanafix package](mdc:src/pkg/agi/grafanafix/run.go) handles:
+The [grafanafix package](mdc:pkg/agi/grafanafix/run.go) handles:
 - Automatic dashboard importing
 - Timezone configuration
 - Annotation management
@@ -118,4 +118,4 @@ go func() {
 wg.Wait()
 ```
 
-Refer to [AGI README](mdc:src/pkg/agi/README.md) for comprehensive AGI documentation.
+Refer to [AGI README](mdc:pkg/agi/README.md) for comprehensive AGI documentation.

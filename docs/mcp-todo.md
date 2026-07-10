@@ -8,7 +8,7 @@ Each entry lists the problem, the file/line pointer, and enough context to decid
 
 ## #6 — Timing side-channel in `BearerMiddleware` length check
 
-File: [src/pkg/mcp/auth.go](../src/pkg/mcp/auth.go) (≈lines 41–47).
+File: [pkg/mcp/auth.go](../pkg/mcp/auth.go) (≈lines 41–47).
 
 `BearerMiddleware` compares the incoming token against the configured token using `subtle.ConstantTimeCompare`, which is good. However, it short-circuits with `if len(token) != len(expected)` before the constant-time compare. That early-exit is measurable and leaks the length of the configured token to a remote attacker over repeated probes.
 
@@ -18,7 +18,7 @@ The practical impact is small (token length is not secret material in most deplo
 
 ## #8 — No CORS and no per-session auth revalidation for streamable HTTP
 
-File: [src/pkg/mcp/server.go](../src/pkg/mcp/server.go) (`serveHTTP`).
+File: [pkg/mcp/server.go](../pkg/mcp/server.go) (`serveHTTP`).
 
 The streamable HTTP handler currently accepts requests from any Origin and only authenticates at connection time. Once a session is open, the bearer token is never re-checked. This is fine for localhost stdio bridges but a real concern when the endpoint is exposed publicly — a compromised client keeps privileged access indefinitely.
 
@@ -28,7 +28,7 @@ Fixes: add a minimal CORS policy (opt-in, default deny), and refactor `BearerMid
 
 ## #9 — `BuildArgv` cannot explicitly set a boolean flag to `false`
 
-File: [src/pkg/mcp/runner.go](../src/pkg/mcp/runner.go) (≈lines 193–195).
+File: [pkg/mcp/runner.go](../pkg/mcp/runner.go) (≈lines 193–195).
 
 When an agent passes `"verbose": false`, `BuildArgv` emits nothing, which is indistinguishable from "the flag was omitted". For aerolab flags whose default is `true`, this means `false` is silently lost and the subprocess runs with the default. Agents have no way to explicitly disable such a flag through the MCP surface.
 
@@ -38,7 +38,7 @@ The fix is to emit `--flag=false` when the value is a boolean `false` and the pa
 
 ## #10 — `limitedBuffer.Write` returns `len(p)` on overflow, misreporting bytes written
 
-File: [src/pkg/mcp/runner.go](../src/pkg/mcp/runner.go) (≈lines 280–295).
+File: [pkg/mcp/runner.go](../pkg/mcp/runner.go) (≈lines 280–295).
 
 Per `io.Writer`'s contract, `Write` must return the number of bytes consumed. `limitedBuffer.Write` currently returns `len(p)` even when part of `p` was dropped because the capacity was reached, and it does not return an error. A caller that checks `n` expects to be able to trust it; the current behaviour quietly lies.
 
@@ -48,7 +48,7 @@ This is latent because our only consumer is `os/exec` which ignores the return v
 
 ## #25 — HTTP transport has no native TLS
 
-File: [src/pkg/mcp/server.go](../src/pkg/mcp/server.go) (`serveHTTP`).
+File: [pkg/mcp/server.go](../pkg/mcp/server.go) (`serveHTTP`).
 
 `aerolab mcp --transport=http` always listens with `http.Server` over plain TCP. This is intentional for v1 — operators are expected to terminate TLS at a reverse proxy — but it means the `--auth-token` bearer header travels in clear on the wire. Issue #5 added a startup warning to make that obvious, but a production deployment option is still missing.
 

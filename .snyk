@@ -4,6 +4,6 @@ ignore: {}
 patch: {}
 exclude:
   global:
-    - src/vendor/**
+    - vendor/**
     - scripts/**
-    - src/pkg/expiry/gcp/vendor/**
+    - pkg/expiry/gcp/vendor/**

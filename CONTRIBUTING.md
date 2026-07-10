@@ -4,9 +4,9 @@
 
 Aerolab's tests are pure Go and split into tiers by cost and required
 infrastructure. Full details, including the test-support package and every
-environment variable, live in [`src/tests/README.md`](src/tests/README.md).
+environment variable, live in [`tests/README.md`](tests/README.md).
 
-Quick reference (run from `src/`):
+Quick reference (run from the repo root):
 
 | Command | Tier | Needs |
 |---------|------|-------|

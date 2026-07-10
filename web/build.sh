@@ -7,7 +7,7 @@ echo "INFO: Starting website build..."
 # agiproxy
 echo "INFO: Building agiproxy..."
 cd agiproxy
-tar -zcf ../../src/pkg/agi/agiproxy.tgz *
+tar -zcf ../../pkg/agi/agiproxy.tgz *
 cd ..
 
 # webui - React application
@@ -21,9 +21,9 @@ fi
 # Build the React app
 npm run build
 # Copy built files to pkg/webui/dist/ for go:embed
-echo "INFO: Copying webui dist to src/pkg/webui/dist/..."
-rm -rf ../../src/pkg/webui/dist
-cp -r dist ../../src/pkg/webui/dist
+echo "INFO: Copying webui dist to pkg/webui/dist/..."
+rm -rf ../../pkg/webui/dist
+cp -r dist ../../pkg/webui/dist
 cd ..
 
 # some logging

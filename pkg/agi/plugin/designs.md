@@ -1,6 +1,6 @@
 # AGI Plugin — Query Design Document
 
-Source: `src/pkg/agi/plugin/`
+Source: `pkg/agi/plugin/`
 
 This document describes how the AGI Grafana datasource plugin builds and
 executes queries against the embedded `pkg/agi/db` (Pebble-backed) store,

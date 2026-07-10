@@ -5,7 +5,7 @@ description: Guidelines for resource expiry and automated cleanup systems
 # Resource Expiry and Cleanup Guidelines
 
 ## Expiry System Architecture
-The [expiry package](mdc:src/pkg/expiry/expire/expire.go) provides automated cleanup across multiple deployment modes:
+The [expiry package](mdc:pkg/expiry/expire/expire.go) provides automated cleanup across multiple deployment modes:
 
 - **AWS Lambda** - CloudWatch event-triggered cleanup
 - **GCP Cloud Functions** - HTTP-triggered cleanup  
@@ -31,7 +31,7 @@ if err != nil {
 ```
 
 ## EKS-Specific Cleanup
-The [EKS package](mdc:src/pkg/eks/eksexpiry/expiry.go) provides comprehensive Kubernetes cluster cleanup:
+The [EKS package](mdc:pkg/eks/eksexpiry/expiry.go) provides comprehensive Kubernetes cluster cleanup:
 
 ```go
 import "github.com/aerospike/aerolab/pkg/eks/eksexpiry"
@@ -170,4 +170,4 @@ if err := cleanupOperation(); err != nil {
 - Audit log all cleanup actions
 - Validate expiry tags before processing
 
-Refer to [expiry README](mdc:src/pkg/expiry/README.md) and [EKS README](mdc:src/pkg/eks/README.md) for comprehensive documentation.
+Refer to [expiry README](mdc:pkg/expiry/README.md) and [EKS README](mdc:pkg/eks/README.md) for comprehensive documentation.

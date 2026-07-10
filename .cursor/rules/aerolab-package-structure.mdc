@@ -5,7 +5,7 @@ alwaysApply: true
 # Aerolab Package Structure and Architecture
 
 ## Package Overview
-The Aerolab codebase is organized into 8 main packages in `src/pkg/`:
+The Aerolab codebase is organized into 8 main packages in `pkg/`:
 
 - **agi** - Aerospike Grafana Integration for log processing and visualization
 - **backend** - Multi-cloud infrastructure management (AWS, GCP, Docker)
@@ -48,4 +48,4 @@ The backend system provides unified interfaces across:
 - Specialized: `agi` (log processing), `expiry` (cleanup), `eks` (Kubernetes)
 - UI/Config: `webui`, `conf`
 
-Refer to [CONTEXT.md](mdc:src/pkg/CONTEXT.md) for comprehensive package documentation.
+Refer to [CONTEXT.md](mdc:pkg/CONTEXT.md) for comprehensive package documentation.

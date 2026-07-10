@@ -163,7 +163,7 @@ web/webui/           # React source code
     ↓ (npm run build)
 web/webui/dist/      # Built assets
     ↓ (cp -r)
-src/pkg/webui/dist/  # Copied for embedding
+pkg/webui/dist/  # Copied for embedding
     ↓ (go:embed)
 aerolab binary       # Single binary with embedded UI
 ```
@@ -178,7 +178,7 @@ cd web
 Or using go generate:
 
 ```bash
-go generate ./src/pkg/webui/...
+go generate ./pkg/webui/...
 ```
 
 ### Embedding
@@ -246,7 +246,7 @@ This starts a Vite dev server on `http://localhost:5173` that proxies requests t
 Run the backend separately:
 
 ```bash
-go run ./src/... webui
+go run ./cli webui
 ```
 
 ### Project Structure
@@ -290,7 +290,7 @@ web/webui/
 
 1. Check that the server is running: `curl http://localhost:8080/api/health`
 2. Check browser console for JavaScript errors
-3. Ensure the UI was built: check that `src/pkg/webui/dist/` contains files
+3. Ensure the UI was built: check that `pkg/webui/dist/` contains files
 
 ### Jobs Not Appearing
 

@@ -70,12 +70,12 @@ help:
 	\tmacos-build-all    - Build and sign pkg and zip\n\
 	\tmacos-notarize-all - Notarize pkg and zip\n\
 	\n\
-	OUTPUTS: ../bin/ and ../bin/packages/\n\
+	OUTPUTS: bin/ and bin/packages/\n\
 	"
 
 .PHONY: deps
 deps:
-	cd ../scripts && ./upgrade-deps.sh
+	cd scripts && ./upgrade-deps.sh
 
 .PHONY: macos-build-all
 macos-build-all: macos-codesign macos-zip-build macos-pkg-build macos-pkg-sign
@@ -121,9 +121,9 @@ install: run_install
 
 .PHONY: cleanall
 cleanall: clean
-	rm -f ../bin/packages/*
+	rm -f bin/packages/*
 	rm -f notarize_result_pkg notarize_result_amd64 notarize_result_arm64
-	rm -f ../bin/AeroLab.pkg
+	rm -f bin/AeroLab.pkg
 
 .PHONY: clean
 clean:
@@ -134,10 +134,10 @@ clean:
 	rm -f aerolab-macos-arm64
 	rm -f aerolab-windows-amd64.exe
 	rm -f aerolab-windows-arm64.exe
-	rm -f ../bin/aerolab-*
-	rm -f ../bin/deb
-	rm -f ../bin/deb.deb
-	rm -f ../bin/aerolab
+	rm -f bin/aerolab-*
+	rm -f bin/deb
+	rm -f bin/deb.deb
+	rm -f bin/aerolab
 
 .PHONY: check
 check:
@@ -151,7 +151,7 @@ check:
 	echo "===== Done"
 
 ## Testing targets.
-## The module root is this directory (src/), so ./... covers both cli/ and pkg/.
+## The module root is the repo root, so ./... covers both cli/ and pkg/.
 ## GOFLAGS=-mod=vendor and GOWORK=off are exported above and inherited here.
 ## Default `test` runs only hermetic unit + mock tests (no cloud creds, no Docker).
 ## Integration tests are gated behind build tags:
@@ -189,10 +189,10 @@ test-cloud: generate
 
 OS := $(shell uname -o)
 CPU := $(shell uname -m)
-ver:=$(shell bash -c 'V=$$(git branch --show-current); if [[ $$V == v* ]]; then printf $${V:1} > ../VERSION.md; fi; cat ../VERSION.md')
+ver:=$(shell bash -c 'V=$$(git branch --show-current); if [[ $$V == v* ]]; then printf $${V:1} > VERSION.md; fi; cat VERSION.md')
 define _amddebscript
-ver=$(cat ../VERSION.md)
-cat <<EOF > ../bin/deb/DEBIAN/control
+ver=$(cat VERSION.md)
+cat <<EOF > bin/deb/DEBIAN/control
 Website: www.aerospike.com
 Maintainer: Aerospike <support@aerospike.com>
 Name: AeroLab
@@ -205,8 +205,8 @@ EOF
 endef
 export amddebscript = $(value _amddebscript)
 define _armdebscript
-ver=$(cat ../VERSION.md)
-cat <<EOF > ../bin/deb/DEBIAN/control
+ver=$(cat VERSION.md)
+cat <<EOF > bin/deb/DEBIAN/control
 Website: www.aerospike.com
 Maintainer: Aerospike <support@aerospike.com>
 Name: AeroLab
@@ -239,15 +239,15 @@ endif
 run_install:
 ifeq ($(OS), Darwin)
 ifeq ($(CPU), x86_64)
-	sudo cp ../bin/aerolab-macos-amd64 /usr/local/bin/aerolab
+	sudo cp bin/aerolab-macos-amd64 /usr/local/bin/aerolab
 else
-	sudo cp ../bin/aerolab-macos-arm64 /usr/local/bin/aerolab
+	sudo cp bin/aerolab-macos-arm64 /usr/local/bin/aerolab
 endif
 else
 ifeq ($(CPU), x86_64)
-	sudo cp ../bin/aerolab-linux-amd64 /usr/local/bin/aerolab
+	sudo cp bin/aerolab-linux-amd64 /usr/local/bin/aerolab
 else
-	sudo cp ../bin/aerolab-linux-arm64 /usr/local/bin/aerolab
+	sudo cp bin/aerolab-linux-arm64 /usr/local/bin/aerolab
 endif
 endif
 
@@ -255,68 +255,66 @@ endif
 nosudo-install:
 ifeq ($(OS), Darwin)
 ifeq ($(CPU), x86_64)
-	cp ../bin/aerolab-macos-amd64 /usr/local/bin/aerolab
+	cp bin/aerolab-macos-amd64 /usr/local/bin/aerolab
 else
-	cp ../bin/aerolab-macos-arm64 /usr/local/bin/aerolab
+	cp bin/aerolab-macos-arm64 /usr/local/bin/aerolab
 endif
 else
 ifeq ($(CPU), x86_64)
-	cp ../bin/aerolab-linux-amd64 /usr/local/bin/aerolab
+	cp bin/aerolab-linux-amd64 /usr/local/bin/aerolab
 else
-	cp ../bin/aerolab-linux-arm64 /usr/local/bin/aerolab
+	cp bin/aerolab-linux-arm64 /usr/local/bin/aerolab
 endif
 endif
 
 .PHONY: prep
 prep:
 	go generate ./...
-	cp go.mod ..
-	cp go.sum ..
 	printf -- "-unofficial" > cli/cmd/v1/embed_tail.txt
 
 .PHONY: compile_linux_amd64
 compile_linux_amd64:
 	env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o aerolab-linux-amd64 ./cli/
-	mv aerolab-linux-amd64 ../bin/
+	mv aerolab-linux-amd64 bin/
 
 .PHONY: compile_linux_arm64
 compile_linux_arm64:
 	env CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o aerolab-linux-arm64 ./cli/
-	mv aerolab-linux-arm64 ../bin/
+	mv aerolab-linux-arm64 bin/
 
 .PHONY: compile_darwin
 compile_darwin:
 	env CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o aerolab-macos-amd64 ./cli/
 	env CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o aerolab-macos-arm64 ./cli/
-	mv aerolab-macos-amd64 ../bin/
-	mv aerolab-macos-arm64 ../bin/
+	mv aerolab-macos-amd64 bin/
+	mv aerolab-macos-arm64 bin/
 
 .PHONY: compile_darwin_amd64
 compile_darwin_amd64:
 	env CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o aerolab-macos-amd64 ./cli/
-	mv aerolab-macos-amd64 ../bin/
+	mv aerolab-macos-amd64 bin/
 
 .PHONY: compile_darwin_arm64
 compile_darwin_arm64:
 	env CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o aerolab-macos-arm64 ./cli/
-	mv aerolab-macos-arm64 ../bin/
+	mv aerolab-macos-arm64 bin/
 
 .PHONY: compile_windows
 compile_windows:
 	env CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o aerolab-windows-amd64.exe ./cli/
 	env CGO_ENABLED=0 GOOS=windows GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o aerolab-windows-arm64.exe ./cli/
-	mv aerolab-windows-amd64.exe ../bin/
-	mv aerolab-windows-arm64.exe ../bin/
+	mv aerolab-windows-amd64.exe bin/
+	mv aerolab-windows-arm64.exe bin/
 
 .PHONY: compile_windows_amd64
 compile_windows_amd64:
 	env CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o aerolab-windows-amd64.exe ./cli/
-	mv aerolab-windows-amd64.exe ../bin/
+	mv aerolab-windows-amd64.exe bin/
 
 .PHONY: compile_windows_arm64
 compile_windows_arm64:
 	env CGO_ENABLED=0 GOOS=windows GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o aerolab-windows-arm64.exe ./cli/
-	mv aerolab-windows-arm64.exe ../bin/
+	mv aerolab-windows-arm64.exe bin/
 
 .PHONY: official
 official: prep
@@ -336,88 +334,88 @@ RET := $(shell echo)
 
 .PHONY: pkg-deb-amd64
 pkg-deb-amd64:
-	cp ../bin/aerolab-linux-amd64 ../bin/aerolab
-	rm -rf ../bin/deb
-	mkdir -p ../bin/deb/DEBIAN
-	mkdir -p ../bin/deb/usr/bin
+	cp bin/aerolab-linux-amd64 bin/aerolab
+	rm -rf bin/deb
+	mkdir -p bin/deb/DEBIAN
+	mkdir -p bin/deb/usr/bin
 	@ eval "$$amddebscript"
-	mv ../bin/aerolab ../bin/deb/usr/bin/
-	sudo dpkg-deb -Zxz -b ../bin/deb
-	rm -f ../bin/packages/aerolab-linux-amd64-${ver}.deb
-	mv ../bin/deb.deb ../bin/packages/aerolab-linux-amd64-${ver}.deb
-	rm -rf ../bin/deb
+	mv bin/aerolab bin/deb/usr/bin/
+	sudo dpkg-deb -Zxz -b bin/deb
+	rm -f bin/packages/aerolab-linux-amd64-${ver}.deb
+	mv bin/deb.deb bin/packages/aerolab-linux-amd64-${ver}.deb
+	rm -rf bin/deb
 
 .PHONY: pkg-deb-arm64
 pkg-deb-arm64:
-	cp ../bin/aerolab-linux-arm64 ../bin/aerolab
-	rm -rf ../bin/deb
-	mkdir -p ../bin/deb/DEBIAN
-	mkdir -p ../bin/deb/usr/bin
+	cp bin/aerolab-linux-arm64 bin/aerolab
+	rm -rf bin/deb
+	mkdir -p bin/deb/DEBIAN
+	mkdir -p bin/deb/usr/bin
 	@ eval "$$armdebscript"
-	mv ../bin/aerolab ../bin/deb/usr/bin/
-	sudo dpkg-deb -Zxz -b ../bin/deb
-	rm -f ../bin/packages/aerolab-linux-arm64-${ver}.deb
-	mv ../bin/deb.deb ../bin/packages/aerolab-linux-arm64-${ver}.deb
-	rm -rf ../bin/deb
+	mv bin/aerolab bin/deb/usr/bin/
+	sudo dpkg-deb -Zxz -b bin/deb
+	rm -f bin/packages/aerolab-linux-arm64-${ver}.deb
+	mv bin/deb.deb bin/packages/aerolab-linux-arm64-${ver}.deb
+	rm -rf bin/deb
 
 .PHONY: pkg-deb
 pkg-deb: pkg-deb-amd64 pkg-deb-arm64
 
 .PHONY: pkg-zip-amd64
 pkg-zip-amd64:
-	cp ../bin/aerolab-linux-amd64 ../bin/aerolab
-	rm -f ../bin/packages/aerolab-linux-amd64-${ver}.zip
-	bash -ce "cd ../bin && zip packages/aerolab-linux-amd64-${ver}.zip aerolab"
-	rm -f ../bin/aerolab
+	cp bin/aerolab-linux-amd64 bin/aerolab
+	rm -f bin/packages/aerolab-linux-amd64-${ver}.zip
+	bash -ce "cd bin && zip packages/aerolab-linux-amd64-${ver}.zip aerolab"
+	rm -f bin/aerolab
 
 .PHONY: pkg-zip-arm64
 pkg-zip-arm64:
-	cp ../bin/aerolab-linux-arm64 ../bin/aerolab
-	rm -f ../bin/packages/aerolab-linux-arm64-${ver}.zip
-	bash -ce "cd ../bin && zip packages/aerolab-linux-arm64-${ver}.zip aerolab"
-	rm -f ../bin/aerolab
+	cp bin/aerolab-linux-arm64 bin/aerolab
+	rm -f bin/packages/aerolab-linux-arm64-${ver}.zip
+	bash -ce "cd bin && zip packages/aerolab-linux-arm64-${ver}.zip aerolab"
+	rm -f bin/aerolab
 
 .PHONY: pkg-windows-zip
 pkg-windows-zip: pkg-windows-zip-amd64 pkg-windows-zip-arm64
 
 .PHONY: pkg-windows-zip-amd64
 pkg-windows-zip-amd64:
-	cp ../bin/aerolab-windows-amd64.exe ../bin/aerolab.exe
-	rm -f ../bin/packages/aerolab-windows-amd64-${ver}.zip
-	bash -ce "cd ../bin && zip packages/aerolab-windows-amd64-${ver}.zip aerolab.exe"
-	rm -f ../bin/aerolab.exe
+	cp bin/aerolab-windows-amd64.exe bin/aerolab.exe
+	rm -f bin/packages/aerolab-windows-amd64-${ver}.zip
+	bash -ce "cd bin && zip packages/aerolab-windows-amd64-${ver}.zip aerolab.exe"
+	rm -f bin/aerolab.exe
 
 .PHONY: pkg-windows-zip-arm64
 pkg-windows-zip-arm64:
-	cp ../bin/aerolab-windows-arm64.exe ../bin/aerolab.exe
-	rm -f ../bin/packages/aerolab-windows-arm64-${ver}.zip
-	bash -ce "cd ../bin && zip packages/aerolab-windows-arm64-${ver}.zip aerolab.exe"
-	rm -f ../bin/aerolab.exe
+	cp bin/aerolab-windows-arm64.exe bin/aerolab.exe
+	rm -f bin/packages/aerolab-windows-arm64-${ver}.zip
+	bash -ce "cd bin && zip packages/aerolab-windows-arm64-${ver}.zip aerolab.exe"
+	rm -f bin/aerolab.exe
 
 .PHONY: pkg-zip
 pkg-zip: pkg-zip-amd64 pkg-zip-arm64
 
 .PHONY: pkg-rpm-amd64
 pkg-rpm-amd64:
-	rm -rf ../bin/aerolab-rpm-centos
-	cp -a ../bin/aerolabrpm ../bin/aerolab-rpm-centos
-	sed -i.bak "s/VERSIONHERE/${ver}/g" ../bin/aerolab-rpm-centos/aerolab.spec
-	cp ../bin/aerolab-linux-amd64 ../bin/aerolab-rpm-centos/usr/bin/aerolab
-	rm -f ../bin/aerolab-linux-x86_64.rpm
-	bash -ce "cd ../bin && rpmbuild --target=x86_64-redhat-linux --buildroot \$$(pwd)/aerolab-rpm-centos -bb aerolab-rpm-centos/aerolab.spec"
-	rm -f ../bin/packages/aerolab-linux-amd64-${ver}.rpm
-	mv ../bin/aerolab-linux-x86_64.rpm ../bin/packages/aerolab-linux-amd64-${ver}.rpm
+	rm -rf bin/aerolab-rpm-centos
+	cp -a bin/aerolabrpm bin/aerolab-rpm-centos
+	sed -i.bak "s/VERSIONHERE/${ver}/g" bin/aerolab-rpm-centos/aerolab.spec
+	cp bin/aerolab-linux-amd64 bin/aerolab-rpm-centos/usr/bin/aerolab
+	rm -f bin/aerolab-linux-x86_64.rpm
+	bash -ce "cd bin && rpmbuild --target=x86_64-redhat-linux --buildroot \$$(pwd)/aerolab-rpm-centos -bb aerolab-rpm-centos/aerolab.spec"
+	rm -f bin/packages/aerolab-linux-amd64-${ver}.rpm
+	mv bin/aerolab-linux-x86_64.rpm bin/packages/aerolab-linux-amd64-${ver}.rpm
 
 .PHONY: pkg-rpm-arm64
 pkg-rpm-arm64:
-	rm -rf ../bin/aerolab-rpm-centos
-	cp -a ../bin/aerolabrpm ../bin/aerolab-rpm-centos
-	sed -i.bak "s/VERSIONHERE/${ver}/g" ../bin/aerolab-rpm-centos/aerolab.spec
-	cp ../bin/aerolab-linux-arm64 ../bin/aerolab-rpm-centos/usr/bin/aerolab
-	rm -f ../bin/aerolab-linux-arm64.rpm
-	bash -ce "cd ../bin && rpmbuild --target=arm64-redhat-linux --buildroot \$$(pwd)/aerolab-rpm-centos -bb aerolab-rpm-centos/aerolab.spec"
-	rm -f ../bin/packages/aerolab-linux-arm64-${ver}.rpm
-	mv ../bin/aerolab-linux-arm64.rpm ../bin/packages/aerolab-linux-arm64-${ver}.rpm
+	rm -rf bin/aerolab-rpm-centos
+	cp -a bin/aerolabrpm bin/aerolab-rpm-centos
+	sed -i.bak "s/VERSIONHERE/${ver}/g" bin/aerolab-rpm-centos/aerolab.spec
+	cp bin/aerolab-linux-arm64 bin/aerolab-rpm-centos/usr/bin/aerolab
+	rm -f bin/aerolab-linux-arm64.rpm
+	bash -ce "cd bin && rpmbuild --target=arm64-redhat-linux --buildroot \$$(pwd)/aerolab-rpm-centos -bb aerolab-rpm-centos/aerolab.spec"
+	rm -f bin/packages/aerolab-linux-arm64-${ver}.rpm
+	mv bin/aerolab-linux-arm64.rpm bin/packages/aerolab-linux-arm64-${ver}.rpm
 
 .PHONY: pkg-rpm
 pkg-rpm: pkg-rpm-amd64 pkg-rpm-arm64
@@ -430,35 +428,35 @@ pkg-linux: pkg-zip pkg-deb pkg-rpm
 
 .PHONY: macos-codesign
 macos-codesign:
-ifeq (exists, $(shell [ -f ../bin/aerolab-macos-amd64 ] && echo "exists" || echo "not found"))
-	codesign --verbose --deep --timestamp --force --options runtime --sign ${SIGNER} ../bin/aerolab-macos-amd64
-	codesign --verbose --verify ../bin/aerolab-macos-amd64
+ifeq (exists, $(shell [ -f bin/aerolab-macos-amd64 ] && echo "exists" || echo "not found"))
+	codesign --verbose --deep --timestamp --force --options runtime --sign ${SIGNER} bin/aerolab-macos-amd64
+	codesign --verbose --verify bin/aerolab-macos-amd64
 endif
-ifeq (exists, $(shell [ -f ../bin/aerolab-macos-arm64 ] && echo "exists" || echo "not found"))
-	codesign --verbose --deep --timestamp --force --options runtime --sign ${SIGNER} ../bin/aerolab-macos-arm64
-	codesign --verbose --verify ../bin/aerolab-macos-arm64
+ifeq (exists, $(shell [ -f bin/aerolab-macos-arm64 ] && echo "exists" || echo "not found"))
+	codesign --verbose --deep --timestamp --force --options runtime --sign ${SIGNER} bin/aerolab-macos-arm64
+	codesign --verbose --verify bin/aerolab-macos-arm64
 endif
 
 .PHONY: macos-zip-build
 macos-zip-build:
-ifeq (exists, $(shell [ -f ../bin/aerolab-macos-amd64 ] && echo "exists" || echo "not found"))
-	cp ../bin/aerolab-macos-amd64 ../bin/aerolab
-	rm -f ../bin/packages/aerolab-macos-amd64-${ver}.zip
-	bash -ce "cd ../bin && zip packages/aerolab-macos-amd64-${ver}.zip aerolab"
-	rm -f ../bin/aerolab
+ifeq (exists, $(shell [ -f bin/aerolab-macos-amd64 ] && echo "exists" || echo "not found"))
+	cp bin/aerolab-macos-amd64 bin/aerolab
+	rm -f bin/packages/aerolab-macos-amd64-${ver}.zip
+	bash -ce "cd bin && zip packages/aerolab-macos-amd64-${ver}.zip aerolab"
+	rm -f bin/aerolab
 endif
-ifeq (exists, $(shell [ -f ../bin/aerolab-macos-arm64 ] && echo "exists" || echo "not found"))
-	cp ../bin/aerolab-macos-arm64 ../bin/aerolab
-	rm -f ../bin/packages/aerolab-macos-arm64-${ver}.zip
-	bash -ce "cd ../bin && zip packages/aerolab-macos-arm64-${ver}.zip aerolab"
-	rm -f ../bin/aerolab
+ifeq (exists, $(shell [ -f bin/aerolab-macos-arm64 ] && echo "exists" || echo "not found"))
+	cp bin/aerolab-macos-arm64 bin/aerolab
+	rm -f bin/packages/aerolab-macos-arm64-${ver}.zip
+	bash -ce "cd bin && zip packages/aerolab-macos-arm64-${ver}.zip aerolab"
+	rm -f bin/aerolab
 endif
 
 .PHONY: macos-zip-notarize
 macos-zip-notarize:
-ifeq (exists, $(shell [ -f ../bin/packages/aerolab-macos-amd64-${ver}.zip ] && echo "exists" || echo "not found"))
+ifeq (exists, $(shell [ -f bin/packages/aerolab-macos-amd64-${ver}.zip ] && echo "exists" || echo "not found"))
 	rm -f notarize_result_amd64
-	xcrun notarytool submit --apple-id ${APPLEID} --password ${APPLEPW} --team-id ${TEAMID} -f json --wait --timeout 10m ../bin/packages/aerolab-macos-amd64-${ver}.zip > notarize_result_amd64
+	xcrun notarytool submit --apple-id ${APPLEID} --password ${APPLEPW} --team-id ${TEAMID} -f json --wait --timeout 10m bin/packages/aerolab-macos-amd64-${ver}.zip > notarize_result_amd64
 	if [ "$$(cat notarize_result_amd64 |jq -r .status)" != "Accepted" ] ;\
 	then \
 		echo "ZIP-AMD FAILED TO NOTARIZE" ;\
@@ -468,9 +466,9 @@ ifeq (exists, $(shell [ -f ../bin/packages/aerolab-macos-amd64-${ver}.zip ] && e
 		echo "ZIP-AMD NOTARIZE SUCCESS" ;\
 	fi
 endif
-ifeq (exists, $(shell [ -f ../bin/packages/aerolab-macos-arm64-${ver}.zip ] && echo "exists" || echo "not found"))
+ifeq (exists, $(shell [ -f bin/packages/aerolab-macos-arm64-${ver}.zip ] && echo "exists" || echo "not found"))
 	rm -f notarize_result_arm64
-	xcrun notarytool submit --apple-id ${APPLEID} --password ${APPLEPW} --team-id ${TEAMID} -f json --wait --timeout 10m ../bin/packages/aerolab-macos-arm64-${ver}.zip > notarize_result_arm64
+	xcrun notarytool submit --apple-id ${APPLEID} --password ${APPLEPW} --team-id ${TEAMID} -f json --wait --timeout 10m bin/packages/aerolab-macos-arm64-${ver}.zip > notarize_result_arm64
 	if [ "$$(cat notarize_result_arm64 |jq -r .status)" != "Accepted" ] ;\
 	then \
 		echo "ZIP-ARM FAILED TO NOTARIZE" ;\
@@ -483,20 +481,20 @@ endif
 
 .PHONY: macos-pkg-build
 macos-pkg-build:
-	cp -a ../bin/aerolab-macos-amd64 ../bin/macos-pkg/aerolab/
-	cp -a ../bin/aerolab-macos-arm64 ../bin/macos-pkg/aerolab/
-	sed "s/AEROLABVERSIONHERE/${ver}/g" ../bin/macos-pkg/AeroLab-template.pkgproj > ../bin/macos-pkg/AeroLab.pkgproj
-	bash -ce "cd ../bin/macos-pkg && /usr/local/bin/packagesbuild --project AeroLab.pkgproj"
-	mv ../bin/macos-pkg/build/AeroLab.pkg ../bin/aerolab-macos-${ver}-unsigned.pkg
+	cp -a bin/aerolab-macos-amd64 bin/macos-pkg/aerolab/
+	cp -a bin/aerolab-macos-arm64 bin/macos-pkg/aerolab/
+	sed "s/AEROLABVERSIONHERE/${ver}/g" bin/macos-pkg/AeroLab-template.pkgproj > bin/macos-pkg/AeroLab.pkgproj
+	bash -ce "cd bin/macos-pkg && /usr/local/bin/packagesbuild --project AeroLab.pkgproj"
+	mv bin/macos-pkg/build/AeroLab.pkg bin/aerolab-macos-${ver}-unsigned.pkg
 
 .PHONY: macos-pkg-sign
 macos-pkg-sign:
-	productsign --timestamp --sign ${INSTALLSIGNER} ../bin/aerolab-macos-${ver}-unsigned.pkg ../bin/packages/aerolab-macos-${ver}.pkg
+	productsign --timestamp --sign ${INSTALLSIGNER} bin/aerolab-macos-${ver}-unsigned.pkg bin/packages/aerolab-macos-${ver}.pkg
 
 .PHONY: macos-pkg-notarize
 macos-pkg-notarize:
 	rm -f notarize_result_pkg
-	xcrun notarytool submit --apple-id ${APPLEID} --password ${APPLEPW} --team-id ${TEAMID} -f json --wait --timeout 10m ../bin/packages/aerolab-macos-${ver}.pkg > notarize_result_pkg
+	xcrun notarytool submit --apple-id ${APPLEID} --password ${APPLEPW} --team-id ${TEAMID} -f json --wait --timeout 10m bin/packages/aerolab-macos-${ver}.pkg > notarize_result_pkg
 	if [ "$$(cat notarize_result_pkg |jq -r .status)" != "Accepted" ] ;\
 	then \
 		echo "PKG FAILED TO NOTARIZE" ;\

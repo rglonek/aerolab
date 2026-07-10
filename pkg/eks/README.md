@@ -99,10 +99,10 @@ eksexpiry.Expiry()
 
 ```bash
 # Using eksctl with Aerolab templates
-eksctl create cluster -f /path/to/aerolab/src/pkg/eks/ekctl-templates/basic.yaml
+eksctl create cluster -f /path/to/aerolab/pkg/eks/ekctl-templates/basic.yaml
 
 # Using auto-scaler template
-eksctl create cluster -f /path/to/aerolab/src/pkg/eks/ekctl-templates/auto-scaler.yaml
+eksctl create cluster -f /path/to/aerolab/pkg/eks/ekctl-templates/auto-scaler.yaml
 ```
 
 ### Integration with Expiry Handler

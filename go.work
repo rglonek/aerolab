@@ -1,6 +1,6 @@
 go 1.26.4
 
 use (
-	./src
-	./src/pkg/expiry/gcp
+	.
+	./pkg/expiry/gcp
 )

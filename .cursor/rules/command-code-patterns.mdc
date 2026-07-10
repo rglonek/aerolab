@@ -12,10 +12,10 @@ This document provides comprehensive context for developing new Aerolab CLI comm
 
 The Aerolab project is organized into several key packages:
 
-- **`src/cli/cmd/v1/`** - Main CLI command implementations
-- **`src/pkg/backend/`** - Backend infrastructure management (AWS, GCP, Docker)
-- **`src/pkg/sshexec/`** - SSH and SFTP client functionality
-- **`src/pkg/utils/`** - Utility functions and helpers
+- **`cli/cmd/v1/`** - Main CLI command implementations
+- **`pkg/backend/`** - Backend infrastructure management (AWS, GCP, Docker)
+- **`pkg/sshexec/`** - SSH and SFTP client functionality
+- **`pkg/utils/`** - Utility functions and helpers
 
 ## Command Development Patterns
 

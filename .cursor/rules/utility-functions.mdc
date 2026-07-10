@@ -5,7 +5,7 @@ description: Guidelines for using Aerolab utility functions and helpers
 # Aerolab Utility Functions Guidelines
 
 ## Shutdown Management
-Always use the [shutdown package](mdc:src/pkg/utils/shutdown/handler.go) for graceful application termination:
+Always use the [shutdown package](mdc:pkg/utils/shutdown/handler.go) for graceful application termination:
 
 ```go
 import "github.com/aerospike/aerolab/pkg/utils/shutdown"
@@ -38,7 +38,7 @@ func main() {
 ```
 
 ## Interactive User Input
-Use the [choice package](mdc:src/pkg/utils/choice/simpleList.go) for terminal-based selections:
+Use the [choice package](mdc:pkg/utils/choice/simpleList.go) for terminal-based selections:
 
 ```go
 import "github.com/aerospike/aerolab/pkg/utils/choice"
@@ -53,7 +53,7 @@ fmt.Printf("Selected: %s\n", selected)
 ```
 
 ## SSH Operations
-Use the [sshexec package](mdc:src/pkg/sshexec/exec.go) for remote operations:
+Use the [sshexec package](mdc:pkg/sshexec/exec.go) for remote operations:
 
 ```go
 import "github.com/aerospike/aerolab/pkg/sshexec"
@@ -93,7 +93,7 @@ queueWithIDs := jobqueue.NewQueueWithIDs(5, 100)
 ```
 
 ## Version Management
-Use the [versions package](mdc:src/pkg/utils/versions/versions.go) for version comparisons:
+Use the [versions package](mdc:pkg/utils/versions/versions.go) for version comparisons:
 
 ```go
 import "github.com/aerospike/aerolab/pkg/utils/versions"
@@ -104,7 +104,7 @@ oldest := versions.Oldest("1.2.3", "1.2.4")  // Returns "1.2.3"
 ```
 
 ## Table Output
-Use the [printer package](mdc:src/pkg/utils/printer/printer.go) for formatted output:
+Use the [printer package](mdc:pkg/utils/printer/printer.go) for formatted output:
 
 ```go
 import "github.com/aerospike/aerolab/pkg/utils/printer"
@@ -123,7 +123,7 @@ if err != nil {
 ```
 
 ## Context-Aware I/O
-Use [contextio package](mdc:src/pkg/utils/contextio/contextio.go) for cancellable I/O:
+Use [contextio package](mdc:pkg/utils/contextio/contextio.go) for cancellable I/O:
 
 ```go
 import "github.com/aerospike/aerolab/pkg/utils/contextio"
@@ -136,13 +136,13 @@ reader := contextio.NewReader(ctx, os.Stdin)
 ```
 
 ## File Operations
-Use the [file package](mdc:src/pkg/utils/file/file.go) for safe file operations:
+Use the [file package](mdc:pkg/utils/file/file.go) for safe file operations:
 - File existence checking
 - Path manipulation utilities
 - Safe file operations with proper error handling
 
 ## Installation Scripts
-The [installers package](mdc:src/pkg/utils/installers/) provides installation utilities for:
+The [installers package](mdc:pkg/utils/installers/) provides installation utilities for:
 - Aerolab self-installation
 - Aerospike database
 - Programming language compilers (Go, Python, .NET)
@@ -156,4 +156,4 @@ release, err := aerolab.GetLatestVersion(true) // stable only
 script, err := aerolab.GetLinuxInstallScript(&version, &prerelease)
 ```
 
-Refer to [utils README](mdc:src/pkg/utils/README.md) for comprehensive utility documentation.
+Refer to [utils README](mdc:pkg/utils/README.md) for comprehensive utility documentation.

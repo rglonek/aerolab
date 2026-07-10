@@ -5,7 +5,7 @@ description: Guidelines for working with cloud backend integrations
 # Cloud Backend Integration Guidelines
 
 ## Backend Package Usage
-The [backend package](mdc:src/pkg/backend/init.go) provides unified multi-cloud management:
+The [backend package](mdc:pkg/backend/init.go) provides unified multi-cloud management:
 
 ```go
 import "github.com/aerospike/aerolab/pkg/backend"
@@ -102,4 +102,4 @@ err = backend.AddRegion(backends.BackendTypeGCP, "us-central1-a")
 regions, err := backend.ListEnabledRegions(backends.BackendTypeAWS)
 ```
 
-Refer to [backend README](mdc:src/pkg/backend/README.md) for comprehensive backend documentation.
+Refer to [backend README](mdc:pkg/backend/README.md) for comprehensive backend documentation.
