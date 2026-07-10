@@ -13,14 +13,17 @@ AeroLab is a tool for deploying and managing Aerospike clusters across multiple 
 ## Quick Start
 
 ```bash
+# Install (macOS via Homebrew; see Getting Started for other platforms)
+brew install aerospike/tools/aerolab
+
 # Configure backend (Docker)
 aerolab config backend -t docker
 
 # Create a cluster
 aerolab cluster create -n mycluster -c 3
 
-# List instances
-aerolab instances list
+# List clusters
+aerolab cluster list
 ```
 
 ## Migration from v7.x
