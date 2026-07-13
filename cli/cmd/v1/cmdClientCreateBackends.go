@@ -28,7 +28,7 @@ type ClientCreateCmdAws struct {
 	InstanceType       guiInstanceType `short:"I" long:"instance-type" description:"instance type to use" webchoice:"method::List"`
 	Disks              []string        `long:"aws-disk" description:"EBS disks, format: type={gp3|gp2|io2|io1},size={GB}[,iops={cnt}][,throughput={mb/s}][,count=5][,encrypted=true|false]; first specified volume is the root volume, all subsequent volumes are additional attached volumes" default:"type=gp3,size=20"`
 	NetworkPlacement   string          `short:"U" long:"subnet-id" description:"network placement: region name, VPC-ID or subnet-ID; empty=default at first region"`
-	PublicIP           bool            `short:"L" long:"public-ip" description:"if set, force a public IP to be assigned to the instances even if the backend is configured to disable public IPs"`
+	PublicIP           bool            `short:"L" long:"public-ip" description:"accepted for command-line compatibility with 'cluster create'; instance public IP assignment is controlled by the backend configuration (aws-nopublic-ip), not by this flag"`
 	Firewalls          []string        `long:"secgroup-name" description:"Extra security group names to assign to the instances"`
 	SpotInstance       bool            `long:"aws-spot-instance" description:"set to request a spot instance in place of on-demand"`
 	Expire             TypeExpiry      `long:"aws-expire" description:"length of life of nodes prior to expiry; Y/M/W/D/h/m/s, ex 1D12h 2W 1Y6M; 0: no expiry" default:"30h"`
@@ -57,7 +57,7 @@ type ClientCreateCmdGcp struct {
 	ImageName          string          `long:"image" description:"Custom source image to use for the instances; ignores OS, Version, Arch; format: projects/<project>/global/images/<image>"`
 	InstanceType       guiInstanceType `long:"instance" description:"instance type to use" webchoice:"method::List"`
 	Disks              []string        `long:"gcp-disk" description:"disks, format: type={pd-*,hyperdisk-*,local-ssd}[,size={GB}][,iops={cnt}][,throughput={mb/s}][,count=5]; first specified volume is the root volume, cannot be local-ssd" default:"type=pd-ssd,size=20"`
-	PublicIP           bool            `long:"external-ip" description:"if set, force a public IP to be assigned to the instances even if the backend is configured to disable public IPs"`
+	PublicIP           bool            `long:"external-ip" description:"accepted for command-line compatibility with 'cluster create'; instance public IP assignment is controlled by the backend configuration (gcp-nopublic-ip), not by this flag"`
 	Zone               guiZone         `long:"zone" description:"zone name to deploy to; empty=default at first region" webchoice:"method::List"`
 	VPC                guiVpc          `long:"vpc" description:"VPC network name to use; empty=default VPC" webchoice:"method::List"`
 	Subnet             string          `long:"subnet" description:"GCP subnet name within the selected VPC; empty=auto-select first subnet in the zone's region"`

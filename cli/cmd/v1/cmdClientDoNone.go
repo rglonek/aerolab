@@ -175,15 +175,18 @@ func (c *ClientCreateNoneCmd) createNoneClient(system *System, inventory *backen
 
 	// Map the v7-compatible client backend flags onto the instances
 	// representation. Public-IP assignment follows the backend configuration
-	// (matching `cluster create`); --public-ip/--external-ip force it on.
+	// only, exactly like `cluster create` - --public-ip/--external-ip are v7
+	// compatibility flags and do not override the backend's no-public-ip
+	// policy (cluster create rejects that combination outright; here we just
+	// leave the flags without effect on instance-level IP assignment).
 	awsInst := c.AWS.toInstances()
 	gcpInst := c.GCP.toInstances()
 	if c.disablePublicIPOverride != nil {
 		awsInst.DisablePublicIP = *c.disablePublicIPOverride
 		gcpInst.DisablePublicIP = *c.disablePublicIPOverride
 	} else {
-		awsInst.DisablePublicIP = system.Opts.Config.Backend.AWSNoPublicIps && !c.AWS.PublicIP
-		gcpInst.DisablePublicIP = system.Opts.Config.Backend.GCPNoPublicIps && !c.GCP.PublicIP
+		awsInst.DisablePublicIP = system.Opts.Config.Backend.AWSNoPublicIps
+		gcpInst.DisablePublicIP = system.Opts.Config.Backend.GCPNoPublicIps
 	}
 
 	// Create instances using base command by properly mapping all fields
