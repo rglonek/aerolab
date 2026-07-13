@@ -51,6 +51,11 @@ type ClusterCreateCmd struct {
 	CapacityRetries    int           `long:"capacity-retries" description:"Maximum retries for capacity errors (AWS/GCP only)" default:"0" simplemode:"false"`
 	CapacityRetrySleep time.Duration `long:"capacity-retry-sleep" description:"Sleep duration between capacity retries" default:"60s" simplemode:"false"`
 	Help               HelpCmd       `command:"help" subcommands-optional:"true" description:"Print help"`
+	// customConfig holds an in-memory, augmented copy of the custom aerospike.conf
+	// (see checkCustomConfigBasics) when the user opted in to having aerolab add
+	// missing basic items. When set, it is installed in place of re-reading
+	// CustomConfigFilePath, leaving the user's original file untouched.
+	customConfig []byte
 }
 
 type ClusterCreateCmdAws struct {
@@ -488,7 +493,12 @@ func (c *ClusterCreateCmd) CreateCluster(system *System, inventory *backends.Inv
 	}
 	containerServicePort := "3000"
 	if c.CustomConfigFilePath != "" && system.Opts.Config.Backend.Type == "docker" {
-		if confData, err := os.ReadFile(string(c.CustomConfigFilePath)); err == nil {
+		confData := c.customConfig
+		var readErr error
+		if len(confData) == 0 {
+			confData, readErr = os.ReadFile(string(c.CustomConfigFilePath))
+		}
+		if readErr == nil {
 			if cfg, err := aeroconf.Parse(bytes.NewReader(confData)); err == nil {
 				if cfg.Type("network") == aeroconf.ValueStanza {
 					ns := cfg.Stanza("network")
@@ -749,10 +759,14 @@ func (c *ClusterCreateCmd) CreateCluster(system *System, inventory *backends.Inv
 		// read existing config
 		var conf []byte
 		if c.CustomConfigFilePath != "" && i.isNew {
-			conf, err = os.ReadFile(string(c.CustomConfigFilePath))
-			if err != nil {
-				errs = append(errs, err)
-				return
+			if len(c.customConfig) > 0 {
+				conf = c.customConfig
+			} else {
+				conf, err = os.ReadFile(string(c.CustomConfigFilePath))
+				if err != nil {
+					errs = append(errs, err)
+					return
+				}
 			}
 		} else {
 			var buf bytes.Buffer
@@ -1131,6 +1145,9 @@ func (c *ClusterCreateCmd) SanityChecks(system *System, inventory *backends.Inve
 		if _, err := os.Stat(string(c.CustomConfigFilePath)); os.IsNotExist(err) {
 			return errors.New("custom-config-file path " + string(c.CustomConfigFilePath) + " does not exist")
 		}
+		if err := c.checkCustomConfigBasics(logger); err != nil {
+			return err
+		}
 	}
 
 	if c.CustomToolsFilePath != "" {
@@ -1153,6 +1170,222 @@ func (c *ClusterCreateCmd) SanityChecks(system *System, inventory *backends.Inve
 		return err
 	}
 	return nil
+}
+
+// checkCustomConfigBasics parses a user-supplied aerospike.conf and warns about
+// any "basic" items that aerospike needs to start but that aerolab does not
+// reliably synthesise when a custom config is provided (logging, the service
+// port, heartbeat, fabric and at least one namespace). When running
+// interactively it offers to inject sane defaults for the missing items; if the
+// user agrees, the augmented config is kept in memory (c.customConfig) and
+// installed in place of the original file, which is left untouched. It also
+// warns when network.service.port is set to something other than the default
+// 3000, since aerolab's roster/asinfo tooling runs bare asinfo against 3000.
+func (c *ClusterCreateCmd) checkCustomConfigBasics(logger *logger.Logger) error {
+	if c.CustomConfigFilePath == "" {
+		return nil
+	}
+	confData, err := os.ReadFile(string(c.CustomConfigFilePath))
+	if err != nil {
+		return fmt.Errorf("failed to read custom config file %s: %s", c.CustomConfigFilePath, err)
+	}
+	report, err := inspectCustomConfig(confData)
+	if err != nil {
+		return fmt.Errorf("failed to parse custom config file %s: %s", c.CustomConfigFilePath, err)
+	}
+
+	// warn when the service port is not the default 3000: aerolab's roster and
+	// stability tooling run bare asinfo which assumes 127.0.0.1:3000.
+	if report.nonDefaultPort != "" {
+		logger.Warn("custom config sets network.service.port to %s (not the default 3000); aerolab commands such as `roster apply`, `roster show` and `aerospike-is-stable` run bare asinfo against 127.0.0.1:3000 and will fail to connect to this cluster", report.nonDefaultPort)
+	}
+
+	// aerolab does not fabricate a namespace when a custom config is supplied.
+	if !report.hasNamespace {
+		logger.Warn("custom config %s does not define any namespace stanza; aerospike will not start without at least one namespace (aerolab will not add one for you when a custom config is provided)", c.CustomConfigFilePath)
+	}
+
+	if len(report.missing) == 0 {
+		return nil
+	}
+
+	logger.Warn("custom config %s is missing basic items that aerospike/aerolab expect: %s", c.CustomConfigFilePath, strings.Join(report.missing, ", "))
+
+	if !IsInteractive() {
+		logger.Warn("re-run interactively to have aerolab add these defaults for you, or add them to your config manually before creating the cluster")
+		return nil
+	}
+
+	fmt.Printf("Add the missing basic items to the config aerolab will install (%s)? [y/N]: ", strings.Join(report.missing, ", "))
+	reader := bufio.NewReader(os.Stdin)
+	answer, _ := reader.ReadString('\n')
+	answer = strings.ToLower(strings.TrimSpace(answer))
+	if answer != "y" && answer != "yes" {
+		logger.Info("leaving custom config unchanged")
+		return nil
+	}
+
+	c.customConfig = report.augmented
+	logger.Info("added default values for: %s (installing an augmented in-memory copy; your original file %s is left untouched)", strings.Join(report.missing, ", "), c.CustomConfigFilePath)
+	return nil
+}
+
+// customConfigReport is the result of inspecting a user-supplied aerospike.conf
+// for the basic items aerospike needs to start but that aerolab does not
+// reliably synthesise when a custom config is provided.
+type customConfigReport struct {
+	missing        []string // labels of missing basic items, in a stable order
+	augmented      []byte   // the input config with defaults injected for every missing item
+	hasNamespace   bool     // whether at least one namespace stanza is defined
+	nonDefaultPort string   // network.service.port when set to something other than 3000, else ""
+}
+
+// inspectCustomConfig parses confData, determines which basic items are missing
+// and builds an augmented copy with sane defaults injected for each. It is pure
+// (no IO) so the detection and augmentation can be unit-tested.
+func inspectCustomConfig(confData []byte) (customConfigReport, error) {
+	var report customConfigReport
+	cfg, err := aeroconf.Parse(bytes.NewReader(confData))
+	if err != nil {
+		return report, err
+	}
+
+	// stanza walks a stanza path, returning nil if any segment is missing.
+	stanza := func(parts ...string) aeroconf.Stanza {
+		s := cfg
+		for _, p := range parts {
+			if s.Type(p) != aeroconf.ValueStanza {
+				return nil
+			}
+			s = s.Stanza(p)
+		}
+		return s
+	}
+	// hasVal reports whether a (possibly nil) stanza has a non-empty value key.
+	hasVal := func(s aeroconf.Stanza, key string) bool {
+		if s == nil {
+			return false
+		}
+		vals, err := s.GetValues(key)
+		return err == nil && len(vals) > 0 && vals[0] != nil
+	}
+	// ensureStanza vivifies a stanza path, returning the leaf stanza.
+	ensureStanza := func(parts ...string) (aeroconf.Stanza, error) {
+		s := cfg
+		for _, p := range parts {
+			if s.Type(p) != aeroconf.ValueStanza {
+				if err := s.NewStanza(p); err != nil {
+					return nil, err
+				}
+			}
+			s = s.Stanza(p)
+		}
+		return s, nil
+	}
+
+	for _, k := range cfg.ListKeys() {
+		if strings.HasPrefix(k, "namespace ") && cfg.Type(k) == aeroconf.ValueStanza {
+			report.hasNamespace = true
+			break
+		}
+	}
+	if svc := stanza("network", "service"); svc != nil {
+		if vals, err := svc.GetValues("port"); err == nil && len(vals) > 0 && vals[0] != nil {
+			if p := strings.TrimSpace(*vals[0]); p != "" && p != "3000" {
+				report.nonDefaultPort = p
+			}
+		}
+	}
+
+	// each fix describes one missing basic item and how to inject a default.
+	type fix struct {
+		label   string
+		missing bool
+		apply   func() error
+	}
+	fixes := []fix{
+		{
+			label:   "service (proto-fd-max 15000)",
+			missing: stanza("service") == nil,
+			apply: func() error {
+				s, err := ensureStanza("service")
+				if err != nil {
+					return err
+				}
+				return s.SetValue("proto-fd-max", "15000")
+			},
+		},
+		{
+			label:   "logging (file /var/log/aerospike.log)",
+			missing: stanza("logging") == nil,
+			apply: func() error {
+				s, err := ensureStanza("logging", "file /var/log/aerospike.log")
+				if err != nil {
+					return err
+				}
+				return s.SetValue("context", "any info")
+			},
+		},
+		{
+			label:   "network.service.port (3000)",
+			missing: !hasVal(stanza("network", "service"), "port"),
+			apply: func() error {
+				s, err := ensureStanza("network", "service")
+				if err != nil {
+					return err
+				}
+				return s.SetValue("port", "3000")
+			},
+		},
+		{
+			label:   "network.heartbeat (mode mesh, port 3002)",
+			missing: stanza("network", "heartbeat") == nil || !hasVal(stanza("network", "heartbeat"), "mode") || !hasVal(stanza("network", "heartbeat"), "port"),
+			apply: func() error {
+				s, err := ensureStanza("network", "heartbeat")
+				if err != nil {
+					return err
+				}
+				// stable order so serialised output is deterministic
+				for _, kv := range [][2]string{{"mode", "mesh"}, {"port", "3002"}, {"interval", "150"}, {"timeout", "10"}} {
+					if !hasVal(s, kv[0]) {
+						if err := s.SetValue(kv[0], kv[1]); err != nil {
+							return err
+						}
+					}
+				}
+				return nil
+			},
+		},
+		{
+			label:   "network.fabric.port (3001)",
+			missing: !hasVal(stanza("network", "fabric"), "port"),
+			apply: func() error {
+				s, err := ensureStanza("network", "fabric")
+				if err != nil {
+					return err
+				}
+				return s.SetValue("port", "3001")
+			},
+		},
+	}
+
+	for _, f := range fixes {
+		if !f.missing {
+			continue
+		}
+		report.missing = append(report.missing, f.label)
+		if err := f.apply(); err != nil {
+			return report, fmt.Errorf("failed to add default for %s: %s", f.label, err)
+		}
+	}
+	if len(report.missing) > 0 {
+		var buf bytes.Buffer
+		if err := cfg.Write(&buf, "", "    ", true); err != nil {
+			return report, fmt.Errorf("failed to serialise augmented custom config: %s", err)
+		}
+		report.augmented = buf.Bytes()
+	}
+	return report, nil
 }
 
 func (c *ClusterCreateCmd) FeaturesFilePathResolve(system *System, inventory *backends.Inventory, logger *logger.Logger) (string, error) {
