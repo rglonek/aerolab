@@ -325,7 +325,7 @@ func (c *AgiMonitorCreateCmd) createBaseInstance(system *System, inventory *back
 		if c.AWS.AWSKeyId != "" && c.AWS.AWSSecretKey != "" {
 			instanceRole = ""
 		}
-		createCmd.AWS = InstancesCreateCmdAws{
+		createCmd.AWS = ClientCreateCmdAws{
 			InstanceType:       c.AWS.InstanceType,
 			Firewalls:          firewalls,
 			IAMInstanceProfile: instanceRole,
@@ -333,6 +333,10 @@ func (c *AgiMonitorCreateCmd) createBaseInstance(system *System, inventory *back
 			Expire:             c.AWS.Expires,
 			NetworkPlacement:   c.AWS.SubnetID,
 		}
+		// Preserve the original behaviour: the monitor instance always gets a
+		// public IP on AWS.
+		awsPublic := false
+		createCmd.disablePublicIPOverride = &awsPublic
 	case "gcp":
 		instanceRole := c.GCP.InstanceRole
 		if c.DisablePricingAPI {
@@ -340,7 +344,7 @@ func (c *AgiMonitorCreateCmd) createBaseInstance(system *System, inventory *back
 		}
 		// Use the VPC-specific AGI firewall name
 		firewalls := []string{agiFirewallName}
-		createCmd.GCP = InstancesCreateCmdGcp{
+		createCmd.GCP = ClientCreateCmdGcp{
 			InstanceType:       c.GCP.InstanceType,
 			Zone:               c.GCP.Zone,
 			VPC:                c.GCP.VPC,
@@ -349,8 +353,11 @@ func (c *AgiMonitorCreateCmd) createBaseInstance(system *System, inventory *back
 			IAMInstanceProfile: instanceRole,
 			Disks:              []string{"type=pd-ssd,size=20"}, // 20GB for monitor
 			Expire:             c.GCP.Expires,
-			DisablePublicIP:    c.GCP.DisablePublicIP,
 		}
+		// Preserve the original behaviour: honour the monitor's own public-IP
+		// setting directly for the created instance.
+		gcpDisablePublicIP := c.GCP.DisablePublicIP
+		createCmd.disablePublicIPOverride = &gcpDisablePublicIP
 	}
 
 	// Create the instance

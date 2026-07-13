@@ -25,9 +25,9 @@ type ClientCreateGraphCmd struct {
 	ClientName         TypeClientName           `short:"n" long:"group-name" description:"Client group name" default:"client"`
 	ClientCount        int                      `short:"c" long:"count" description:"Number of clients" default:"1"`
 	Owner              string                   `short:"o" long:"owner" description:"Owner of the instances"`
-	AWS                InstancesCreateCmdAws    `group:"AWS" description:"backend-aws" namespace:"aws"`
-	GCP                InstancesCreateCmdGcp    `group:"GCP" description:"backend-gcp" namespace:"gcp"`
-	Docker             InstancesCreateCmdDocker `group:"Docker" description:"backend-docker" namespace:"docker"`
+	AWS                ClientCreateCmdAws       `group:"AWS" description:"backend-aws"`
+	GCP                ClientCreateCmdGcp       `group:"GCP" description:"backend-gcp"`
+	Docker             ClientCreateCmdDocker    `group:"Docker" description:"backend-docker"`
 	Tags               []string                 `short:"t" long:"tag" description:"Tags to add to the instances, format: k=v"`
 	SeedClusterName    TypeClusterName          `short:"C" long:"cluster-name" description:"Cluster name to seed from" default:"mydc"`
 	Seed               string                   `long:"seed" description:"Specify a seed IP:PORT instead of providing a ClusterName; if this parameter is provided, ClusterName is ignored"`
@@ -288,7 +288,7 @@ func (c *ClientCreateGraphCmd) createGraphOnDocker(system *System, inventory *ba
 		OS:                        "ubuntu",
 		Version:                   "24.04",
 		Arch:                      "amd64",
-		Docker:                    c.Docker,
+		Docker:                    c.Docker.toInstances(),
 		ParallelSSHThreads:        c.ParallelSSHThreads,
 		MaxRetries:                c.MaxRetries,
 		RetrySleep:                c.RetrySleep,

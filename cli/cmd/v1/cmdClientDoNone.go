@@ -17,9 +17,9 @@ type ClientCreateNoneCmd struct {
 	ClientName         TypeClientName           `short:"n" long:"group-name" description:"Client group name" default:"client"`
 	ClientCount        int                      `short:"c" long:"count" description:"Number of clients" default:"1"`
 	Owner              string                   `short:"o" long:"owner" description:"Owner of the instances"`
-	AWS                InstancesCreateCmdAws    `group:"AWS" description:"backend-aws" namespace:"aws"`
-	GCP                InstancesCreateCmdGcp    `group:"GCP" description:"backend-gcp" namespace:"gcp"`
-	Docker             InstancesCreateCmdDocker `group:"Docker" description:"backend-docker" namespace:"docker"`
+	AWS                ClientCreateCmdAws       `group:"AWS" description:"backend-aws"`
+	GCP                ClientCreateCmdGcp       `group:"GCP" description:"backend-gcp"`
+	Docker             ClientCreateCmdDocker    `group:"Docker" description:"backend-docker"`
 	OS                 string                   `long:"os" description:"OS to use for the instances" default:"ubuntu"`
 	Version            string                   `long:"version" description:"Version of the OS to use for the instances" default:"24.04"`
 	Arch               string                   `long:"arch" description:"Architecture override to use for the instances (amd64, arm64)"`
@@ -35,6 +35,12 @@ type ClientCreateNoneCmd struct {
 	CapacityRetries    int           `long:"capacity-retries" description:"Maximum retries for capacity errors (AWS/GCP only)" default:"0" simplemode:"false"`
 	CapacityRetrySleep time.Duration `long:"capacity-retry-sleep" description:"Sleep duration between capacity retries" default:"60s" simplemode:"false"`
 	Help               HelpCmd       `command:"help" subcommands-optional:"true" description:"Print help"`
+
+	// disablePublicIPOverride, when non-nil, forces the instances-level
+	// DisablePublicIP value instead of deriving it from the backend config and
+	// the --public-ip/--external-ip flags. It is used by internal callers (e.g.
+	// agi monitor create) that need to control public IP assignment directly.
+	disablePublicIPOverride *bool
 }
 
 func (c *ClientCreateNoneCmd) Execute(args []string) error {
@@ -167,6 +173,22 @@ func (c *ClientCreateNoneCmd) createNoneClient(system *System, inventory *backen
 
 	tags = append(tags, c.Tags...)
 
+	// Map the v7-compatible client backend flags onto the instances
+	// representation. Public-IP assignment follows the backend configuration
+	// only, exactly like `cluster create` - --public-ip/--external-ip are v7
+	// compatibility flags and do not override the backend's no-public-ip
+	// policy (cluster create rejects that combination outright; here we just
+	// leave the flags without effect on instance-level IP assignment).
+	awsInst := c.AWS.toInstances()
+	gcpInst := c.GCP.toInstances()
+	if c.disablePublicIPOverride != nil {
+		awsInst.DisablePublicIP = *c.disablePublicIPOverride
+		gcpInst.DisablePublicIP = *c.disablePublicIPOverride
+	} else {
+		awsInst.DisablePublicIP = system.Opts.Config.Backend.AWSNoPublicIps
+		gcpInst.DisablePublicIP = system.Opts.Config.Backend.GCPNoPublicIps
+	}
+
 	// Create instances using base command by properly mapping all fields
 	instancesCmd := InstancesCreateCmd{
 		ClusterName:               c.ClientName.String(),
@@ -177,9 +199,9 @@ func (c *ClientCreateNoneCmd) createNoneClient(system *System, inventory *backen
 		OS:                        c.OS,
 		Version:                   c.Version,
 		Arch:                      c.Arch,
-		AWS:                       c.AWS,
-		GCP:                       c.GCP,
-		Docker:                    c.Docker,
+		AWS:                       awsInst,
+		GCP:                       gcpInst,
+		Docker:                    c.Docker.toInstances(),
 		ParallelSSHThreads:        c.ParallelSSHThreads,
 		MaxRetries:                c.MaxRetries,
 		RetrySleep:                c.RetrySleep,
@@ -196,8 +218,11 @@ func (c *ClientCreateNoneCmd) createNoneClient(system *System, inventory *backen
 
 	instances, err := instancesCmd.CreateInstances(system, inventory, args, action)
 	if madeInteractiveChoices || instancesCmd.interactiveChoicesMade {
-		c.AWS = instancesCmd.AWS
-		c.GCP = instancesCmd.GCP
+		// Propagate any interactive backend choices (instance type/zone) back
+		// so the reconstructed equivalent command line reflects them.
+		c.AWS.InstanceType = instancesCmd.AWS.InstanceType
+		c.GCP.InstanceType = instancesCmd.GCP.InstanceType
+		c.GCP.Zone = instancesCmd.GCP.Zone
 		cmdLine := ReconstructCommandLine([]string{"client", action, "none"}, c, false)
 		fmt.Printf("\nEquivalent command:\n  %s\n\n", cmdLine)
 	}
