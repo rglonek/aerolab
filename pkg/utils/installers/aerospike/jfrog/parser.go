@@ -142,6 +142,23 @@ func splitOSTag(tag string) (osName, osVersion string) {
 	return "", tag
 }
 
+// osTag is the inverse of splitOSTag: it renders an (osName, osVersion)
+// pair back into the JFrog filename tag ("ubuntu24.04", "amzn2023",
+// "el9", "debian12"). Returns "" for OS names JFrog does not publish.
+func osTag(osName, osVersion string) string {
+	switch osName {
+	case "amazon":
+		return "amzn" + osVersion
+	case "centos", "rocky":
+		return "el" + osVersion
+	case "debian":
+		return "debian" + osVersion
+	case "ubuntu":
+		return "ubuntu" + osVersion
+	}
+	return ""
+}
+
 // debArch maps Debian's package arch labels to the rpm/aerolab labels so
 // the matcher only ever has to think in one vocabulary.
 func debArch(in string) string {

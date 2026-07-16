@@ -168,10 +168,10 @@ func TestMatchTools(t *testing.T) {
 
 func TestEditionFromInput(t *testing.T) {
 	cases := []struct {
-		in           string
-		def          string
-		wantEdition  string
-		wantVersion  string
+		in          string
+		def         string
+		wantEdition string
+		wantVersion string
 	}{
 		{"8.1.3.0-28-g302194ebc", "enterprise", "enterprise", "8.1.3.0-28-g302194ebc"},
 		// git SHA ending in 'c' must NOT be treated as community shorthand
