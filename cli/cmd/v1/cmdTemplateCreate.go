@@ -480,6 +480,24 @@ func (c *TemplateCreateCmd) CreateTemplate(system *System, inventory *backends.I
 				cli.Close()
 				return "", fmt.Errorf("could not upload JFrog package: %s", err)
 			}
+			if jfrogPkg.toolsPkgRemotePath != "" {
+				logger.Info("Uploading JFrog tools package %s to %s:%s", jfrogPkg.toolsPkgLocalPath, conf.Host, jfrogPkg.toolsPkgRemotePath)
+				tf, err := os.Open(jfrogPkg.toolsPkgLocalPath)
+				if err != nil {
+					cli.Close()
+					return "", fmt.Errorf("could not open cached JFrog tools package: %s", err)
+				}
+				err = cli.WriteFile(true, &sshexec.FileWriter{
+					DestPath:    jfrogPkg.toolsPkgRemotePath,
+					Source:      tf,
+					Permissions: 0644,
+				})
+				tf.Close()
+				if err != nil {
+					cli.Close()
+					return "", fmt.Errorf("could not upload JFrog tools package: %s", err)
+				}
+			}
 		}
 		err = cli.WriteFile(true, &sshexec.FileWriter{
 			DestPath:    "/opt/aerolab/scripts/template-install.sh",

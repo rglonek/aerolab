@@ -14,12 +14,14 @@ import (
 // resolved install script, plus the local package file that has to be
 // SFTP-uploaded to each instance before the script runs.
 type jfrogPlan struct {
-	script        []byte
-	pkgLocalPath  string // path on operator's laptop
-	pkgRemotePath string // path on target instance
-	version       string // canonical build number (with -artifacts suffix)
-	edition       string // community | enterprise | federal
-	osVersion     string // never "latest"; resolved before return
+	script             []byte
+	pkgLocalPath       string // path on operator's laptop
+	pkgRemotePath      string // path on target instance
+	toolsPkgLocalPath  string // aerospike-tools .tgz on operator's laptop ("" if not found)
+	toolsPkgRemotePath string // aerospike-tools .tgz path on target instance ("" if not found)
+	version            string // canonical build number (with -artifacts suffix)
+	edition            string // community | enterprise | federal
+	osVersion          string // never "latest"; resolved before return
 }
 
 // resolveJFrogPlan does the JFrog-specific equivalent of
@@ -86,6 +88,34 @@ func resolveJFrogPlan(system *System, log *logger.Logger, aerospikeVersion, dist
 	if err != nil {
 		return nil, err
 	}
+
+	// The JFrog server .deb/.rpm installs only the server (asd); it does not
+	// bundle the tools the public .tgz flow gets via asinstall. Without
+	// asinfo/asadm/aql, aerolab commands such as `roster apply`, `roster show`
+	// and `aerospike-is-stable` fail on the resulting cluster. So locate,
+	// download and install the matching aerospike-tools .tgz from the same
+	// build, keeping JFrog templates interchangeable with the public ones.
+	var toolsLocal, toolsRemote string
+	if toolsMatch := files.MatchTools(jfrog.MatchCriteria{
+		OSName:    osName,
+		OSVersion: distroVersion,
+		Arch:      jfArch,
+	}); toolsMatch != nil {
+		log.Info("Selected tools artifact: %s/%s/%s (%d bytes)", toolsMatch.Repo, toolsMatch.Path, toolsMatch.Name, toolsMatch.Size)
+		toolsLocal, err = cfg.Download(context.Background(), toolsMatch, cacheDir)
+		if err != nil {
+			return nil, fmt.Errorf("could not download aerospike-tools package: %w", err)
+		}
+		toolsScript, err := jfrog.ToolsInstallScript(toolsMatch, false)
+		if err != nil {
+			return nil, fmt.Errorf("could not build aerospike-tools install script: %w", err)
+		}
+		pkgScript = append(pkgScript, toolsScript...)
+		toolsRemote = jfrog.RemotePackagePath(toolsMatch)
+	} else {
+		log.Warn("JFrog build has no matching aerospike-tools package for %s/%s/%s; asinfo/asadm/aql will be missing and commands such as `roster apply`, `roster show` and `aerospike-is-stable` will fail on this cluster", osName, distroVersion, jfArch)
+	}
+
 	// Wrap with the same "basic tools" optional dependency set the
 	// public flow uses so the resulting templates are interchangeable.
 	wrapped, err := installers.GetInstallScript(templateOptionalDeps(debug), pkgScript)
@@ -94,12 +124,14 @@ func resolveJFrogPlan(system *System, log *logger.Logger, aerospikeVersion, dist
 	}
 
 	return &jfrogPlan{
-		script:        wrapped,
-		pkgLocalPath:  local,
-		pkgRemotePath: jfrog.RemotePackagePath(match),
-		version:       build.Number,
-		edition:       edition,
-		osVersion:     distroVersion,
+		script:             wrapped,
+		pkgLocalPath:       local,
+		pkgRemotePath:      jfrog.RemotePackagePath(match),
+		toolsPkgLocalPath:  toolsLocal,
+		toolsPkgRemotePath: toolsRemote,
+		version:            build.Number,
+		edition:            edition,
+		osVersion:          distroVersion,
 	}, nil
 }
 

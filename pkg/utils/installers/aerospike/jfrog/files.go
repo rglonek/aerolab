@@ -82,6 +82,26 @@ func (fs Files) Match(c MatchCriteria) (*File, error) {
 		c.Edition, wantFormat, c.OSName, c.OSVersion, c.Arch, c.Edition, seen)
 }
 
+// MatchTools returns the "aerospike-tools_*.tgz" artifact matching the OS
+// and architecture in c. Edition and package format are ignored — the tools
+// bundle is edition-agnostic and always shipped as a .tgz. Returns nil when
+// the build has no matching tools package, so callers can fall back to a
+// server-only install (and warn the operator).
+func (fs Files) MatchTools(c MatchCriteria) *File {
+	for i := range fs {
+		f := &fs[i]
+		tp := ParseToolsFileName(f.Name)
+		if tp == nil {
+			continue
+		}
+		if tp.OSName != c.OSName || tp.OSVersion != c.OSVersion || tp.Arch != c.Arch {
+			continue
+		}
+		return f
+	}
+	return nil
+}
+
 // formatForOS returns the package format JFrog publishes for a given OS.
 func formatForOS(osName string) string {
 	switch osName {
