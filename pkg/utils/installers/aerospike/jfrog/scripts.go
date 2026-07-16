@@ -70,6 +70,24 @@ func InstallScript(f *File, debug, upgrade bool) ([]byte, error) {
 	return append(base, pkg...), nil
 }
 
+// ToolsInstallScript returns a bash snippet that installs the pre-uploaded
+// aerospike-tools .tgz at RemoteFileDir/<name> (extract + run ./asinstall).
+// It is meant to be appended after the server InstallScript so JFrog-built
+// templates carry asinfo/asadm/aql just like the public .tgz flow does.
+func ToolsInstallScript(f *File, upgrade bool) ([]byte, error) {
+	if f == nil {
+		return nil, fmt.Errorf("jfrog: tools install script needs a file")
+	}
+	data := struct {
+		FileName string
+		Upgrade  bool
+	}{
+		FileName: RemoteFileDir + "/" + f.Name,
+		Upgrade:  upgrade,
+	}
+	return renderTemplate("scripts/install_tools.sh.tpl", data)
+}
+
 func renderTemplate(name string, data any) ([]byte, error) {
 	raw, err := scriptsFS.ReadFile(name)
 	if err != nil {

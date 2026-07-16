@@ -92,12 +92,86 @@ func TestParseFileName_Ignored(t *testing.T) {
 	}
 }
 
+func TestParseToolsFileName(t *testing.T) {
+	cases := []struct {
+		name string
+		want ToolsParts
+	}{
+		{
+			"aerospike-tools_11.2.2_ubuntu24.04_aarch64.tgz",
+			ToolsParts{Version: "11.2.2", OSName: "ubuntu", OSVersion: "24.04", Arch: "aarch64"},
+		},
+		{
+			"aerospike-tools_11.2.2_ubuntu24.04_x86_64.tgz",
+			ToolsParts{Version: "11.2.2", OSName: "ubuntu", OSVersion: "24.04", Arch: "x86_64"},
+		},
+		{
+			"aerospike-tools_11.2.2_amzn2023_x86_64.tgz",
+			ToolsParts{Version: "11.2.2", OSName: "amazon", OSVersion: "2023", Arch: "x86_64"},
+		},
+		{
+			"aerospike-tools_11.2.2_el9_aarch64.tgz",
+			ToolsParts{Version: "11.2.2", OSName: "centos", OSVersion: "9", Arch: "aarch64"},
+		},
+		{
+			"aerospike-tools_11.2.2_debian12_x86_64.tgz",
+			ToolsParts{Version: "11.2.2", OSName: "debian", OSVersion: "12", Arch: "x86_64"},
+		},
+		// resilient: double "aerospike-" prefix
+		{
+			"aerospike-aerospike-tools_11.2.2_ubuntu24.04_aarch64.tgz",
+			ToolsParts{Version: "11.2.2", OSName: "ubuntu", OSVersion: "24.04", Arch: "aarch64"},
+		},
+	}
+	for _, tc := range cases {
+		got := ParseToolsFileName(tc.name)
+		if got == nil {
+			t.Errorf("%s: parse returned nil", tc.name)
+			continue
+		}
+		if *got != tc.want {
+			t.Errorf("%s:\n  got  %+v\n  want %+v", tc.name, *got, tc.want)
+		}
+	}
+
+	// non-tools names must not parse as tools
+	for _, n := range []string{
+		"aerospike-server-enterprise_8.0.0.8_ubuntu24.04_x86_64.tgz",
+		"aerospike-tools_11.2.2_ubuntu24.04_aarch64.tgz.asc",
+		"aerospike-server-community-8.1.3.0-28.amzn2023.aarch64.rpm",
+		"random.txt",
+		"",
+	} {
+		if got := ParseToolsFileName(n); got != nil {
+			t.Errorf("%s: expected nil, got %+v", n, *got)
+		}
+	}
+}
+
+func TestMatchTools(t *testing.T) {
+	fs := Files{
+		{Name: "aerospike-server-enterprise_8.1.3.0-28ubuntu24.04_arm64.deb", Parts: ParseFileName("aerospike-server-enterprise_8.1.3.0-28ubuntu24.04_arm64.deb")},
+		{Name: "aerospike-tools_11.2.2_ubuntu24.04_x86_64.tgz"},
+		{Name: "aerospike-tools_11.2.2_ubuntu24.04_aarch64.tgz"},
+	}
+	got := fs.MatchTools(MatchCriteria{OSName: "ubuntu", OSVersion: "24.04", Arch: "aarch64"})
+	if got == nil || got.Name != "aerospike-tools_11.2.2_ubuntu24.04_aarch64.tgz" {
+		t.Fatalf("MatchTools aarch64: got %v", got)
+	}
+	if got := fs.MatchTools(MatchCriteria{OSName: "ubuntu", OSVersion: "24.04", Arch: "x86_64"}); got == nil || got.Name != "aerospike-tools_11.2.2_ubuntu24.04_x86_64.tgz" {
+		t.Fatalf("MatchTools x86_64: got %v", got)
+	}
+	if got := fs.MatchTools(MatchCriteria{OSName: "debian", OSVersion: "12", Arch: "x86_64"}); got != nil {
+		t.Fatalf("MatchTools miss: expected nil, got %v", got)
+	}
+}
+
 func TestEditionFromInput(t *testing.T) {
 	cases := []struct {
-		in           string
-		def          string
-		wantEdition  string
-		wantVersion  string
+		in          string
+		def         string
+		wantEdition string
+		wantVersion string
 	}{
 		{"8.1.3.0-28-g302194ebc", "enterprise", "enterprise", "8.1.3.0-28-g302194ebc"},
 		// git SHA ending in 'c' must NOT be treated as community shorthand
