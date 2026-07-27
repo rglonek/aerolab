@@ -100,21 +100,26 @@ func (s *b) GetImages() (backends.ImageList, error) {
 	log := s.log.WithPrefix("GetImages: job=" + shortuuid.New() + " ")
 	log.Detail("Start")
 	defer log.Detail("End")
-	var i backends.ImageList
-	ilock := new(sync.Mutex)
-	wg := new(sync.WaitGroup)
+	var wg sync.WaitGroup
 	zones, _ := s.ListEnabledZones()
-	var errs error
-	wg.Add(len(zones) * 2)
+
+	var (
+		iLock sync.Mutex
+		i     backends.ImageList
+
+		errsLock sync.Mutex
+		errs     error
+	)
 
 	for _, zone := range zones {
-		go func(zone string) {
-			defer wg.Done()
+		wg.Go(func() {
 			log.Detail("zone=%s owned: start", zone)
 			defer log.Detail("zone=%s owned: end", zone)
 			cli, err := s.getDockerClient(zone)
 			if err != nil {
+				errsLock.Lock()
 				errs = errors.Join(errs, err)
+				errsLock.Unlock()
 				return
 			}
 			f := filters.NewArgs()
@@ -128,7 +133,9 @@ func (s *b) GetImages() (backends.ImageList, error) {
 				Filters:        f,
 			})
 			if err != nil {
+				errsLock.Lock()
 				errs = errors.Join(errs, err)
+				errsLock.Unlock()
 				return
 			}
 			for distro, versions := range distrosMap {
@@ -159,6 +166,7 @@ func (s *b) GetImages() (backends.ImageList, error) {
 						if sdImg != nil {
 							size = math.Ceil(float64(sdImg.Size)/1024/1024/1024) * 1024 * 1024 * 1024
 						}
+						iLock.Lock()
 						i = append(i, &backends.Image{
 							BackendType:  backends.BackendTypeDocker,
 							Name:         imageName,
@@ -182,20 +190,22 @@ func (s *b) GetImages() (backends.ImageList, error) {
 								Docker: sdImg,
 							},
 						})
+						iLock.Unlock()
 					}
 				}
 			}
-		}(zone)
+		})
 	}
 
 	for _, zone := range zones {
-		go func(zone string) {
-			defer wg.Done()
+		wg.Go(func() {
 			log.Detail("zone=%s owned: start", zone)
 			defer log.Detail("zone=%s owned: end", zone)
 			cli, err := s.getDockerClient(zone)
 			if err != nil {
+				errsLock.Lock()
 				errs = errors.Join(errs, err)
+				errsLock.Unlock()
 				return
 			}
 			f := filters.NewArgs()
@@ -209,7 +219,9 @@ func (s *b) GetImages() (backends.ImageList, error) {
 				Filters:        f,
 			})
 			if err != nil {
+				errsLock.Lock()
 				errs = errors.Join(errs, err)
+				errsLock.Unlock()
 				return
 			}
 			for _, image := range out {
@@ -230,7 +242,7 @@ func (s *b) GetImages() (backends.ImageList, error) {
 					arch = backends.ArchitectureARM64
 				}
 				img := image
-				ilock.Lock()
+				iLock.Lock()
 				i = append(i, &backends.Image{
 					BackendType:  backends.BackendTypeDocker,
 					Name:         name,
@@ -254,9 +266,9 @@ func (s *b) GetImages() (backends.ImageList, error) {
 						Docker: &img,
 					},
 				})
-				ilock.Unlock()
+				iLock.Unlock()
 			}
-		}(zone)
+		})
 	}
 	wg.Wait()
 	if errs == nil {

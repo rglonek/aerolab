@@ -393,18 +393,21 @@ func (b *backend) loadCache() error {
 
 func (b *backend) poll(items []string) []error {
 	start := time.Now()
-	var errs []error
+	var (
+		errs     []error
+		errsLock sync.Mutex
+	)
 
 	log := b.log.WithPrefix("PollInventory ")
 
 	slices.Sort(items)
 	items = slices.Compact(items)
 
-	netWg := new(sync.WaitGroup)
-	fwWg := new(sync.WaitGroup)
-	volWg := new(sync.WaitGroup)
-	instWg := new(sync.WaitGroup)
-	imgWg := new(sync.WaitGroup)
+	var netWg sync.WaitGroup
+	var fwWg sync.WaitGroup
+	var volWg sync.WaitGroup
+	var instWg sync.WaitGroup
+	var imgWg sync.WaitGroup
 
 	// images can run immediately
 	imgWg.Go(func() {
@@ -413,14 +416,18 @@ func (b *backend) poll(items []string) []error {
 			for n, v := range b.enabledBackends {
 				d, err := v.GetImages()
 				if err != nil {
+					errsLock.Lock()
 					errs = append(errs, err)
+					errsLock.Unlock()
 				} else {
 					b.images[n] = d
 				}
 			}
 			err := b.cache.Store(path.Join(b.project, "images"), b.images)
 			if err != nil {
+				errsLock.Lock()
 				errs = append(errs, err)
+				errsLock.Unlock()
 			}
 		}
 	})
@@ -432,14 +439,18 @@ func (b *backend) poll(items []string) []error {
 			for n, v := range b.enabledBackends {
 				d, err := v.GetVolumes()
 				if err != nil {
+					errsLock.Lock()
 					errs = append(errs, err)
+					errsLock.Unlock()
 				} else {
 					b.volumes[n] = d
 				}
 			}
 			err := b.cache.Store(path.Join(b.project, "volumes"), b.volumes)
 			if err != nil {
+				errsLock.Lock()
 				errs = append(errs, err)
+				errsLock.Unlock()
 			}
 		}
 	})
@@ -450,14 +461,18 @@ func (b *backend) poll(items []string) []error {
 			for n, v := range b.enabledBackends {
 				d, err := v.GetNetworks()
 				if err != nil {
+					errsLock.Lock()
 					errs = append(errs, err)
+					errsLock.Unlock()
 				} else {
 					b.networks[n] = d
 				}
 			}
 			err := b.cache.Store(path.Join(b.project, "networks"), b.networks)
 			if err != nil {
+				errsLock.Lock()
 				errs = append(errs, err)
+				errsLock.Unlock()
 			}
 		}
 	})
@@ -469,14 +484,18 @@ func (b *backend) poll(items []string) []error {
 			for n, v := range b.enabledBackends {
 				d, err := v.GetFirewalls(b.networks[n])
 				if err != nil {
+					errsLock.Lock()
 					errs = append(errs, err)
+					errsLock.Unlock()
 				} else {
 					b.firewalls[n] = d
 				}
 			}
 			err := b.cache.Store(path.Join(b.project, "firewalls"), b.firewalls)
 			if err != nil {
+				errsLock.Lock()
 				errs = append(errs, err)
+				errsLock.Unlock()
 			}
 		}
 	})
@@ -489,14 +508,18 @@ func (b *backend) poll(items []string) []error {
 			for n, v := range b.enabledBackends {
 				d, err := v.GetInstances(b.volumes[n], b.networks[n], b.firewalls[n])
 				if err != nil {
+					errsLock.Lock()
 					errs = append(errs, err)
+					errsLock.Unlock()
 				} else {
 					b.instances[n] = d
 				}
 			}
 			err := b.cache.Store(path.Join(b.project, "instances"), b.instances)
 			if err != nil {
+				errsLock.Lock()
 				errs = append(errs, err)
+				errsLock.Unlock()
 			}
 		}
 	})
