@@ -266,25 +266,7 @@ func (s *b) GetInstanceTypes() (backends.InstanceTypeList, error) {
 	log.Detail("Responding")
 	backendTypes := backends.InstanceTypeList{}
 	for _, t := range prices {
-		onDemandPrice := float64(0)
-		currency := ""
-		if t.Price != nil {
-			for _, onDemand := range t.Price.Terms.OnDemand {
-				for _, priceDimension := range onDemand.PriceDimensions {
-					for unit, price := range priceDimension.PricePerUnit {
-						currency = unit
-						onDemandPrice, err = strconv.ParseFloat(price, 64)
-						if err != nil {
-							log.Detail("Error parsing price: %s", err)
-							continue
-						}
-						break
-					}
-					break
-				}
-				break
-			}
-		}
+		onDemandPrice, currency, _ := t.Price.onDemand()
 		backendTypes = append(backendTypes, &backends.InstanceType{
 			Region:           t.Region,
 			Name:             t.Name,
@@ -354,7 +336,7 @@ func (s *b) getSpotPricesFromAWS(cli *ec2.Client) (map[string]float64, error) {
 	input := &ec2.DescribeSpotPriceHistoryInput{
 		StartTime:           &startTime,
 		EndTime:             &endTime,
-		MaxResults:          aws.Int32(100),
+		MaxResults:          aws.Int32(1000),
 		ProductDescriptions: []string{"Linux/UNIX"},
 	}
 	pages := ec2.NewDescribeSpotPriceHistoryPaginator(cli, input)
@@ -395,6 +377,12 @@ func (s *b) getInstanceTypesFromAWS() ([]*instanceType, error) {
 	spotPrices := make(map[string]map[string]float64)
 	wg := new(sync.WaitGroup)
 	var errs error
+	errLock := new(sync.Mutex)
+	addErr := func(err error) {
+		errLock.Lock()
+		errs = errors.Join(errs, err)
+		errLock.Unlock()
+	}
 	for _, region := range s.regions {
 		wg.Add(1)
 		log.Detail("Getting instance types for region %s", region)
@@ -450,7 +438,7 @@ func (s *b) getInstanceTypesFromAWS() ([]*instanceType, error) {
 				return nil
 			}()
 			if err != nil {
-				errs = errors.Join(errs, err)
+				addErr(err)
 			}
 		}(region)
 		if !skipPricing {
@@ -461,12 +449,12 @@ func (s *b) getInstanceTypesFromAWS() ([]*instanceType, error) {
 				defer log.Detail("Done getting spot prices for region %s", region)
 				ec2cli, err := getEc2Client(s.credentials, aws.String(region))
 				if err != nil {
-					errs = errors.Join(errs, err)
+					addErr(err)
 					return
 				}
 				prices, err := s.getSpotPricesFromAWS(ec2cli)
 				if err != nil {
-					errs = errors.Join(errs, err)
+					addErr(err)
 					return
 				}
 				ilock.Lock()
@@ -477,7 +465,8 @@ func (s *b) getInstanceTypesFromAWS() ([]*instanceType, error) {
 	}
 
 	// get instance prices from AWS (skipped when pricing is disabled)
-	prices := []*instanceTypePrice{}
+	prices := make(map[instancePriceKey]*instanceTypePrice)
+	plock := new(sync.Mutex)
 	var cli *pricing.Client
 	if !skipPricing {
 		log.Detail("Getting instance prices from AWS")
@@ -485,6 +474,16 @@ func (s *b) getInstanceTypesFromAWS() ([]*instanceType, error) {
 		cli, err = getPricingClient(s.credentials, aws.String("us-east-1"))
 		if err != nil {
 			return nil, err
+		}
+	}
+	mergePrices := func(regionPrices map[instancePriceKey]*instanceTypePrice) {
+		plock.Lock()
+		defer plock.Unlock()
+		for k, p := range regionPrices {
+			if existing, ok := prices[k]; ok && existing.rank() >= p.rank() {
+				continue
+			}
+			prices[k] = p
 		}
 	}
 	for _, region := range s.regions {
@@ -496,76 +495,57 @@ func (s *b) getInstanceTypesFromAWS() ([]*instanceType, error) {
 			log.Detail("Getting instance prices from AWS for region %s", region)
 			defer wg.Done()
 			defer log.Detail("Done getting instance prices from AWS for region %s", region)
-			paginator := pricing.NewGetProductsPaginator(cli, &pricing.GetProductsInput{
-				ServiceCode: aws.String("AmazonEC2"),
-				Filters: []types.Filter{
-					{
-						Field: aws.String("regionCode"),
-						Type:  types.FilterTypeTermMatch,
-						Value: aws.String(region),
-					},
-					// NOTE: productFamily filter removed - it excludes bare metal instances
-					// which have "Compute Instance (bare metal)" instead of "Compute Instance"
-					{
-						Type:  types.FilterTypeTermMatch,
-						Field: aws.String("marketoption"),
-						Value: aws.String("OnDemand"),
-					},
-					{
-						Type:  types.FilterTypeTermMatch,
-						Field: aws.String("tenancy"),
-						Value: aws.String("Shared"), // other values: Dedicated, Host
-					},
-					{
-						Type:  types.FilterTypeTermMatch,
-						Field: aws.String("capacitystatus"),
-						Value: aws.String("Used"), // other values: AllocatedCapacityReservation, UnusedCapacityReservation
-					},
-					{
-						Type:  types.FilterTypeTermMatch,
-						Field: aws.String("preInstalledSw"),
-						Value: aws.String("NA"),
-					},
-					{
-						Type:  types.FilterTypeTermMatch,
-						Field: aws.String("operatingSystem"),
-						Value: aws.String("Linux"),
-					},
-				},
-			})
-			for paginator.HasMorePages() {
-				out, err := paginator.NextPage(context.Background())
-				if err != nil {
-					errs = errors.Join(errs, err)
-					return
-				}
-				// parse prices
-				for _, price := range out.PriceList {
-					p := &instanceTypePrice{}
-					_ = json.Unmarshal([]byte(price), p)
-					prices = append(prices, p)
-				}
+			regionPrices, err := getInstancePricesFromAWS(cli, region, true)
+			if err != nil {
+				addErr(err)
+				return
 			}
+			mergePrices(regionPrices)
 		}(region)
 	}
 	wg.Wait()
 	if errs != nil {
 		return nil, errs
 	}
+
+	// Some families are never sold with the default tenancy/capacity-status
+	// combination (high-memory bare metal is host-tenancy only), so anything
+	// left unpriced gets a second, wider lookup in the regions that need it.
+	if !skipPricing {
+		widenRegions := make(map[string]bool)
+		for _, itype := range itypes {
+			if _, ok := prices[instancePriceKey{region: itype.Region, instanceType: itype.Name}]; !ok {
+				widenRegions[itype.Region] = true
+			}
+		}
+		for region := range widenRegions {
+			wg.Add(1)
+			go func(region string) {
+				log.Detail("Getting fallback instance prices from AWS for region %s", region)
+				defer wg.Done()
+				defer log.Detail("Done getting fallback instance prices from AWS for region %s", region)
+				regionPrices, err := getInstancePricesFromAWS(cli, region, false)
+				if err != nil {
+					addErr(err)
+					return
+				}
+				mergePrices(regionPrices)
+			}(region)
+		}
+		wg.Wait()
+		if errs != nil {
+			return nil, errs
+		}
+	}
+
 	// merge prices into types
 	log.Detail("Merging prices into types")
 	for _, itype := range itypes {
-		found := false
-		for _, price := range prices {
-			if itype.Region == price.Product.Attributes.RegionCode && itype.Name == price.Product.Attributes.InstanceType {
-				price := price
-				itype.Price = price
-				found = true
-				break
-			}
-		}
-		if !found {
+		price, ok := prices[instancePriceKey{region: itype.Region, instanceType: itype.Name}]
+		if !ok {
 			log.Detail("OnDemand price not found for instance type %s in region %s", itype.Name, itype.Region)
+		} else {
+			itype.Price = price
 		}
 		regionSpot, ok := spotPrices[itype.Region]
 		if !ok {
@@ -582,9 +562,13 @@ func (s *b) getInstanceTypesFromAWS() ([]*instanceType, error) {
 
 type instanceTypePrice struct {
 	Product struct {
-		Attributes struct {
-			RegionCode   string `json:"regionCode"` // only if exact match
-			InstanceType string `json:"instanceType"`
+		ProductFamily string `json:"productFamily"`
+		Attributes    struct {
+			RegionCode     string `json:"regionCode"` // only if exact match
+			InstanceType   string `json:"instanceType"`
+			Tenancy        string `json:"tenancy"`
+			CapacityStatus string `json:"capacitystatus"`
+			UsageType      string `json:"usagetype"`
 		} `json:"attributes"`
 	} `json:"product"`
 	Terms struct {
@@ -595,6 +579,152 @@ type instanceTypePrice struct {
 			} `json:"priceDimensions"`
 		} `json:"OnDemand"`
 	} `json:"terms"`
+}
+
+// onDemand returns the hourly on-demand price and its currency. ok is false
+// when the product carries no usable on-demand term.
+func (p *instanceTypePrice) onDemand() (price float64, currency string, ok bool) {
+	if p == nil {
+		return 0, "", false
+	}
+	for _, onDemand := range p.Terms.OnDemand {
+		for _, dimension := range onDemand.PriceDimensions {
+			for unit, value := range dimension.PricePerUnit {
+				parsed, err := strconv.ParseFloat(value, 64)
+				if err != nil {
+					continue
+				}
+				return parsed, unit, true
+			}
+		}
+	}
+	return 0, "", false
+}
+
+// rank scores how well a pricing product represents "what aerolab would be
+// billed for running this instance type". The AWS Price List holds a separate
+// product for every tenancy/capacity-status combination, and some families are
+// only sold under one of the non-default combinations: high-memory bare metal
+// (u-6tb1.metal and friends) for instance only ever appears with
+// tenancy=Host, so a plain tenancy=Shared lookup finds nothing for them.
+// Higher is better; negative means unusable.
+func (p *instanceTypePrice) rank() int {
+	if _, _, ok := p.onDemand(); !ok {
+		return -1
+	}
+	score := 0
+	switch p.Product.Attributes.CapacityStatus {
+	case "Used", "":
+		score += 16
+	case "AllocatedCapacityReservation":
+		score += 4
+	}
+	switch p.Product.Attributes.Tenancy {
+	case "Shared", "":
+		score += 8
+	case "Dedicated":
+		score += 2
+	case "Host":
+		score += 1
+	}
+	if !strings.Contains(p.Product.Attributes.UsageType, "Unused") {
+		score++
+	}
+	return score
+}
+
+type instancePriceKey struct {
+	region       string
+	instanceType string
+}
+
+func (p *instanceTypePrice) key() instancePriceKey {
+	return instancePriceKey{
+		region:       p.Product.Attributes.RegionCode,
+		instanceType: p.Product.Attributes.InstanceType,
+	}
+}
+
+// instancePricingFilters builds the Pricing API filter set for Linux EC2
+// instances in a region. The narrow variant pins tenancy/capacity-status to
+// the values that cover the vast majority of instance types; the wide variant
+// drops those (and marketoption, which some products omit entirely) so that
+// families sold only as dedicated or host tenancy can still be priced.
+func instancePricingFilters(region string, narrow bool) []types.Filter {
+	filters := []types.Filter{
+		{
+			Type:  types.FilterTypeTermMatch,
+			Field: aws.String("regionCode"),
+			Value: aws.String(region),
+		},
+		// NOTE: no productFamily filter - it excludes bare metal instances
+		// which have "Compute Instance (bare metal)" instead of "Compute Instance"
+		{
+			Type:  types.FilterTypeTermMatch,
+			Field: aws.String("preInstalledSw"),
+			Value: aws.String("NA"),
+		},
+		{
+			Type:  types.FilterTypeTermMatch,
+			Field: aws.String("operatingSystem"),
+			Value: aws.String("Linux"),
+		},
+	}
+	if !narrow {
+		return filters
+	}
+	return append(filters,
+		types.Filter{
+			Type:  types.FilterTypeTermMatch,
+			Field: aws.String("marketoption"),
+			Value: aws.String("OnDemand"),
+		},
+		types.Filter{
+			Type:  types.FilterTypeTermMatch,
+			Field: aws.String("tenancy"),
+			Value: aws.String("Shared"), // other values: Dedicated, Host
+		},
+		types.Filter{
+			Type:  types.FilterTypeTermMatch,
+			Field: aws.String("capacitystatus"),
+			Value: aws.String("Used"), // other values: AllocatedCapacityReservation, UnusedCapacityReservation
+		},
+	)
+}
+
+// getInstancePricesFromAWS pages through the Pricing API for one region and
+// keeps, per instance type, the best-ranked product.
+func getInstancePricesFromAWS(cli *pricing.Client, region string, narrow bool) (map[instancePriceKey]*instanceTypePrice, error) {
+	paginator := pricing.NewGetProductsPaginator(cli, &pricing.GetProductsInput{
+		ServiceCode: aws.String("AmazonEC2"),
+		Filters:     instancePricingFilters(region, narrow),
+	})
+	best := make(map[instancePriceKey]*instanceTypePrice)
+	for paginator.HasMorePages() {
+		out, err := paginator.NextPage(context.Background())
+		if err != nil {
+			return nil, err
+		}
+		for _, price := range out.PriceList {
+			p := &instanceTypePrice{}
+			if err := json.Unmarshal([]byte(price), p); err != nil {
+				continue
+			}
+			if p.Product.Attributes.InstanceType == "" {
+				continue
+			}
+			score := p.rank()
+			if score < 0 {
+				continue
+			}
+			k := p.key()
+			if existing, ok := best[k]; ok && existing.rank() >= score {
+				continue
+			}
+			best[k] = p
+		}
+	}
+	return best, nil
 }
 
 type instanceTypePriceList struct {

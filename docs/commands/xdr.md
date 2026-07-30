@@ -21,8 +21,8 @@ aerolab xdr connect -S mycluster -D destcluster1,destcluster2 -M test
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `-S, --source` | Source cluster name | `mydc` |
-| `-D, --destinations` | Destination cluster names, comma separated | `destdc` |
+| `-S, --source` | Source cluster name | `asd-source` |
+| `-D, --destinations` | Destination cluster names, comma separated | `asd-dest` |
 | `-c, --connector` | Set to indicate destination is a client connector, not a cluster | `false` |
 | `-V, --xdr-version` | Aerospike XDR configuration version (4\|5\|auto) | `auto` |
 | `-T, --restart-source` | Restart source nodes after connecting (y/n) | `y` |
@@ -146,7 +146,8 @@ Inherits all options from `cluster create` plus:
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `-N, --destinations` | Comma-separated list of destination cluster names | `destdc` |
+| `-n, --name` | Source cluster name | `asd-source` |
+| `-N, --destinations` | Comma-separated list of destination cluster names | `asd-dest` |
 | `-C, --destination-count` | Number of nodes per destination cluster | `1` |
 | `-V, --xdr-version` | XDR configuration version (4\|5\|auto) | `auto` |
 | `-T, --restart-source` | Restart source nodes after connecting (y/n) | `y` |

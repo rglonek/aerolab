@@ -20,7 +20,7 @@ import (
 )
 
 type LogsGetCmd struct {
-	ClusterName TypeClusterName `short:"n" long:"name" description:"Cluster names, comma separated" default:"mydc"`
+	ClusterName TypeClusterName `short:"n" long:"name" description:"Cluster names, comma separated" default:"asd"`
 	Nodes       TypeNodes       `short:"l" long:"nodes" description:"Nodes list, comma separated. Empty=ALL" default:""`
 	Journal     bool            `short:"j" long:"journal" description:"Attempt to get logs from journald instead of log files"`
 	LogLocation string          `short:"p" long:"path" description:"Aerospike log file path" default:"/var/log/aerospike.log"`

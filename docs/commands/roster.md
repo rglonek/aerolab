@@ -41,7 +41,7 @@ aerolab roster show -n mycluster --namespace test
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `-n, --name` | Cluster name | `mydc` |
+| `-n, --name` | Cluster name | `asd` |
 | `-l, --nodes` | Nodes to query (comma-separated) | All nodes |
 | `--namespace` | Namespace to check | `test` |
 
@@ -92,7 +92,7 @@ aerolab roster apply -n mycluster --namespace test
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `-n, --name` | Cluster name | `mydc` |
+| `-n, --name` | Cluster name | `asd` |
 | `--namespace` | Namespace to apply roster to | `test` |
 | `-l, --nodes` | Specific nodes to include | All running nodes |
 

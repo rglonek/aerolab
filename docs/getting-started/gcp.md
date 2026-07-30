@@ -119,10 +119,10 @@ aerolab cluster create -c 2 -d ubuntu -i 24.04 -v '8.*' \
 
 # 4. Wait for it to come up, then use it
 aerolab aerospike is-stable -w
-aerolab attach aql -n mydc -- -c "show namespaces"
+aerolab attach aql -n asd -- -c "show namespaces"
 
 # 5. Tear it down when done
-aerolab cluster destroy -n mydc --force
+aerolab cluster destroy -n asd --force
 ```
 
 `--instance e2-standard-4` picks the instance type, `--gcp.disk type=pd-ssd,size=20` sets a
@@ -198,8 +198,8 @@ file upload/download, and cleanup are identical across every backend — see
 doesn't delete their persistent disks, so you're still billed until you `destroy` or let
 expiry run.
 
-Cluster-level extras: `aerolab cluster add public-ip -n mydc` and
-`aerolab cluster add firewall -n mydc -f aerolab-fw` add these after the fact.
+Cluster-level extras: `aerolab cluster add public-ip -n asd` and
+`aerolab cluster add firewall -n asd -f aerolab-fw` add these after the fact.
 
 ## Troubleshooting
 

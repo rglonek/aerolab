@@ -12,7 +12,7 @@ import (
 )
 
 type ClusterStartCmd struct {
-	ClusterName TypeClusterName `short:"n" long:"name" description:"Cluster names, comma separated" default:"mydc"`
+	ClusterName TypeClusterName `short:"n" long:"name" description:"Cluster names, comma separated" default:"asd"`
 	Nodes       TypeNodes       `short:"l" long:"nodes" description:"Nodes list, comma separated. Empty=ALL" default:""`
 	NoFixMesh   bool            `short:"f" long:"no-fix-mesh" description:"Set to avoid running conf-fix-mesh" simplemode:"false"`
 	NoStart     bool            `short:"s" long:"no-start" description:"Set to prevent Aerospike from starting on cluster-start"`

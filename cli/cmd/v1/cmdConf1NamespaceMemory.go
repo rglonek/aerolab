@@ -17,7 +17,7 @@ import (
 )
 
 type ConfNamespaceMemoryCmd struct {
-	ClusterName TypeClusterName `short:"n" long:"name" description:"Cluster names, comma separated" default:"mydc"`
+	ClusterName TypeClusterName `short:"n" long:"name" description:"Cluster names, comma separated" default:"asd"`
 	Nodes       TypeNodes       `short:"l" long:"nodes" description:"Nodes list, comma separated. Empty=ALL" default:""`
 	Path        string          `short:"p" long:"path" description:"Path to aerospike.conf on the remote nodes" default:"/etc/aerospike/aerospike.conf"`
 	Namespace   string          `short:"m" long:"namespace" description:"Name of the namespace to adjust" default:"test"`

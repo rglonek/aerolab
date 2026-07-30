@@ -156,7 +156,7 @@ Disable interactive prompts and confirmations.
 
 ```bash
 export AEROLAB_NONINTERACTIVE=true
-aerolab cluster destroy -n mydc --force
+aerolab cluster destroy -n asd --force
 ```
 
 ### Use Cases

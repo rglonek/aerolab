@@ -10,7 +10,7 @@ import (
 )
 
 type ClusterAddExpiryCmd struct {
-	ClusterName TypeClusterName `short:"n" long:"name" description:"Cluster name" default:"mydc"`
+	ClusterName TypeClusterName `short:"n" long:"name" description:"Cluster name" default:"asd"`
 	Nodes       TypeNodes       `short:"l" long:"nodes" description:"Nodes list, comma separated. Empty=ALL" default:""`
 	ExpireIn    TypeExpiry       `short:"e" long:"expire-in" description:"Expiry in duration from now; Y/M/W/D/h/m/s, ex 1D12h 2W 1Y6M" default:"30h"`
 	Help        HelpCmd         `command:"help" subcommands-optional:"true" description:"Print help"`

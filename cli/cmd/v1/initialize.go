@@ -34,8 +34,17 @@ func (e *ExecuteError) Error() string {
 	return e.Err.Error()
 }
 
+// Unwrap exposes the underlying failure so callers can inspect it with
+// errors.As, which is how the exit code for things like cloud capacity
+// failures is resolved.
 func (e *ExecuteError) Unwrap() error {
-	return ErrExecuteError
+	return e.Err
+}
+
+// Is keeps errors.Is(err, ErrExecuteError) working as the marker for "this
+// error has already been logged", independently of the wrapped error.
+func (e *ExecuteError) Is(target error) bool {
+	return target == ErrExecuteError
 }
 
 func Error(err error, system *System, command []string, params any, args []string) error {
@@ -161,6 +170,7 @@ func Initialize(i *Init, command []string, params any, args ...string) (*System,
 
 	// initialize the parser
 	s.Parser = flags.NewParser(s.Opts, flags.HelpFlag|flags.PassDoubleDash|flags.IniIncludeDefaults|flags.IniIncludeComments|flags.IniCommentDefaults)
+	ApplyDefaultOverridesToParser(s.Parser)
 	s.IniParser = flags.NewIniParser(s.Parser)
 
 	// create v8 marker file if it does not exist

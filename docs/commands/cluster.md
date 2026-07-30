@@ -31,7 +31,7 @@ aerolab cluster create -c 2 -d ubuntu -i 24.04 -v '8.*'
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `-n, --name` | Cluster name | `mydc` |
+| `-n, --name` | Cluster name | `asd` |
 | `-c, --count` | Number of nodes | `1` |
 | `-d, --distro` | Distribution (ubuntu, centos, rocky, debian, amazon) | Required |
 | `-i, --distro-version` | Distribution version (e.g., 24.04, 22.04) | Required |
@@ -137,7 +137,7 @@ Add nodes to an existing cluster.
 aerolab cluster grow -c 2
 ```
 
-This adds 2 nodes to the default cluster (`mydc`).
+This adds 2 nodes to the default cluster (`asd`).
 
 ### Options
 
@@ -147,7 +147,7 @@ All options from `cluster create` are available, but the cluster must already ex
 
 **Add 2 nodes to a specific cluster:**
 ```bash
-aerolab cluster grow -n mydc -c 2 -d ubuntu -i 24.04 -v '8.*' \
+aerolab cluster grow -n asd -c 2 -d ubuntu -i 24.04 -v '8.*' \
   --aws.instance t3a.xlarge \
   --aws.disk type=gp3,size=20 \
   --aws.expire=8h
@@ -249,12 +249,12 @@ aerolab cluster start
 
 **Start specific nodes:**
 ```bash
-aerolab cluster start -n mydc -l 1-2
+aerolab cluster start -n asd -l 1-2
 ```
 
 **Start multiple clusters:**
 ```bash
-aerolab cluster start -n mydc,otherdc
+aerolab cluster start -n asd,otherdc
 ```
 
 ## Cluster Stop
@@ -280,7 +280,7 @@ aerolab cluster stop
 
 **Stop specific nodes:**
 ```bash
-aerolab cluster stop -n mydc -l 1-2
+aerolab cluster stop -n asd -l 1-2
 ```
 
 ## Cluster Destroy
@@ -290,7 +290,7 @@ Destroy a cluster and all its resources.
 ### Basic Usage
 
 ```bash
-aerolab cluster destroy -n mydc --force
+aerolab cluster destroy -n asd --force
 ```
 
 ### Options
@@ -304,12 +304,12 @@ aerolab cluster destroy -n mydc --force
 
 **Destroy a cluster:**
 ```bash
-aerolab cluster destroy -n mydc --force
+aerolab cluster destroy -n asd --force
 ```
 
 **Destroy multiple clusters:**
 ```bash
-aerolab cluster destroy -n mydc,otherdc --force
+aerolab cluster destroy -n asd,otherdc --force
 ```
 
 ## Cluster Add
@@ -345,7 +345,7 @@ aerolab cluster add aerolab
 Add firewall rules to cluster (AWS/GCP only):
 
 ```bash
-aerolab cluster add firewall -n mydc -f firewall-name
+aerolab cluster add firewall -n asd -f firewall-name
 ```
 
 ### Add Public IP
@@ -353,7 +353,7 @@ aerolab cluster add firewall -n mydc -f firewall-name
 Add public IP access to cluster (AWS/GCP only):
 
 ```bash
-aerolab cluster add public-ip -n mydc
+aerolab cluster add public-ip -n asd
 ```
 
 ## Cluster Partition
@@ -387,7 +387,7 @@ This creates 4 partitions, each 25% of the total disk space (percentages must su
 List partitions on nodes:
 
 ```bash
-aerolab cluster partition list -n mydc
+aerolab cluster partition list -n asd
 ```
 
 ### Configure Partitions
@@ -428,7 +428,7 @@ Attach to cluster nodes (shorthand for `attach shell`).
 ### Basic Usage
 
 ```bash
-aerolab cluster attach -n mydc -l 1
+aerolab cluster attach -n asd -l 1
 ```
 
 ### Options
@@ -443,17 +443,17 @@ aerolab cluster attach -n mydc -l 1
 
 **Attach to a node:**
 ```bash
-aerolab cluster attach -n mydc -l 1
+aerolab cluster attach -n asd -l 1
 ```
 
 **Run command on all nodes:**
 ```bash
-aerolab cluster attach -n mydc -l all -- ls /tmp
+aerolab cluster attach -n asd -l all -- ls /tmp
 ```
 
 **Run command in parallel:**
 ```bash
-aerolab cluster attach -n mydc -l all --parallel -- ls /tmp
+aerolab cluster attach -n asd -l all --parallel -- ls /tmp
 ```
 
 ## Cluster Share
@@ -463,7 +463,7 @@ Share cluster access via SSH public key (AWS/GCP only).
 ### Basic Usage
 
 ```bash
-aerolab cluster share -n mydc -f /path/to/public-key.pub
+aerolab cluster share -n asd -f /path/to/public-key.pub
 ```
 
 This imports the SSH public key to allow access to cluster nodes.
@@ -515,13 +515,13 @@ aerolab aerospike is-stable -n production -w
 
 ```bash
 # Scale up to 10 nodes
-aerolab cluster apply -n mydc -c 10 -d ubuntu -i 24.04 -v '8.*' \
+aerolab cluster apply -n asd -c 10 -d ubuntu -i 24.04 -v '8.*' \
   --aws.instance t3a.xlarge \
   --aws.disk type=gp3,size=20 \
   --aws.expire=8h
 
 # Scale down to 5 nodes
-aerolab cluster apply -n mydc -c 5 -d ubuntu -i 24.04 -v '8.*' --force \
+aerolab cluster apply -n asd -c 5 -d ubuntu -i 24.04 -v '8.*' --force \
   --aws.instance t3a.xlarge \
   --aws.disk type=gp3,size=20 \
   --aws.expire=8h
@@ -531,13 +531,13 @@ aerolab cluster apply -n mydc -c 5 -d ubuntu -i 24.04 -v '8.*' --force \
 
 ```bash
 # Add exporter
-aerolab cluster add exporter -n mydc
+aerolab cluster add exporter -n asd
 
 # Add public IP
-aerolab cluster add public-ip -n mydc
+aerolab cluster add public-ip -n asd
 
 # Add firewall rules
-aerolab cluster add firewall -n mydc -f aerolab-sg
+aerolab cluster add firewall -n asd -f aerolab-sg
 ```
 
 ## Tips

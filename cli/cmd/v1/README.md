@@ -32,7 +32,7 @@ Start by adding a struct definition. See example below.
 
 ```go
 type ClusterCreateCmd struct {
-    Name string `short:"n" long:"name" description:"Name of the cluster" default:"mydc"`
+    Name string `short:"n" long:"name" description:"Name of the cluster" default:"asd"`
     Count int `short:"c" long:"count" description:"Number of nodes to create" default:"1"`
     GCP ClusterCreateCmdGcp `group:"GCP Backend" description:"backend-gcp"`
     AWS ClusterCreateCmdAws `group:"AWS Backend" description:"backend-aws"`

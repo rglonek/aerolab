@@ -36,7 +36,7 @@ func main() {
 			if !errors.Is(err, cmd.ErrExecuteError) {
 				fmt.Println(err)
 			}
-			exitCode = 1
+			exitCode = cmd.ExitCodeFor(err)
 		}
 	}
 	shutdown.WaitJobs()

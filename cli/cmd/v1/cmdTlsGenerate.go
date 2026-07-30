@@ -19,7 +19,7 @@ import (
 )
 
 type TlsGenerateCmd struct {
-	ClusterName    TypeClusterName `short:"n" long:"name" description:"Cluster names, comma separated" default:"mydc"`
+	ClusterName    TypeClusterName `short:"n" long:"name" description:"Cluster names, comma separated" default:"asd"`
 	Nodes          TypeNodes       `short:"l" long:"nodes" description:"Nodes list, comma separated. Empty=ALL" default:""`
 	TlsName        string          `short:"t" long:"tls-name" description:"Common Name (tlsname)" default:"tls1"`
 	CaName         string          `short:"c" long:"ca-name" description:"Name of the CA certificate (file)" default:"cacert"`

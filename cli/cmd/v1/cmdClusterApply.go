@@ -15,7 +15,7 @@ import (
 )
 
 type ClusterApplyCmd struct {
-	ClusterName             TypeClusterName `short:"n" long:"name" description:"Cluster names, comma separated" default:"mydc"`
+	ClusterName             TypeClusterName `short:"n" long:"name" description:"Cluster names, comma separated" default:"asd"`
 	Count                   int             `short:"c" long:"count" description:"Desired number of nodes in the cluster" default:"1"`
 	CustomConfigFilePath    flags.Filename  `short:"o" long:"custom-conf" description:"Custom aerospike config file path to install"`
 	CustomToolsFilePath     flags.Filename  `short:"z" long:"tools-conf" description:"Custom astools config file path to install"`

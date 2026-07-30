@@ -14,7 +14,10 @@ import (
 )
 
 type ClientCreateNoneCmd struct {
-	ClientName         TypeClientName           `short:"n" long:"name" description:"Client group name" default:"client"`
+	// Every client type embeds this struct, so the default group name cannot
+	// be a struct tag: it has to differ per client type. See
+	// clientTypeDefaultNames in cmdDefaults.go.
+	ClientName         TypeClientName           `short:"n" long:"name" description:"Client group name"`
 	ClientCount        int                      `short:"c" long:"count" description:"Number of clients" default:"1"`
 	Owner              string                   `short:"o" long:"owner" description:"Owner of the instances"`
 	AWS                InstancesCreateCmdAws    `group:"AWS" namespace:"aws" description:"backend-aws"`

@@ -16,7 +16,7 @@ import (
 )
 
 type ConfAdjustCmd struct {
-	ClusterName     TypeClusterName   `short:"n" long:"name" description:"Cluster name" default:"mydc"`
+	ClusterName     TypeClusterName   `short:"n" long:"name" description:"Cluster name" default:"asd"`
 	Nodes           TypeNodes         `short:"l" long:"nodes" description:"Nodes list, comma separated. Empty=ALL" default:""`
 	Path            string            `short:"p" long:"path" description:"Path to aerospike.conf on the remote nodes" default:"/etc/aerospike/aerospike.conf"`
 	Command         string            `short:"c" long:"command" description:"command to run, get|set|create|delete" webchoice:"create,set,delete,get"`
@@ -45,13 +45,13 @@ PATH: path.to.item or path.to.stanza, e.g. network.heartbeat
 SET-VALUE: for the 'set' command - used to specify value of parameter; leave empty to crete no-value param
 To specify a literal dot in the configuration path, use .. (double-dot)
 EXAMPLES:
-	%s conf adjust -n mydc create network.heartbeat
-	%s conf adjust -n mydc set network.heartbeat.mode mesh
-	%s conf adjust -n mydc set network.heartbeat.mesh-seed-address-port "172.17.0.2 3000" "172.17.0.3 3000"
-	%s conf adjust -n mydc create service
-	%s conf adjust -n mydc set service.proto-fd-max 3000
-	%s conf adjust -n mydc get
-	%s conf adjust -n mydc get network.service
+	%s conf adjust -n asd create network.heartbeat
+	%s conf adjust -n asd set network.heartbeat.mode mesh
+	%s conf adjust -n asd set network.heartbeat.mesh-seed-address-port "172.17.0.2 3000" "172.17.0.3 3000"
+	%s conf adjust -n asd create service
+	%s conf adjust -n asd set service.proto-fd-max 3000
+	%s conf adjust -n asd get
+	%s conf adjust -n asd get network.service
 
 `, os.Args[0], os.Args[0], os.Args[0], os.Args[0], os.Args[0], os.Args[0], os.Args[0])
 	return PrintHelp(true, helpStr)

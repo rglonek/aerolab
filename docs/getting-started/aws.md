@@ -82,10 +82,10 @@ aerolab cluster create -c 2 -d ubuntu -i 24.04 -v '8.*' \
 
 # 3. Wait for it to come up, then use it
 aerolab aerospike is-stable -w
-aerolab attach aql -n mydc -- -c "show namespaces"
+aerolab attach aql -n asd -- -c "show namespaces"
 
 # 4. Tear it down when done
-aerolab cluster destroy -n mydc --force
+aerolab cluster destroy -n asd --force
 ```
 
 `-I t3a.xlarge` picks the instance type, `--aws.disk type=gp3,size=20` sets a 20GB root
@@ -158,8 +158,8 @@ file upload/download, and cleanup are identical across every backend — see
 doesn't delete their EBS volumes, so you're still billed until you `destroy` or let expiry
 run.
 
-Cluster-level extras: `aerolab cluster add public-ip -n mydc` and
-`aerolab cluster add firewall -n mydc -f aerolab-sg` add these after the fact.
+Cluster-level extras: `aerolab cluster add public-ip -n asd` and
+`aerolab cluster add firewall -n asd -f aerolab-sg` add these after the fact.
 
 ## Troubleshooting
 

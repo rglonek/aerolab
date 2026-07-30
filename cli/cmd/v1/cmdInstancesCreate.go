@@ -30,7 +30,7 @@ import (
 )
 
 type InstancesCreateCmd struct {
-	ClusterName        string                   `short:"n" long:"cluster-name" description:"Name of the cluster to create" default:"mydc"`
+	ClusterName        string                   `short:"n" long:"cluster-name" description:"Name of the cluster to create" default:"asd"`
 	Count              int                      `short:"c" long:"count" description:"Number of instances to create" default:"1"`
 	Name               string                   `short:"N" long:"name" description:"Name of the instance to create (since count instances only)"`
 	Owner              string                   `short:"o" long:"owner" description:"Owner of the instances"`

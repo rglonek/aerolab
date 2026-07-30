@@ -12,7 +12,7 @@ import (
 )
 
 type ClientConfigureAMSCmd struct {
-	ClientName      TypeClientName  `short:"n" long:"name" description:"Client group name" default:"client"`
+	ClientName      TypeClientName  `short:"n" long:"name" description:"Client group name" default:"ams"`
 	Machines        TypeMachines    `short:"l" long:"nodes" description:"Node list, comma separated. Empty=ALL" default:""`
 	ConnectClusters TypeClusterName `short:"s" long:"clusters" description:"Comma-separated list of clusters to configure as source for this AMS"`
 	ConnectClients  TypeClientName  `short:"S" long:"clients" description:"Comma-separated list of (graph) clients to configure as source for this AMS"`

@@ -23,5 +23,8 @@ func getValueFromURL(url string) string {
 
 func zoneToRegion(zone string) string {
 	parts := strings.Split(zone, "-")
+	if len(parts) < 2 {
+		return zone
+	}
 	return parts[0] + "-" + parts[1]
 }

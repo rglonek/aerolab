@@ -13,9 +13,9 @@ import (
 )
 
 type FilesSyncCmd struct {
-	SourceCluster      TypeClusterName `short:"s" long:"source" description:"Source cluster name" default:"mydc"`
+	SourceCluster      TypeClusterName `short:"s" long:"source" description:"Source cluster name" default:"asd"`
 	SourceNode         TypeNode        `short:"l" long:"source-node" description:"Source node number" default:"1"`
-	DestinationCluster TypeClusterName `short:"d" long:"destination" description:"Destination cluster name" default:"mydc"`
+	DestinationCluster TypeClusterName `short:"d" long:"destination" description:"Destination cluster name" default:"asd"`
 	DestinationNodes   TypeNodes       `short:"a" long:"destination-nodes" description:"Destination node numbers; default: all except source node" default:""`
 	ParallelThreads    int             `short:"t" long:"threads" description:"Run on this many nodes in parallel" default:"10"`
 	Path               FilesSingleCmd  `positional-args:"true"`

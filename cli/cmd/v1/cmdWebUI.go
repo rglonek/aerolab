@@ -1841,7 +1841,7 @@ func (c *WebUICmd) generateCLIWithReflection(cmdPath string, params map[string]a
 	// config values, making the CLI show flags the user never set.
 	cmdType := cmdVal.Type()
 	newCmd := reflect.New(cmdType).Elem()
-	applyTagDefaults(newCmd)
+	applyTagDefaults(newCmd, cmdPath)
 
 	// Apply parameters from the request
 	if params != nil {

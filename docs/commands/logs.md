@@ -14,7 +14,7 @@ Display logs from cluster nodes.
 ### Basic Usage
 
 ```bash
-aerolab logs show -n mydc
+aerolab logs show -n asd
 ```
 
 ### Options
@@ -30,27 +30,27 @@ aerolab logs show -n mydc
 
 **Show logs from all nodes:**
 ```bash
-aerolab logs show -n mydc
+aerolab logs show -n asd
 ```
 
 **Show logs from specific node:**
 ```bash
-aerolab logs show -n mydc -l 1
+aerolab logs show -n asd -l 1
 ```
 
 **Show logs from multiple nodes:**
 ```bash
-aerolab logs show -n mydc -l 1-3
+aerolab logs show -n asd -l 1-3
 ```
 
 **Show logs in JSON format:**
 ```bash
-aerolab logs show -n mydc -j
+aerolab logs show -n asd -j
 ```
 
 **Show logs from all nodes in JSON:**
 ```bash
-aerolab logs show -n mydc -j
+aerolab logs show -n asd -j
 ```
 
 ### Output
@@ -68,7 +68,7 @@ Download logs from cluster nodes to local directory.
 ### Basic Usage
 
 ```bash
-aerolab logs get -n mydc -d ./logs/
+aerolab logs get -n asd -d ./logs/
 ```
 
 ### Options
@@ -85,22 +85,22 @@ aerolab logs get -n mydc -d ./logs/
 
 **Download logs from all nodes:**
 ```bash
-aerolab logs get -n mydc -d ./logs/
+aerolab logs get -n asd -d ./logs/
 ```
 
 **Download logs from specific node:**
 ```bash
-aerolab logs get -n mydc -l 1 -d ./logs/
+aerolab logs get -n asd -l 1 -d ./logs/
 ```
 
 **Download logs from multiple nodes:**
 ```bash
-aerolab logs get -n mydc -l 1-3 -d ./logs/
+aerolab logs get -n asd -l 1-3 -d ./logs/
 ```
 
 **Download logs in JSON format:**
 ```bash
-aerolab logs get -n mydc -j -d ./logs/
+aerolab logs get -n asd -j -d ./logs/
 ```
 
 ### Output Structure
@@ -108,10 +108,10 @@ aerolab logs get -n mydc -j -d ./logs/
 Logs are downloaded with the following structure:
 ```
 ./logs/
-  ├── mydc-1/
+  ├── asd-1/
   │   ├── aerospike.log
   │   └── ...
-  ├── mydc-2/
+  ├── asd-2/
   │   ├── aerospike.log
   │   └── ...
   └── ...
@@ -125,50 +125,50 @@ Each node's logs are saved in a separate directory named `{cluster-name}-{node-n
 
 ```bash
 # Show logs from all nodes
-aerolab logs show -n mydc
+aerolab logs show -n asd
 
 # Show logs from specific node
-aerolab logs show -n mydc -l 1
+aerolab logs show -n asd -l 1
 ```
 
 ### Download Logs for Analysis
 
 ```bash
 # Download logs from all nodes
-aerolab logs get -n mydc -d ./logs/
+aerolab logs get -n asd -d ./logs/
 
 # Download logs from specific node
-aerolab logs get -n mydc -l 1 -d ./logs/
+aerolab logs get -n asd -l 1 -d ./logs/
 
 # Download logs in JSON format
-aerolab logs get -n mydc -j -d ./logs/
+aerolab logs get -n asd -j -d ./logs/
 ```
 
 ### Troubleshooting
 
 ```bash
 # 1. Show logs to identify issue
-aerolab logs show -n mydc
+aerolab logs show -n asd
 
 # 2. Download logs for detailed analysis
-aerolab logs get -n mydc -d ./logs/
+aerolab logs get -n asd -d ./logs/
 
 # 3. Analyze logs locally
-cat ./logs/mydc-1/aerospike.log | grep ERROR
+cat ./logs/asd-1/aerospike.log | grep ERROR
 ```
 
 ### Monitor Logs
 
 ```bash
 # Continuously monitor logs
-watch -n 5 'aerolab logs show -n mydc'
+watch -n 5 'aerolab logs show -n asd'
 ```
 
 ### Export Logs for Support
 
 ```bash
 # Download all logs
-aerolab logs get -n mydc -d ./logs-export/
+aerolab logs get -n asd -d ./logs-export/
 
 # Create archive
 tar -czf logs-export.tar.gz logs-export/

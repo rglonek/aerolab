@@ -329,7 +329,7 @@ aerolab agi create -n filtered-logs \
 **Cluster source with EFS persistence:**
 ```bash
 aerolab agi create -n cluster-analysis \
-  --source-cluster mydc \
+  --source-cluster asd \
   --aws.with-efs \
   --aws.efs-expire=168h \
   --aws.expire=24h

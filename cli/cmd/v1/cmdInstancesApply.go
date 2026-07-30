@@ -16,7 +16,7 @@ import (
 )
 
 type InstancesApplyCmd struct {
-	ClusterName        string                   `short:"n" long:"cluster-name" description:"Name of the cluster to apply the state to" default:"mydc"`
+	ClusterName        string                   `short:"n" long:"cluster-name" description:"Name of the cluster to apply the state to" default:"asd"`
 	Count              int                      `short:"c" long:"count" description:"Desired number of instances to have in the cluster" default:"1"`
 	Owner              string                   `short:"o" long:"owner" description:"Owner of the instances"`
 	Tags               []string                 `short:"t" long:"tag" description:"Tags to add to the instances, format: k=v"`

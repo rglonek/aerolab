@@ -17,7 +17,7 @@ import (
 )
 
 type ClusterPartitionCreateCmd struct {
-	ClusterName     TypeClusterName `short:"n" long:"name" description:"Cluster name" default:"mydc"`
+	ClusterName     TypeClusterName `short:"n" long:"name" description:"Cluster name" default:"asd"`
 	Nodes           TypeNodes       `short:"l" long:"nodes" description:"Nodes list, comma separated. Empty=ALL" default:""`
 	FilterDisks     TypeFilterRange `short:"d" long:"filter-disks" description:"Select disks by number, ex: 1,2,4-8" default:"ALL"`
 	FilterType      string          `short:"t" long:"filter-type" description:"what disk types to select, options: nvme/local or ebs/persistent" default:"ALL"`

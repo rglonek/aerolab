@@ -17,7 +17,7 @@ import (
 )
 
 type DataDeleteCmd struct {
-	ClusterName      TypeClusterName   `short:"n" long:"name" description:"Cluster name" default:"mydc"`
+	ClusterName      TypeClusterName   `short:"n" long:"name" description:"Cluster name" default:"asd"`
 	Node             TypeNode          `short:"l" long:"node" description:"Node to run on" default:"1"`
 	SeedNode         string            `short:"g" long:"seed-node" description:"Seed node IP:PORT" default:"127.0.0.1:3000"`
 	Namespace        string            `short:"m" long:"namespace" description:"Namespace name" default:"test"`

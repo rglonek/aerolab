@@ -17,7 +17,7 @@ import (
 )
 
 type RosterApplyCmd struct {
-	ClusterName TypeClusterName `short:"n" long:"name" description:"Cluster names, comma separated" default:"mydc"`
+	ClusterName TypeClusterName `short:"n" long:"name" description:"Cluster names, comma separated" default:"asd"`
 	Nodes       TypeNodes       `short:"l" long:"nodes" description:"Nodes list, comma separated. Empty=ALL" default:""`
 	Namespace   string          `short:"m" long:"namespace" description:"Namespace name" default:"test"`
 	Roster      string          `short:"r" long:"roster" description:"set this to specify customer roster; leave empty to apply observed nodes automatically" default:""`

@@ -12,7 +12,7 @@ import (
 )
 
 type AttachAqlCmd struct {
-	ClusterName     TypeClusterName        `short:"n" long:"name" description:"Cluster name" default:"mydc"`
+	ClusterName     TypeClusterName        `short:"n" long:"name" description:"Cluster name" default:"asd"`
 	Node            TypeNodesPlusAllOption `short:"l" long:"nodes" description:"Node to attach to (or comma-separated list, when using '-- ...'). Example: 'attach shell --nodes=all -- /some/command' will execute command on all nodes" default:"1"`
 	Detach          bool                   `short:"d" long:"detach" description:"detach the process stdin - will not kill process on CTRL+C; it is up to the process to detach stdout/err"`
 	Parallel        bool                   `short:"p" long:"parallel" description:"enable parallel execution across all machines"`

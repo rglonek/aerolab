@@ -17,7 +17,7 @@ import (
 )
 
 type ConfRackIdCmd struct {
-	ClusterName TypeClusterName `short:"n" long:"name" description:"Cluster names, comma separated" default:"mydc"`
+	ClusterName TypeClusterName `short:"n" long:"name" description:"Cluster names, comma separated" default:"asd"`
 	Nodes       TypeNodes       `short:"l" long:"nodes" description:"Nodes list, comma separated. Empty=ALL" default:""`
 	RackId      string          `short:"i" long:"id" description:"Rack ID to use" default:"0"`
 	Namespaces  string          `short:"m" long:"namespaces" description:"comma-separated list of namespaces to modify; empty=all" default:""`

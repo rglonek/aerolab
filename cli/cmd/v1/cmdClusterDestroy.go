@@ -13,7 +13,7 @@ import (
 )
 
 type ClusterDestroyCmd struct {
-	ClusterName TypeClusterName `short:"n" long:"name" description:"Cluster names, comma separated" default:"mydc"`
+	ClusterName TypeClusterName `short:"n" long:"name" description:"Cluster names, comma separated" default:"asd"`
 	Nodes       TypeNodes       `short:"l" long:"nodes" description:"Nodes list, comma separated. Empty=ALL" default:""`
 	Force       bool            `short:"f" long:"force" description:"Force destroy"`
 	Help        HelpCmd         `command:"help" subcommands-optional:"true" description:"Print help"`

@@ -71,7 +71,7 @@ aerolab client create graph -n graph --os ubuntu --version 24.04 \
 ```
 
 `-C, --seed-cluster` seeds the graph service from an existing Aerospike
-cluster (default: `mydc`); use `--seed` instead to point at a raw `IP:PORT`.
+cluster (default: `asd`); use `--seed` instead to point at a raw `IP:PORT`.
 
 ### EksCtl
 Client machine with eksctl pre-configured for Kubernetes Aerospike deployments.
@@ -96,7 +96,7 @@ aerolab client create <type> -n <name> --os <distro> --version <version> [option
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `-n, --name` | Client group name | `client` |
+| `-n, --name` | Client group name | the client type (see below) |
 | `-c, --count` | Number of client machines | `1` |
 | `--os` | OS distribution (ubuntu, centos, rocky, debian, amazon) | `ubuntu` |
 | `--version` | OS version (e.g., `24.04`, `22.04`) | `24.04` |
@@ -107,6 +107,25 @@ aerolab client create <type> -n <name> --os <distro> --version <version> [option
 **Note:** Backend-specific options are grouped under a namespace, so each flag
 is prefixed with `aws.`, `gcp.`, or `docker.` (e.g. `--aws.instance`, not
 `--instance-type`) — the same pattern used by [`instances create`](instances.md#instances-create).
+
+### Default Group Names
+
+Omitting `-n` names the group after the client type, so groups created by
+different `client create` subcommands do not collide:
+
+| Client type | Default group name |
+|-------------|--------------------|
+| `none` | `none-client` |
+| `base` | `base-client` |
+| `tools` | `tools` |
+| `ams` | `ams` |
+| `vscode` | `vscode` |
+| `graph` | `graph` |
+| `eksctl` | `eksctl` |
+
+Commands that are not tied to one client type (`client list`, `start`, `stop`,
+`destroy`, `attach`, `share`, `configure firewall`, `configure expiry`) still
+default to `client`, so pass `-n` to point them at a group.
 
 ### Docker Backend Options
 
@@ -189,7 +208,7 @@ aerolab client configure ams -n ams -s cluster1,cluster2 -S graph1
 ```
 
 **Options:**
-- `-n, --name` - Client group name (default: `client`)
+- `-n, --name` - Client group name (default: `ams`)
 - `-l, --nodes` - Specific machines, comma separated (default: all)
 - `-s, --clusters` - Clusters to monitor (comma-separated)
 - `-S, --clients` - Graph clients to monitor (comma-separated)
@@ -234,7 +253,7 @@ aerolab client configure tools -n tools -m ams
 ```
 
 **Options:**
-- `-n, --name` - Client group name (default: `client`)
+- `-n, --name` - Client group name (default: `tools`)
 - `-l, --nodes` - Specific machines (default: all)
 - `-m, --ams` - AMS client machine name (default: `ams`)
 - `-t, --threads` - Number of parallel threads (default: `10`)

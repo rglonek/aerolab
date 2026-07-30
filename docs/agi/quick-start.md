@@ -179,12 +179,12 @@ Collect logs directly from a running Aerospike cluster:
 
 ```bash
 # First, create a cluster
-aerolab cluster create -c 3 -d ubuntu -i 24.04 -v '8.*' -n mydc
+aerolab cluster create -c 3 -d ubuntu -i 24.04 -v '8.*' -n asd
 
 # Run some operations...
 
 # Then create AGI from cluster logs
-aerolab agi create -n cluster-analysis --source-cluster mydc
+aerolab agi create -n cluster-analysis --source-cluster asd
 ```
 
 ---

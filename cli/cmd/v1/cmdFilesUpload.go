@@ -17,7 +17,7 @@ import (
 )
 
 type FilesUploadCmd struct {
-	ClusterName     TypeClusterName    `short:"n" long:"name" description:"Cluster name" default:"mydc"`
+	ClusterName     TypeClusterName    `short:"n" long:"name" description:"Cluster name" default:"asd"`
 	Nodes           TypeNodes          `short:"l" long:"nodes" description:"Node number(s), comma-separated. Default=ALL" default:""`
 	ParallelThreads int                `short:"t" long:"threads" description:"Run on this many nodes in parallel" default:"10"`
 	Progress        bool               `short:"p" long:"progress" description:"Show upload progress with TUI display"`

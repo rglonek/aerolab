@@ -22,14 +22,16 @@ import (
 )
 
 type ClientCreateGraphCmd struct {
-	ClientName         TypeClientName           `short:"n" long:"name" description:"Client group name" default:"client"`
+	// The default group name comes from clientTypeDefaultNames in
+	// cmdDefaults.go, alongside the other client types.
+	ClientName         TypeClientName           `short:"n" long:"name" description:"Client group name"`
 	ClientCount        int                      `short:"c" long:"count" description:"Number of clients" default:"1"`
 	Owner              string                   `short:"o" long:"owner" description:"Owner of the instances"`
 	AWS                InstancesCreateCmdAws    `group:"AWS" namespace:"aws" description:"backend-aws"`
 	GCP                InstancesCreateCmdGcp    `group:"GCP" namespace:"gcp" description:"backend-gcp"`
 	Docker             InstancesCreateCmdDocker `group:"Docker" namespace:"docker" description:"backend-docker"`
 	Tags               []string                 `short:"t" long:"tag" description:"Tags to add to the instances, format: k=v"`
-	SeedClusterName    TypeClusterName          `short:"C" long:"seed-cluster" description:"Cluster name to seed from" default:"mydc"`
+	SeedClusterName    TypeClusterName          `short:"C" long:"seed-cluster" description:"Cluster name to seed from" default:"asd"`
 	Seed               string                   `long:"seed" description:"Specify a seed IP:PORT instead of providing a ClusterName; if this parameter is provided, ClusterName is ignored"`
 	Namespace          string                   `short:"m" long:"namespace" description:"Namespace name to configure graph to use" default:"test"`
 	ExtraProperties    []string                 `short:"e" long:"extra" description:"Extra properties to add; can be specified multiple times; ex: -e 'aerospike.client.timeout=2000'"`

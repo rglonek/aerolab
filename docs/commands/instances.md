@@ -43,7 +43,7 @@ aerolab instances create -n myinstances -c 2 --os ubuntu --version 24.04
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `-n, --cluster-name` | Instance cluster name | `mydc` |
+| `-n, --cluster-name` | Instance cluster name | `asd` |
 | `-c, --count` | Number of instances | `1` |
 | `-N, --name` | Name of a single instance (only when `--count` is 1) | |
 | `--os` | OS distribution (ubuntu, centos, rocky, debian, amazon) | `ubuntu` |

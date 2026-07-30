@@ -33,24 +33,24 @@ aerolab conf rackid -l 1-2 -i 1
 
 **Assign rack ID 1 to nodes 1-2:**
 ```bash
-aerolab conf rackid -n mydc -l 1-2 -i 1
+aerolab conf rackid -n asd -l 1-2 -i 1
 ```
 
 **Assign rack ID 2 to nodes 3-4:**
 ```bash
-aerolab conf rackid -n mydc -l 3-4 -i 2
+aerolab conf rackid -n asd -l 3-4 -i 2
 ```
 
 **Assign rack ID 3 to node 5:**
 ```bash
-aerolab conf rackid -n mydc -l 5 -i 3
+aerolab conf rackid -n asd -l 5 -i 3
 ```
 
 **Assign different rack IDs:**
 ```bash
-aerolab conf rackid -n mydc -l 1 -i 1
-aerolab conf rackid -n mydc -l 2 -i 2
-aerolab conf rackid -n mydc -l 3 -i 3
+aerolab conf rackid -n asd -l 1 -i 1
+aerolab conf rackid -n asd -l 2 -i 2
+aerolab conf rackid -n asd -l 3 -i 3
 ```
 
 ### Workflow
@@ -59,14 +59,14 @@ After setting rack IDs, restart Aerospike to apply changes:
 
 ```bash
 # 1. Set rack IDs
-aerolab conf rackid -n mydc -l 1-2 -i 1
-aerolab conf rackid -n mydc -l 3-4 -i 2
+aerolab conf rackid -n asd -l 1-2 -i 1
+aerolab conf rackid -n asd -l 3-4 -i 2
 
 # 2. Restart Aerospike
-aerolab aerospike restart -n mydc
+aerolab aerospike restart -n asd
 
 # 3. Wait for stability
-aerolab aerospike is-stable -n mydc -w
+aerolab aerospike is-stable -n asd -w
 ```
 
 ## Conf SC
@@ -92,17 +92,17 @@ aerolab conf sc -r 2
 
 **Set replication factor to 2:**
 ```bash
-aerolab conf sc -n mydc -r 2
+aerolab conf sc -n asd -r 2
 ```
 
 **Set replication factor for specific namespace:**
 ```bash
-aerolab conf sc -n mydc -r 2 --namespace test
+aerolab conf sc -n asd -r 2 --namespace test
 ```
 
 **With verbose output:**
 ```bash
-aerolab conf sc -n mydc -r 2 -v
+aerolab conf sc -n asd -r 2 -v
 ```
 
 ### What It Does
@@ -115,16 +115,16 @@ aerolab conf sc -n mydc -r 2 -v
 
 ```bash
 # 1. Configure strong consistency
-aerolab conf sc -n mydc -r 2
+aerolab conf sc -n asd -r 2
 
 # 2. Restart Aerospike
-aerolab aerospike restart -n mydc
+aerolab aerospike restart -n asd
 
 # 3. Wait for stability
-aerolab aerospike is-stable -n mydc -w
+aerolab aerospike is-stable -n asd -w
 
 # 4. Apply roster (if using strong consistency)
-aerolab roster apply -n mydc
+aerolab roster apply -n asd
 ```
 
 ## Conf Fix-Mesh
@@ -147,7 +147,7 @@ aerolab conf fix-mesh
 
 **Fix mesh configuration:**
 ```bash
-aerolab conf fix-mesh -n mydc
+aerolab conf fix-mesh -n asd
 ```
 
 ### What It Does
@@ -160,13 +160,13 @@ aerolab conf fix-mesh -n mydc
 
 ```bash
 # 1. Fix mesh configuration
-aerolab conf fix-mesh -n mydc
+aerolab conf fix-mesh -n asd
 
 # 2. Restart Aerospike
-aerolab aerospike restart -n mydc
+aerolab aerospike restart -n asd
 
 # 3. Wait for stability
-aerolab aerospike is-stable -n mydc -w
+aerolab aerospike is-stable -n asd -w
 ```
 
 ## Conf Adjust
@@ -212,7 +212,7 @@ aerolab conf adjust get network.heartbeat.interval
 
 **Set on specific nodes:**
 ```bash
-aerolab conf adjust -n mydc -l 1-2 set network.heartbeat.interval 250
+aerolab conf adjust -n asd -l 1-2 set network.heartbeat.interval 250
 ```
 
 ### Workflow
@@ -222,10 +222,10 @@ aerolab conf adjust -n mydc -l 1-2 set network.heartbeat.interval 250
 aerolab conf adjust set network.heartbeat.interval 250
 
 # 2. Restart Aerospike
-aerolab aerospike restart -n mydc
+aerolab aerospike restart -n asd
 
 # 3. Wait for stability
-aerolab aerospike is-stable -n mydc -w
+aerolab aerospike is-stable -n asd -w
 ```
 
 ## Conf Namespace-Memory
@@ -235,7 +235,7 @@ Configure namespace memory settings (AWS/GCP only).
 ### Basic Usage
 
 ```bash
-aerolab conf namespace-memory -n mydc
+aerolab conf namespace-memory -n asd
 ```
 
 ### Options
@@ -249,12 +249,12 @@ aerolab conf namespace-memory -n mydc
 
 **Configure namespace memory:**
 ```bash
-aerolab conf namespace-memory -n mydc
+aerolab conf namespace-memory -n asd
 ```
 
 **Configure specific namespace:**
 ```bash
-aerolab conf namespace-memory -n mydc --namespace test
+aerolab conf namespace-memory -n asd --namespace test
 ```
 
 ### What It Does
@@ -281,50 +281,50 @@ Generates configuration files based on cluster setup.
 
 ```bash
 # 1. Set rack IDs
-aerolab conf rackid -n mydc -l 1-2 -i 1
-aerolab conf rackid -n mydc -l 3-4 -i 2
-aerolab conf rackid -n mydc -l 5-6 -i 3
+aerolab conf rackid -n asd -l 1-2 -i 1
+aerolab conf rackid -n asd -l 3-4 -i 2
+aerolab conf rackid -n asd -l 5-6 -i 3
 
 # 2. Restart Aerospike
-aerolab aerospike restart -n mydc
+aerolab aerospike restart -n asd
 
 # 3. Wait for stability
-aerolab aerospike is-stable -n mydc -w
+aerolab aerospike is-stable -n asd -w
 ```
 
 ### Configure Strong Consistency
 
 ```bash
 # 1. Configure strong consistency
-aerolab conf sc -n mydc -r 2
+aerolab conf sc -n asd -r 2
 
 # 2. Restart Aerospike
-aerolab aerospike restart -n mydc
+aerolab aerospike restart -n asd
 
 # 3. Wait for stability
-aerolab aerospike is-stable -n mydc -w
+aerolab aerospike is-stable -n asd -w
 
 # 4. Apply roster
-aerolab roster apply -n mydc
+aerolab roster apply -n asd
 
 # 5. Verify roster
-aerolab roster show -n mydc
+aerolab roster show -n asd
 ```
 
 ### Fix Mesh Configuration
 
 ```bash
 # 1. Fix mesh configuration
-aerolab conf fix-mesh -n mydc
+aerolab conf fix-mesh -n asd
 
 # 2. Restart Aerospike
-aerolab aerospike restart -n mydc
+aerolab aerospike restart -n asd
 
 # 3. Wait for stability
-aerolab aerospike is-stable -n mydc -w
+aerolab aerospike is-stable -n asd -w
 
 # 4. Verify configuration
-aerolab attach asinfo -n mydc -- -v "network"
+aerolab attach asinfo -n asd -- -v "network"
 ```
 
 ### Adjust Configuration Parameters
@@ -337,42 +337,42 @@ aerolab conf adjust set network.heartbeat.interval 250
 aerolab conf adjust set network.heartbeat.timeout 10
 
 # 3. Restart Aerospike
-aerolab aerospike restart -n mydc
+aerolab aerospike restart -n asd
 
 # 4. Wait for stability
-aerolab aerospike is-stable -n mydc -w
+aerolab aerospike is-stable -n asd -w
 
 # 5. Verify changes
-aerolab attach asinfo -n mydc -- -v "network"
+aerolab attach asinfo -n asd -- -v "network"
 ```
 
 ### Complete Configuration Setup
 
 ```bash
 # 1. Set rack IDs
-aerolab conf rackid -n mydc -l 1-2 -i 1
-aerolab conf rackid -n mydc -l 3-4 -i 2
+aerolab conf rackid -n asd -l 1-2 -i 1
+aerolab conf rackid -n asd -l 3-4 -i 2
 
 # 2. Fix mesh configuration
-aerolab conf fix-mesh -n mydc
+aerolab conf fix-mesh -n asd
 
 # 3. Configure strong consistency
-aerolab conf sc -n mydc -r 2
+aerolab conf sc -n asd -r 2
 
 # 4. Adjust heartbeat settings
 aerolab conf adjust set network.heartbeat.interval 250
 
 # 5. Restart Aerospike
-aerolab aerospike restart -n mydc
+aerolab aerospike restart -n asd
 
 # 6. Wait for stability
-aerolab aerospike is-stable -n mydc -w
+aerolab aerospike is-stable -n asd -w
 
 # 7. Apply roster
-aerolab roster apply -n mydc
+aerolab roster apply -n asd
 
 # 8. Verify configuration
-aerolab attach asinfo -n mydc -- -v "cluster"
+aerolab attach asinfo -n asd -- -v "cluster"
 ```
 
 ## Tips

@@ -23,9 +23,9 @@ aerolab net block -s source-cluster -d dest-cluster -p 3000
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `-s, --source` | Source cluster name | `mydc` |
+| `-s, --source` | Source cluster name | `asd-source` |
 | `-l, --source-nodes` | Source nodes, comma separated. Empty=ALL | (all) |
-| `-d, --destination` | Destination cluster name | `mydc-xdr` |
+| `-d, --destination` | Destination cluster name | `asd-dest` |
 | `-i, --destination-nodes` | Destination nodes, comma separated. Empty=ALL | (all) |
 | `-t, --type` | Block type (reject\|drop) | `reject` |
 | `-p, --ports` | Ports to block, comma separated | `3000` |
@@ -217,9 +217,9 @@ aerolab net loss-delay -s source -d dest -a set -D 100 -L 10
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `-s, --source` | Source cluster name | `mydc` |
+| `-s, --source` | Source cluster name | `asd-source` |
 | `-l, --source-nodes` | Source nodes. Empty=ALL | (all) |
-| `-d, --destination` | Destination cluster name | `mydc-xdr` |
+| `-d, --destination` | Destination cluster name | `asd-dest` |
 | `-i, --destination-nodes` | Destination nodes. Empty=ALL | (all) |
 | `-a, --action` | Action: set\|del\|reset\|show | `show` |
 | `-D, --latency-ms` | Latency in milliseconds | (none) |

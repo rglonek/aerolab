@@ -15,7 +15,7 @@ import (
 )
 
 type TlsCopyCmd struct {
-	SourceClusterName      TypeClusterName `short:"s" long:"source" description:"Source cluster name" default:"mydc"`
+	SourceClusterName      TypeClusterName `short:"s" long:"source" description:"Source cluster name" default:"asd"`
 	SourceNode             TypeNode        `short:"l" long:"source-node" description:"Source node from which to copy the TLS certificates" default:"1"`
 	DestinationClusterName TypeClusterName `short:"d" long:"destination" description:"Destination cluster name" default:"client"`
 	DestinationNodeList    TypeNodes       `short:"a" long:"destination-nodes" description:"List of destination nodes to copy the TLS certs to, comma separated. Empty=ALL." default:""`

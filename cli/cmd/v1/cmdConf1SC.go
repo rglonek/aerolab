@@ -17,7 +17,7 @@ import (
 )
 
 type ConfSCCmd struct {
-	ClusterName TypeClusterName `short:"n" long:"name" description:"Cluster names, comma separated" default:"mydc"`
+	ClusterName TypeClusterName `short:"n" long:"name" description:"Cluster names, comma separated" default:"asd"`
 	Namespace   string          `short:"m" long:"namespace" description:"Namespace to change" default:"test"`
 	Path        string          `short:"p" long:"path" description:"Path to aerospike.conf" default:"/etc/aerospike/aerospike.conf"`
 	Force       bool            `short:"f" long:"force" description:"If set, will zero out the devices even if strong-consistency was already configured"`

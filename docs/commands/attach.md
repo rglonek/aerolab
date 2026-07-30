@@ -29,7 +29,7 @@ Open an interactive shell or run commands on cluster nodes.
 ### Basic Usage
 
 ```bash
-aerolab attach shell -n mydc -l 1
+aerolab attach shell -n asd -l 1
 ```
 
 ### Run Commands
@@ -37,7 +37,7 @@ aerolab attach shell -n mydc -l 1
 Run a command on nodes:
 
 ```bash
-aerolab attach shell -n mydc -l 1 -- ls /tmp
+aerolab attach shell -n asd -l 1 -- ls /tmp
 ```
 
 ### Run on All Nodes
@@ -45,7 +45,7 @@ aerolab attach shell -n mydc -l 1 -- ls /tmp
 Run command on all nodes:
 
 ```bash
-aerolab attach shell -n mydc -l all -- ls /tmp
+aerolab attach shell -n asd -l all -- ls /tmp
 ```
 
 ### Run in Parallel
@@ -53,34 +53,34 @@ aerolab attach shell -n mydc -l all -- ls /tmp
 Run command in parallel on all nodes:
 
 ```bash
-aerolab attach shell -n mydc -l all --parallel -- ls /tmp
+aerolab attach shell -n asd -l all --parallel -- ls /tmp
 ```
 
 ### Examples
 
 **Interactive shell:**
 ```bash
-aerolab attach shell -n mydc -l 1
+aerolab attach shell -n asd -l 1
 ```
 
 **Run single command:**
 ```bash
-aerolab attach shell -n mydc -l 1 -- cat /etc/aerospike/aerospike.conf
+aerolab attach shell -n asd -l 1 -- cat /etc/aerospike/aerospike.conf
 ```
 
 **Run on multiple nodes:**
 ```bash
-aerolab attach shell -n mydc -l 1-3 -- df -h
+aerolab attach shell -n asd -l 1-3 -- df -h
 ```
 
 **Run on all nodes:**
 ```bash
-aerolab attach shell -n mydc -l all -- systemctl status aerospike
+aerolab attach shell -n asd -l all -- systemctl status aerospike
 ```
 
 **Run in parallel:**
 ```bash
-aerolab attach shell -n mydc -l all --parallel -- uptime
+aerolab attach shell -n asd -l all --parallel -- uptime
 ```
 
 ## Attach AQL
@@ -90,7 +90,7 @@ Access Aerospike Query Language (AQL) to interact with namespaces and data.
 ### Basic Usage
 
 ```bash
-aerolab attach aql -n mydc
+aerolab attach aql -n asd
 ```
 
 ### Run AQL Commands
@@ -98,51 +98,51 @@ aerolab attach aql -n mydc
 Run AQL commands:
 
 ```bash
-aerolab attach aql -n mydc -- -c "show namespaces"
+aerolab attach aql -n asd -- -c "show namespaces"
 ```
 
 ### Common AQL Commands
 
 **Show namespaces:**
 ```bash
-aerolab attach aql -n mydc -- -c "show namespaces"
+aerolab attach aql -n asd -- -c "show namespaces"
 ```
 
 **Show sets:**
 ```bash
-aerolab attach aql -n mydc -- -c "show sets"
+aerolab attach aql -n asd -- -c "show sets"
 ```
 
 **Insert data:**
 ```bash
-aerolab attach aql -n mydc -- -c "INSERT INTO test.demoset (PK, data) VALUES ('key1', 'value1')"
+aerolab attach aql -n asd -- -c "INSERT INTO test.demoset (PK, data) VALUES ('key1', 'value1')"
 ```
 
 **Query data:**
 ```bash
-aerolab attach aql -n mydc -- -c "SELECT * FROM test.demoset"
+aerolab attach aql -n asd -- -c "SELECT * FROM test.demoset"
 ```
 
 **Interactive AQL:**
 ```bash
-aerolab attach aql -n mydc
+aerolab attach aql -n asd
 ```
 
 ### Examples
 
 **Show namespaces:**
 ```bash
-aerolab attach aql -n mydc -- -c "show namespaces"
+aerolab attach aql -n asd -- -c "show namespaces"
 ```
 
 **Query data:**
 ```bash
-aerolab attach aql -n mydc -- -c "SELECT * FROM test.demoset WHERE PK='key1'"
+aerolab attach aql -n asd -- -c "SELECT * FROM test.demoset WHERE PK='key1'"
 ```
 
 **Insert data:**
 ```bash
-aerolab attach aql -n mydc -- -c "INSERT INTO test.demoset (PK, data, bin1) VALUES ('key1', 'value1', 123)"
+aerolab attach aql -n asd -- -c "INSERT INTO test.demoset (PK, data, bin1) VALUES ('key1', 'value1', 123)"
 ```
 
 ## Attach Asinfo
@@ -152,7 +152,7 @@ Access Aerospike info command for cluster and node information.
 ### Basic Usage
 
 ```bash
-aerolab attach asinfo -n mydc
+aerolab attach asinfo -n asd
 ```
 
 ### Run Asinfo Commands
@@ -160,61 +160,61 @@ aerolab attach asinfo -n mydc
 Run asinfo commands:
 
 ```bash
-aerolab attach asinfo -n mydc -- -v "cluster"
+aerolab attach asinfo -n asd -- -v "cluster"
 ```
 
 ### Common Asinfo Commands
 
 **Cluster information:**
 ```bash
-aerolab attach asinfo -n mydc -- -v "cluster"
+aerolab attach asinfo -n asd -- -v "cluster"
 ```
 
 **Namespace statistics:**
 ```bash
-aerolab attach asinfo -n mydc -- -v "namespaces"
+aerolab attach asinfo -n asd -- -v "namespaces"
 ```
 
 **Cluster stability:**
 ```bash
-aerolab attach asinfo -n mydc -- -v "cluster-stable"
+aerolab attach asinfo -n asd -- -v "cluster-stable"
 ```
 
 **Network information:**
 ```bash
-aerolab attach asinfo -n mydc -- -v "network"
+aerolab attach asinfo -n asd -- -v "network"
 ```
 
 **Version information:**
 ```bash
-aerolab attach asinfo -n mydc -- -v "version"
+aerolab attach asinfo -n asd -- -v "version"
 ```
 
 **Migration status:**
 ```bash
-aerolab attach asinfo -n mydc -- -v "migrate"
+aerolab attach asinfo -n asd -- -v "migrate"
 ```
 
 ### Examples
 
 **Check cluster state:**
 ```bash
-aerolab attach asinfo -n mydc -- -v "cluster"
+aerolab attach asinfo -n asd -- -v "cluster"
 ```
 
 **Check namespace statistics:**
 ```bash
-aerolab attach asinfo -n mydc -- -v "namespace/test"
+aerolab attach asinfo -n asd -- -v "namespace/test"
 ```
 
 **Check cluster stability:**
 ```bash
-aerolab attach asinfo -n mydc -- -v "cluster-stable:size=5"
+aerolab attach asinfo -n asd -- -v "cluster-stable:size=5"
 ```
 
 **Check network:**
 ```bash
-aerolab attach asinfo -n mydc -- -v "network"
+aerolab attach asinfo -n asd -- -v "network"
 ```
 
 ## Attach Asadm
@@ -224,7 +224,7 @@ Access Aerospike Admin (asadm) for cluster management.
 ### Basic Usage
 
 ```bash
-aerolab attach asadm -n mydc
+aerolab attach asadm -n asd
 ```
 
 ### Run Asadm Commands
@@ -232,51 +232,51 @@ aerolab attach asadm -n mydc
 Run asadm commands:
 
 ```bash
-aerolab attach asadm -n mydc -- -e info
+aerolab attach asadm -n asd -- -e info
 ```
 
 ### Common Asadm Commands
 
 **Show info:**
 ```bash
-aerolab attach asadm -n mydc -- -e info
+aerolab attach asadm -n asd -- -e info
 ```
 
 **Show statistics:**
 ```bash
-aerolab attach asadm -n mydc -- -e "show statistics"
+aerolab attach asadm -n asd -- -e "show statistics"
 ```
 
 **Show configuration:**
 ```bash
-aerolab attach asadm -n mydc -- -e "show config"
+aerolab attach asadm -n asd -- -e "show config"
 ```
 
 **Show namespaces:**
 ```bash
-aerolab attach asadm -n mydc -- -e "show namespaces"
+aerolab attach asadm -n asd -- -e "show namespaces"
 ```
 
 **Interactive asadm:**
 ```bash
-aerolab attach asadm -n mydc
+aerolab attach asadm -n asd
 ```
 
 ### Examples
 
 **Show cluster info:**
 ```bash
-aerolab attach asadm -n mydc -- -e info
+aerolab attach asadm -n asd -- -e info
 ```
 
 **Show statistics:**
 ```bash
-aerolab attach asadm -n mydc -- -e "show statistics namespace test"
+aerolab attach asadm -n asd -- -e "show statistics namespace test"
 ```
 
 **Show configuration:**
 ```bash
-aerolab attach asadm -n mydc -- -e "show config"
+aerolab attach asadm -n asd -- -e "show config"
 ```
 
 ## Attach Client
@@ -286,7 +286,7 @@ Attach to client tools on cluster nodes.
 ### Basic Usage
 
 ```bash
-aerolab attach client -n mydc -l 1
+aerolab attach client -n tools -l 1
 ```
 
 Useful for running client applications or tests.
@@ -298,7 +298,7 @@ Attach to AGI (Aerospike Grafana Integration) instances.
 ### Basic Usage
 
 ```bash
-aerolab attach agi -n mydc
+aerolab attach agi -n asd
 ```
 
 Useful for accessing AGI tools and utilities.
@@ -310,7 +310,7 @@ Attach to Trino instances.
 ### Basic Usage
 
 ```bash
-aerolab attach trino -n mydc
+aerolab attach trino -n asd
 ```
 
 Useful for accessing Trino SQL interface.
@@ -322,24 +322,24 @@ Shorthand for `attach shell` via cluster command.
 ### Basic Usage
 
 ```bash
-aerolab cluster attach -n mydc -l 1
+aerolab cluster attach -n asd -l 1
 ```
 
 ### Examples
 
 **Interactive shell:**
 ```bash
-aerolab cluster attach -n mydc -l 1
+aerolab cluster attach -n asd -l 1
 ```
 
 **Run command:**
 ```bash
-aerolab cluster attach -n mydc -l all -- ls /tmp
+aerolab cluster attach -n asd -l all -- ls /tmp
 ```
 
 **Run in parallel:**
 ```bash
-aerolab cluster attach -n mydc -l all --parallel -- uptime
+aerolab cluster attach -n asd -l all --parallel -- uptime
 ```
 
 ## Common Workflows
@@ -348,52 +348,52 @@ aerolab cluster attach -n mydc -l all --parallel -- uptime
 
 ```bash
 # Check cluster state
-aerolab attach asinfo -n mydc -- -v "cluster"
+aerolab attach asinfo -n asd -- -v "cluster"
 
 # Check cluster stability
-aerolab attach asinfo -n mydc -- -v "cluster-stable"
+aerolab attach asinfo -n asd -- -v "cluster-stable"
 
 # Check namespace statistics
-aerolab attach asinfo -n mydc -- -v "namespace/test"
+aerolab attach asinfo -n asd -- -v "namespace/test"
 ```
 
 ### Query and Manipulate Data
 
 ```bash
 # Show namespaces
-aerolab attach aql -n mydc -- -c "show namespaces"
+aerolab attach aql -n asd -- -c "show namespaces"
 
 # Insert data
-aerolab attach aql -n mydc -- -c "INSERT INTO test.demoset (PK, data) VALUES ('key1', 'value1')"
+aerolab attach aql -n asd -- -c "INSERT INTO test.demoset (PK, data) VALUES ('key1', 'value1')"
 
 # Query data
-aerolab attach aql -n mydc -- -c "SELECT * FROM test.demoset"
+aerolab attach aql -n asd -- -c "SELECT * FROM test.demoset"
 ```
 
 ### System Administration
 
 ```bash
 # Check disk usage
-aerolab attach shell -n mydc -l all -- df -h
+aerolab attach shell -n asd -l all -- df -h
 
 # Check service status
-aerolab attach shell -n mydc -l all -- systemctl status aerospike
+aerolab attach shell -n asd -l all -- systemctl status aerospike
 
 # Check configuration
-aerolab attach shell -n mydc -- cat /etc/aerospike/aerospike.conf
+aerolab attach shell -n asd -- cat /etc/aerospike/aerospike.conf
 
 # Check logs
-aerolab attach shell -n mydc -- tail -f /var/log/aerospike/aerospike.log
+aerolab attach shell -n asd -- tail -f /var/log/aerospike/aerospike.log
 ```
 
 ### Run Commands on All Nodes
 
 ```bash
 # Run in parallel
-aerolab attach shell -n mydc -l all --parallel -- systemctl status aerospike
+aerolab attach shell -n asd -l all --parallel -- systemctl status aerospike
 
 # Run sequentially
-aerolab attach shell -n mydc -l all -- systemctl status aerospike
+aerolab attach shell -n asd -l all -- systemctl status aerospike
 ```
 
 ## Tips

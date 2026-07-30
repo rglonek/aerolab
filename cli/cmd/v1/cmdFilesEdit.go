@@ -12,7 +12,7 @@ import (
 )
 
 type FilesEditCmd struct {
-	ClusterName TypeClusterName `short:"n" long:"name" description:"Client group/Cluster name" default:"mydc"`
+	ClusterName TypeClusterName `short:"n" long:"name" description:"Client group/Cluster name" default:"asd"`
 	Node        TypeNode        `short:"l" long:"node" description:"Node number" default:"1"`
 	Editor      string          `short:"e" long:"editor" description:"Editor command; must be present on the node" default:"vi"`
 	Path        FilesSingleCmd  `positional-args:"true"`

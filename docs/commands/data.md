@@ -22,7 +22,7 @@ aerolab data insert -n mycluster -m test -s myset \
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `-n, --name` | Cluster name | `mydc` |
+| `-n, --name` | Cluster name | `asd` |
 | `-l, --node` | Node to run insert command on | `1` |
 | `-g, --seed-node` | Seed node IP:PORT | `127.0.0.1:3000` |
 | `-m, --namespace` | Namespace name | `test` |
@@ -235,7 +235,7 @@ Same options as `data insert` for targeting records:
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `-n, --name` | Cluster name | `mydc` |
+| `-n, --name` | Cluster name | `asd` |
 | `-l, --node` | Node to run delete command on | `1` |
 | `-g, --seed-node` | Seed node IP:PORT | `127.0.0.1:3000` |
 | `-m, --namespace` | Namespace name | `test` |

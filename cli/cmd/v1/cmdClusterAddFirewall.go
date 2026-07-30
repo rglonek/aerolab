@@ -10,7 +10,7 @@ import (
 )
 
 type ClusterAddFirewallCmd struct {
-	ClusterName  TypeClusterName `short:"n" long:"name" description:"Cluster name" default:"mydc"`
+	ClusterName  TypeClusterName `short:"n" long:"name" description:"Cluster name" default:"asd"`
 	Nodes        TypeNodes       `short:"l" long:"nodes" description:"Nodes list, comma separated. Empty=ALL" default:""`
 	CustomConf   flags.Filename  `short:"o" long:"custom-conf" description:"To deploy a custom ape.toml configuration file, specify it's path here"`
 	FirewallName string          `short:"f" long:"firewall" description:"Firewall name to assign to the nodes"`

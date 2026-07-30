@@ -14,7 +14,7 @@ import (
 )
 
 type ClientConfigureToolsCmd struct {
-	ClientName TypeClientName `short:"n" long:"name" description:"Client group name" default:"client"`
+	ClientName TypeClientName `short:"n" long:"name" description:"Client group name" default:"tools"`
 	Machines   TypeMachines   `short:"l" long:"nodes" description:"Node list, comma separated. Empty=ALL" default:""`
 	ConnectAMS TypeClientName `short:"m" long:"ams" default:"ams" description:"AMS client machine name"`
 	Threads    int            `short:"t" long:"threads" description:"Number of parallel threads" default:"10"`

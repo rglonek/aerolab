@@ -16,7 +16,7 @@ import (
 )
 
 type ConfFixMeshCmd struct {
-	ClusterName     TypeClusterName `short:"n" long:"name" description:"Cluster name" default:"mydc"`
+	ClusterName     TypeClusterName `short:"n" long:"name" description:"Cluster name" default:"asd"`
 	Nodes           TypeNodes       `short:"l" long:"nodes" description:"Nodes list, comma separated. Empty=ALL" default:""`
 	ConfigPath      string          `short:"c" long:"config-path" description:"path to a custom aerospike config file to use for the configuration" default:"/etc/aerospike/aerospike.conf"`
 	ParallelThreads int             `short:"t" long:"threads" description:"number of threads to use for parallel execution" default:"10"`

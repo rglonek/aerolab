@@ -49,8 +49,13 @@ func splitCamelCase(s string) string {
 // applyTagDefaults initializes a struct's fields to the values specified in
 // their `default` struct tags. This is used to seed a zero-value struct so
 // that unset fields match their declared defaults and are excluded from CLI
-// generation (which compares field values against tag defaults).
-func applyTagDefaults(v reflect.Value) {
+// generation (which compares field values against tag defaults). The command
+// path selects the per-command default overrides, which win over the tags.
+func applyTagDefaults(v reflect.Value, path string) {
+	applyDefaults(v, commandDefaultOverrides[path])
+}
+
+func applyDefaults(v reflect.Value, overrides map[string]string) {
 	if v.Kind() == reflect.Pointer {
 		if v.IsNil() {
 			return
@@ -69,10 +74,13 @@ func applyTagDefaults(v reflect.Value) {
 		}
 		// Recurse into embedded/anonymous structs and group structs
 		if fieldVal.Kind() == reflect.Struct {
-			applyTagDefaults(fieldVal)
+			applyDefaults(fieldVal, overrides)
 			continue
 		}
-		def := field.Tag.Get("default")
+		def, ok := overrides[field.Tag.Get("long")]
+		if !ok {
+			def = field.Tag.Get("default")
+		}
 		if def == "" {
 			continue
 		}
@@ -218,6 +226,14 @@ func buildCommandInfo(field reflect.StructField, fieldVal reflect.Value, name st
 		param := extractParameter(structField)
 		if param != nil {
 			cmd.Parameters = append(cmd.Parameters, *param)
+		}
+	}
+
+	for long, def := range commandDefaultOverrides[path] {
+		for i := range cmd.Parameters {
+			if cmd.Parameters[i].Long == long {
+				cmd.Parameters[i].Default = def
+			}
 		}
 	}
 

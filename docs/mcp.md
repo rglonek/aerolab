@@ -195,7 +195,7 @@ Even without any per-leaf tool, an agent can drive all of Aerolab through three 
   "tool": "aerolab_execute_command",
   "arguments": {
     "path": "cluster/create",
-    "args": { "name": "mydc", "count": 3, "distro": "ubuntu", "distro-version": "22.04" },
+    "args": { "name": "asd", "count": 3, "distro": "ubuntu", "distro-version": "22.04" },
     "confirm": true
   }
 }

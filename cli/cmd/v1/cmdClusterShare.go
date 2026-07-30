@@ -15,7 +15,7 @@ import (
 )
 
 type ClusterShareCmd struct {
-	ClusterName     TypeClusterName `short:"n" long:"name" description:"Cluster names, comma separated" default:"mydc"`
+	ClusterName     TypeClusterName `short:"n" long:"name" description:"Cluster names, comma separated" default:"asd"`
 	Nodes           TypeNodes       `short:"l" long:"nodes" description:"Nodes list, comma separated. Empty=ALL" default:""`
 	ParallelThreads int             `short:"t" long:"threads" description:"Number of parallel threads to use for the execution" default:"10"`
 	ConnectTimeout  time.Duration   `short:"C" long:"connect-timeout" description:"Connect timeout" default:"10s"`

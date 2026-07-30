@@ -39,17 +39,17 @@ aerolab aerospike start
 
 **Start Aerospike on specific cluster:**
 ```bash
-aerolab aerospike start -n mydc
+aerolab aerospike start -n asd
 ```
 
 **Start Aerospike on specific nodes:**
 ```bash
-aerolab aerospike start -n mydc -l 1-2
+aerolab aerospike start -n asd -l 1-2
 ```
 
 **Start Aerospike on multiple clusters:**
 ```bash
-aerolab aerospike start -n mydc,otherdc
+aerolab aerospike start -n asd,otherdc
 ```
 
 ## Aerospike Stop
@@ -75,7 +75,7 @@ aerolab aerospike stop
 
 **Stop Aerospike on specific nodes:**
 ```bash
-aerolab aerospike stop -n mydc -l 1-2
+aerolab aerospike stop -n asd -l 1-2
 ```
 
 ## Aerospike Restart
@@ -101,7 +101,7 @@ aerolab aerospike restart
 
 **Restart Aerospike on specific nodes:**
 ```bash
-aerolab aerospike restart -n mydc -l 1-2
+aerolab aerospike restart -n asd -l 1-2
 ```
 
 **Note**: Restart stops and starts the service. Use after configuration changes.
@@ -133,7 +133,7 @@ aerolab aerospike status
 
 **Check status on specific nodes:**
 ```bash
-aerolab aerospike status -n mydc -l 1-2
+aerolab aerospike status -n asd -l 1-2
 ```
 
 ### Output
@@ -167,17 +167,17 @@ aerolab aerospike upgrade -v '8.*'
 
 **Upgrade all nodes to latest 8.x:**
 ```bash
-aerolab aerospike upgrade -n mydc -v '8.*'
+aerolab aerospike upgrade -n asd -v '8.*'
 ```
 
 **Upgrade specific nodes:**
 ```bash
-aerolab aerospike upgrade -n mydc -l 1-2 -v '8.1.0.1'
+aerolab aerospike upgrade -n asd -l 1-2 -v '8.1.0.1'
 ```
 
 **Upgrade to specific version:**
 ```bash
-aerolab aerospike upgrade -n mydc -v '8.1.0.1'
+aerolab aerospike upgrade -n asd -v '8.1.0.1'
 ```
 
 ### Upgrade Process
@@ -211,12 +211,12 @@ aerolab aerospike cold-start
 
 **Cold start all nodes:**
 ```bash
-aerolab aerospike cold-start -n mydc
+aerolab aerospike cold-start -n asd
 ```
 
 **Cold start specific nodes:**
 ```bash
-aerolab aerospike cold-start -n mydc -l 1-2
+aerolab aerospike cold-start -n asd -l 1-2
 ```
 
 ### What Cold Start Does
@@ -241,7 +241,7 @@ aerolab aerospike is-stable
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `-n, --name` | Cluster name(s), comma separated, or `all` | `mydc` |
+| `-n, --name` | Cluster name(s), comma separated, or `all` | `asd` |
 | `-l, --nodes` | Only consider the given nodes, e.g. `--nodes=1-4,7,8` | (all) |
 | `-w, --wait` | Wait for stability | |
 | `-o, --wait-timeout` | Timeout in seconds for `-w` (0 = no timeout) | `0` |
@@ -256,27 +256,27 @@ aerolab aerospike is-stable
 
 **Check if cluster is stable:**
 ```bash
-aerolab aerospike is-stable -n mydc
+aerolab aerospike is-stable -n asd
 ```
 
 **Wait for cluster to become stable:**
 ```bash
-aerolab aerospike is-stable -n mydc -w
+aerolab aerospike is-stable -n asd -w
 ```
 
 **Wait with timeout:**
 ```bash
-aerolab aerospike is-stable -n mydc -w -o 30
+aerolab aerospike is-stable -n asd -w -o 30
 ```
 
 **Wait and ignore migrations:**
 ```bash
-aerolab aerospike is-stable -n mydc -w -o 30 -i
+aerolab aerospike is-stable -n asd -w -o 30 -i
 ```
 
 **Check specific namespace:**
 ```bash
-aerolab aerospike is-stable -n mydc -m test
+aerolab aerospike is-stable -n asd -m test
 ```
 
 ### Output
@@ -291,16 +291,16 @@ aerolab aerospike is-stable -n mydc -m test
 
 ```bash
 # 1. Start cluster nodes
-aerolab cluster start -n mydc
+aerolab cluster start -n asd
 
 # 2. Start Aerospike
-aerolab aerospike start -n mydc
+aerolab aerospike start -n asd
 
 # 3. Wait for stability
-aerolab aerospike is-stable -n mydc -w -o 60
+aerolab aerospike is-stable -n asd -w -o 60
 
 # 4. Check status
-aerolab aerospike status -n mydc
+aerolab aerospike status -n asd
 ```
 
 ### Restart After Configuration Changes
@@ -310,45 +310,45 @@ aerolab aerospike status -n mydc
 aerolab conf adjust set network.heartbeat.interval 250
 
 # 2. Restart Aerospike
-aerolab aerospike restart -n mydc
+aerolab aerospike restart -n asd
 
 # 3. Wait for stability
-aerolab aerospike is-stable -n mydc -w
+aerolab aerospike is-stable -n asd -w
 
 # 4. Verify changes
-aerolab attach asinfo -n mydc -- -v "network"
+aerolab attach asinfo -n asd -- -v "network"
 ```
 
 ### Upgrade Cluster
 
 ```bash
 # 1. Upgrade first node
-aerolab aerospike upgrade -n mydc -l 1 -v '8.1.0.1'
+aerolab aerospike upgrade -n asd -l 1 -v '8.1.0.1'
 
 # 2. Wait for stability
-aerolab aerospike is-stable -n mydc -w
+aerolab aerospike is-stable -n asd -w
 
 # 3. Upgrade remaining nodes
-aerolab aerospike upgrade -n mydc -l 2-5 -v '8.1.0.1'
+aerolab aerospike upgrade -n asd -l 2-5 -v '8.1.0.1'
 
 # 4. Wait for final stability
-aerolab aerospike is-stable -n mydc -w
+aerolab aerospike is-stable -n asd -w
 ```
 
 ### Troubleshooting with Cold Start
 
 ```bash
 # 1. Stop Aerospike
-aerolab aerospike stop -n mydc
+aerolab aerospike stop -n asd
 
 # 2. Cold start to clean IPC resources
-aerolab aerospike cold-start -n mydc
+aerolab aerospike cold-start -n asd
 
 # 3. Wait for stability
-aerolab aerospike is-stable -n mydc -w
+aerolab aerospike is-stable -n asd -w
 
 # 4. Check status
-aerolab aerospike status -n mydc
+aerolab aerospike status -n asd
 ```
 
 ### Rolling Restart
@@ -356,8 +356,8 @@ aerolab aerospike status -n mydc
 ```bash
 # Restart nodes one at a time
 for node in 1 2 3 4 5; do
-  aerolab aerospike restart -n mydc -l $node
-  aerolab aerospike is-stable -n mydc -w -o 30
+  aerolab aerospike restart -n asd -l $node
+  aerolab aerospike is-stable -n asd -w -o 30
 done
 ```
 
@@ -376,50 +376,50 @@ done
 
 1. Check service status:
    ```bash
-   aerolab aerospike status -n mydc
+   aerolab aerospike status -n asd
    ```
 
 2. Check logs:
    ```bash
-   aerolab logs show -n mydc
+   aerolab logs show -n asd
    ```
 
 3. Check configuration:
    ```bash
-   aerolab attach shell -n mydc -- cat /etc/aerospike/aerospike.conf
+   aerolab attach shell -n asd -- cat /etc/aerospike/aerospike.conf
    ```
 
 ### Cluster Not Stable
 
 1. Check cluster state:
    ```bash
-   aerolab attach asinfo -n mydc -- -v "cluster"
+   aerolab attach asinfo -n asd -- -v "cluster"
    ```
 
 2. Check for migrations:
    ```bash
-   aerolab attach asinfo -n mydc -- -v "migrate"
+   aerolab attach asinfo -n asd -- -v "migrate"
    ```
 
 3. Wait with verbose output:
    ```bash
-   aerolab aerospike is-stable -n mydc -w -v
+   aerolab aerospike is-stable -n asd -w -v
    ```
 
 ### Upgrade Issues
 
 1. Check current version:
    ```bash
-   aerolab attach asinfo -n mydc -- -v "version"
+   aerolab attach asinfo -n asd -- -v "version"
    ```
 
 2. Verify upgrade completed:
    ```bash
-   aerolab aerospike status -n mydc
+   aerolab aerospike status -n asd
    ```
 
 3. Check logs for errors:
    ```bash
-   aerolab logs show -n mydc
+   aerolab logs show -n asd
    ```
 

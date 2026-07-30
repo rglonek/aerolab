@@ -422,13 +422,13 @@ For commands that have a parameter with `webType: "download"`, a GET request str
 - `nodes` (optional): Comma-separated list of node numbers (e.g., `1,2,3` or `1-5`)
 
 ```bash
-# Download /etc/aerospike from all nodes in cluster "mydc"
+# Download /etc/aerospike from all nodes in cluster "asd"
 # The actual endpoint path depends on the command (e.g., files/download if such a command exists)
-curl "http://localhost:8080/{command-path}?cluster=mydc&source=/etc/aerospike" \
+curl "http://localhost:8080/{command-path}?cluster=asd&source=/etc/aerospike" \
   -o aerospike-config.tar.gz
 
 # Download from specific nodes
-curl "http://localhost:8080/{command-path}?cluster=mydc&nodes=1,2&source=/var/log/aerospike.log" \
+curl "http://localhost:8080/{command-path}?cluster=asd&nodes=1,2&source=/var/log/aerospike.log" \
   -o logs.tar.gz
 ```
 
@@ -446,11 +446,11 @@ For commands that have a parameter with `webType: "upload"`, a POST request with
 
 ```bash
 # Upload a single file to all nodes
-curl -X POST "http://localhost:8080/{command-path}?cluster=mydc&destination=/opt/myfile.txt" \
+curl -X POST "http://localhost:8080/{command-path}?cluster=asd&destination=/opt/myfile.txt" \
   -F "file=@localfile.txt"
 
 # Upload a tar.gz archive (automatically extracted on remote)
-curl -X POST "http://localhost:8080/{command-path}?cluster=mydc&destination=/opt/app" \
+curl -X POST "http://localhost:8080/{command-path}?cluster=asd&destination=/opt/app" \
   -F "file=@app.tar.gz"
 ```
 
@@ -719,7 +719,7 @@ AUTH = ("admin", "password")
 resp = requests.put(
     f"{BASE_URL}/cluster/create",
     auth=AUTH,
-    json={"name": "mydc", "count": 3}
+    json={"name": "asd", "count": 3}
 )
 job = resp.json()
 job_id = job["jobId"]

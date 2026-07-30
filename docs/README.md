@@ -164,6 +164,7 @@ If you're upgrading from AeroLab v7.x, see the **[Migration Guide](migration-gui
 ## Reference
 
 - **[Environment Variables](reference/environment-variables.md)** - All available environment variables
+- **[Exit Codes](reference/exit-codes.md)** - Codes aerolab terminates with, including the dedicated code for cloud capacity failures
 - **[Deploying JFrog Dev Builds](reference/jfrog-dev-builds.md)** - Install pre-release / CI builds of Aerospike server from JFrog Artifactory
 - **[WebUI Parameter Overrides](webui-config.md)** - Customize WebUI form defaults, choices, and visibility via YAML config file
 

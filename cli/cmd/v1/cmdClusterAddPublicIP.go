@@ -16,7 +16,7 @@ import (
 )
 
 type ClusterAddPublicIPCmd struct {
-	ClusterName     TypeClusterName `short:"n" long:"name" description:"Cluster name" default:"mydc"`
+	ClusterName     TypeClusterName `short:"n" long:"name" description:"Cluster name" default:"asd"`
 	Nodes           TypeNodes       `short:"l" long:"nodes" description:"Nodes list, comma separated. Empty=ALL" default:""`
 	ParallelThreads int             `short:"t" long:"threads" description:"Number of parallel threads to use for the execution" default:"10"`
 	MaxRetries      int             `long:"max-retries" description:"Maximum number of retries for transient SSH/SFTP failures" default:"1" simplemode:"false"`

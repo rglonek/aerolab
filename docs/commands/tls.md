@@ -21,7 +21,7 @@ aerolab tls generate -n mycluster -t tls1 -c cacert
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `-n, --name` | Cluster names, comma separated | `mydc` |
+| `-n, --name` | Cluster names, comma separated | `asd` |
 | `-l, --nodes` | Nodes list, comma separated. Empty=ALL | (all nodes) |
 | `-t, --tls-name` | Common Name (TLS name) for certificates | `tls1` |
 | `-c, --ca-name` | Name of the CA certificate file | `cacert` |
@@ -164,7 +164,7 @@ aerolab tls copy -s source-cluster -l 1 -d dest-cluster -t tls1
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `-s, --source` | Source cluster name | `mydc` |
+| `-s, --source` | Source cluster name | `asd` |
 | `-l, --source-node` | Source node to copy certificates from | `1` |
 | `-d, --destination` | Destination cluster name | `client` |
 | `-a, --destination-nodes` | Destination nodes, comma separated. Empty=ALL | (all nodes) |

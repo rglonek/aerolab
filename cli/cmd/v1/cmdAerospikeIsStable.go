@@ -15,7 +15,7 @@ import (
 )
 
 type AerospikeIsStableCmd struct {
-	ClusterName      TypeClusterName `short:"n" long:"name" description:"Cluster names, comma separated OR 'all' to affect all clusters" default:"mydc"`
+	ClusterName      TypeClusterName `short:"n" long:"name" description:"Cluster names, comma separated OR 'all' to affect all clusters" default:"asd"`
 	Nodes            TypeNodes       `short:"l" long:"nodes" description:"Only consider the given nodes, e.g. --nodes=1-4,7,8"`
 	Namespace        string          `short:"m" long:"namespace" description:"Namespace to change" default:"test"`
 	Wait             bool            `short:"w" long:"wait" description:"If set, will wait in a loop until the cluster is stable, and then return"`

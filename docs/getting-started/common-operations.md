@@ -11,13 +11,13 @@ link here instead of repeating this section.
 aerolab cluster start
 
 # Start specific nodes
-aerolab cluster start -n mydc -l 1-2
+aerolab cluster start -n asd -l 1-2
 
 # Stop all nodes
 aerolab cluster stop
 
 # Stop specific nodes
-aerolab cluster stop -n mydc -l 1-2
+aerolab cluster stop -n asd -l 1-2
 ```
 
 **Note (AWS/GCP):** stopping instances doesn't delete them — you're still billed for
@@ -42,39 +42,39 @@ aerolab aerospike is-stable -w -o 30
 
 ```bash
 # Shell access
-aerolab attach shell -n mydc -l 1
+aerolab attach shell -n asd -l 1
 
 # Run a single command
-aerolab attach shell -n mydc -l 1 -- ls /tmp
+aerolab attach shell -n asd -l 1 -- ls /tmp
 
 # AQL (Aerospike Query Language)
-aerolab attach aql -n mydc -- -c "show namespaces"
+aerolab attach aql -n asd -- -c "show namespaces"
 
 # asinfo
-aerolab attach asinfo -n mydc -- -v "cluster-stable"
+aerolab attach asinfo -n asd -- -v "cluster-stable"
 
 # asadm (Aerospike Admin)
-aerolab attach asadm -n mydc -- -e info
+aerolab attach asadm -n asd -- -e info
 ```
 
 ## File Operations
 
 ```bash
 # Upload
-aerolab files upload -n mydc local-file.txt /tmp/remote-file.txt
+aerolab files upload -n asd local-file.txt /tmp/remote-file.txt
 
 # Download
-aerolab files download -n mydc /tmp/remote-file.txt ./local-dir/
+aerolab files download -n asd /tmp/remote-file.txt ./local-dir/
 
 # Sync a file from node 1 to every other node in the cluster
-aerolab files sync -n mydc -l 1 /tmp/file.txt
+aerolab files sync -n asd -l 1 /tmp/file.txt
 ```
 
 ## Configuration Management
 
 ```bash
 # View the running config
-aerolab attach shell -n mydc -- cat /etc/aerospike/aerospike.conf
+aerolab attach shell -n asd -- cat /etc/aerospike/aerospike.conf
 
 # Adjust a parameter live
 aerolab conf adjust set network.heartbeat.interval 250
@@ -91,7 +91,7 @@ aerolab conf rackid -l 3-4 -i 2
 
 ```bash
 # Destroy one cluster
-aerolab cluster destroy -n mydc --force
+aerolab cluster destroy -n asd --force
 
 # Remove every Aerolab-managed resource in the current backend/project
 aerolab inventory delete-project-resources -f

@@ -185,7 +185,7 @@ aerolab agi create \
 ### Running Cluster
 Collect logs from a running Aerospike cluster:
 ```bash
-aerolab agi create --source-cluster mydc
+aerolab agi create --source-cluster asd
 ```
 
 ## Authentication

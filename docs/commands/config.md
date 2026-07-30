@@ -184,10 +184,10 @@ plus a note for any key that replaced a previous fingerprint.
 
 ```bash
 # Forget every node of a cluster
-aerolab config host-keys forget -n mydc
+aerolab config host-keys forget -n asd
 
 # Forget specific nodes
-aerolab config host-keys forget -n mydc -l 2,3
+aerolab config host-keys forget -n asd -l 2,3
 
 # Forget everything in this project
 aerolab config host-keys forget --all

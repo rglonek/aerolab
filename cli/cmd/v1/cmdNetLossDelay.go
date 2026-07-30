@@ -17,9 +17,9 @@ import (
 )
 
 type NetLossDelayCmd struct {
-	SourceClusterName      TypeClusterName   `short:"s" long:"source" description:"Source cluster name" default:"mydc"`
+	SourceClusterName      TypeClusterName   `short:"s" long:"source" description:"Source cluster name" default:"asd-source"`
 	SourceNodeList         TypeNodes         `short:"l" long:"source-nodes" description:"List of source nodes. Empty=ALL." default:""`
-	DestinationClusterName TypeClusterName   `short:"d" long:"destination" description:"Destination cluster name" default:"mydc-xdr"`
+	DestinationClusterName TypeClusterName   `short:"d" long:"destination" description:"Destination cluster name" default:"asd-dest"`
 	DestinationNodeList    TypeNodes         `short:"i" long:"destination-nodes" description:"List of destination nodes. Empty=ALL." default:""`
 	Action                 TypeNetLossAction `short:"a" long:"action" description:"One of: set|del|reset|show. reset does not require dest cluster, as it removes all rules" default:"show" webchoice:"show,set,del,reset"`
 	LatencyMs              string            `short:"D" long:"latency-ms" description:"optional: specify latency (number) of milliseconds"`

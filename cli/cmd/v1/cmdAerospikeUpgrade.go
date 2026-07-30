@@ -23,7 +23,7 @@ import (
 )
 
 type AerospikeUpgradeCmd struct {
-	ClusterName      TypeClusterName `short:"n" long:"name" description:"Cluster names, comma separated" default:"mydc"`
+	ClusterName      TypeClusterName `short:"n" long:"name" description:"Cluster names, comma separated" default:"asd"`
 	Nodes            TypeNodes       `short:"l" long:"nodes" description:"Nodes list, comma separated. Empty=ALL" default:""`
 	AerospikeVersion string          `short:"v" long:"aerospike-version" description:"Aerospike server version to upgrade to; add 'c' to the end for community edition, or 'f' for federal edition" default:"latest"`
 	CustomSourceFile flags.Filename  `short:"f" long:"custom-source-file" description:"custom source file for upgrade; must be .deb, .rpm, .tgz, or the asd binary itself"`

@@ -248,7 +248,7 @@ func shellEscape(s string) string {
 //   - preferShort: if true, use short flags (-n) when available; otherwise use long flags (--name)
 //   - includeDefaults: if true, include flags even when their value matches the default
 //
-// Returns a shell-safe command string like: aerolab cluster create --name=mydc --count=3
+// Returns a shell-safe command string like: aerolab cluster create --name=asd --count=3
 func ReconstructCommandLine(cmdPath []string, cmdStruct any, preferShort bool, includeDefaults ...bool) string {
 	showDefaults := len(includeDefaults) > 0 && includeDefaults[0]
 	return ReconstructCommandLineForBackend(cmdPath, cmdStruct, preferShort, showDefaults, "")
@@ -263,7 +263,7 @@ func ReconstructCommandLineForBackend(cmdPath []string, cmdStruct any, preferSho
 	parts = append(parts, "aerolab")
 	parts = append(parts, cmdPath...)
 
-	flags := extractFlags(reflect.ValueOf(cmdStruct), "", preferShort, includeDefaults, activeBackend)
+	flags := extractFlags(reflect.ValueOf(cmdStruct), "", preferShort, includeDefaults, activeBackend, DefaultOverridesForPath(cmdPath...))
 	parts = append(parts, flags...)
 
 	return strings.Join(parts, " ")
@@ -272,7 +272,9 @@ func ReconstructCommandLineForBackend(cmdPath []string, cmdStruct any, preferSho
 // extractFlags recursively extracts flags from a struct value.
 // activeBackend filters out group structs whose description tag contains "backend-X"
 // where X does not match the active backend. Pass "" to disable filtering.
-func extractFlags(val reflect.Value, namespacePrefix string, preferShort bool, includeDefaults bool, activeBackend string) []string {
+// defaultOverrides, keyed by long flag name, replaces the `default` struct tag
+// for commands that override it (see commandDefaultOverrides).
+func extractFlags(val reflect.Value, namespacePrefix string, preferShort bool, includeDefaults bool, activeBackend string, defaultOverrides map[string]string) []string {
 	var flags []string
 
 	// Handle pointer types
@@ -327,14 +329,14 @@ func extractFlags(val reflect.Value, namespacePrefix string, preferShort bool, i
 					newPrefix = namespace
 				}
 			}
-			nestedFlags := extractFlags(fieldVal, newPrefix, preferShort, includeDefaults, activeBackend)
+			nestedFlags := extractFlags(fieldVal, newPrefix, preferShort, includeDefaults, activeBackend, defaultOverrides)
 			flags = append(flags, nestedFlags...)
 			continue
 		}
 
 		// Handle embedded structs (no group tag but is a struct)
 		if field.Anonymous && fieldVal.Kind() == reflect.Struct {
-			nestedFlags := extractFlags(fieldVal, namespacePrefix, preferShort, includeDefaults, activeBackend)
+			nestedFlags := extractFlags(fieldVal, namespacePrefix, preferShort, includeDefaults, activeBackend, defaultOverrides)
 			flags = append(flags, nestedFlags...)
 			continue
 		}
@@ -343,6 +345,9 @@ func extractFlags(val reflect.Value, namespacePrefix string, preferShort bool, i
 		longName := field.Tag.Get("long")
 		shortName := field.Tag.Get("short")
 		defaultVal := field.Tag.Get("default")
+		if override, ok := defaultOverrides[longName]; ok {
+			defaultVal = override
+		}
 
 		// Skip if no flag names
 		if longName == "" && shortName == "" {

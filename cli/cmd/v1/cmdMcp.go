@@ -154,7 +154,7 @@ func (c *McpCmd) runServer(system *System) error {
 
 	registry := &aerolabmcp.Registry{
 		Root: []*aerolabmcp.Command{tree},
-		Help: aerolabmcp.RenderHelpFromFactory(func() any { return &Commands{} }),
+		Help: aerolabmcp.RenderHelpFromFactory(func() any { return &Commands{} }, ApplyDefaultOverridesToParser),
 		Run: &aerolabmcp.Runner{
 			Binary:         binary,
 			DefaultTimeout: time.Duration(c.TimeoutSec) * time.Second,

@@ -41,14 +41,14 @@ aerolab cluster create -c 2 -d ubuntu -i 24.04 -v '8.*'
 
 # 3. Wait for it to come up, then use it
 aerolab aerospike is-stable -w
-aerolab attach aql -n mydc -- -c "show namespaces"
+aerolab attach aql -n asd -- -c "show namespaces"
 
 # 4. Tear it down when done
-aerolab cluster destroy -n mydc --force
+aerolab cluster destroy -n asd --force
 ```
 
 `-c 2` creates 2 nodes, `-d ubuntu -i 24.04` picks the OS image, `-v '8.*'` installs the
-latest Aerospike 8.x, and the cluster is named `mydc` unless you pass `-n`.
+latest Aerospike 8.x, and the cluster is named `asd` unless you pass `-n`.
 
 ## Configure the Backend
 

@@ -16,7 +16,7 @@ Upload files from local system to cluster nodes.
 ### Basic Usage
 
 ```bash
-aerolab files upload -n mydc local-file.txt /tmp/remote-file.txt
+aerolab files upload -n asd local-file.txt /tmp/remote-file.txt
 ```
 
 ### Options
@@ -31,17 +31,17 @@ aerolab files upload -n mydc local-file.txt /tmp/remote-file.txt
 
 **Upload to all nodes:**
 ```bash
-aerolab files upload -n mydc local-file.txt /tmp/remote-file.txt
+aerolab files upload -n asd local-file.txt /tmp/remote-file.txt
 ```
 
 **Upload to specific node:**
 ```bash
-aerolab files upload -n mydc -l 1 local-file.txt /tmp/remote-file.txt
+aerolab files upload -n asd -l 1 local-file.txt /tmp/remote-file.txt
 ```
 
 **Upload to multiple nodes:**
 ```bash
-aerolab files upload -n mydc -l 1-3 local-file.txt /tmp/remote-file.txt
+aerolab files upload -n asd -l 1-3 local-file.txt /tmp/remote-file.txt
 ```
 
 **Upload with custom permissions:**
@@ -54,7 +54,7 @@ Download files from cluster nodes to local system.
 ### Basic Usage
 
 ```bash
-aerolab files download -n mydc /tmp/remote-file.txt ./local-dir/
+aerolab files download -n asd /tmp/remote-file.txt ./local-dir/
 ```
 
 ### Options
@@ -69,17 +69,17 @@ aerolab files download -n mydc /tmp/remote-file.txt ./local-dir/
 
 **Download from all nodes:**
 ```bash
-aerolab files download -n mydc /tmp/remote-file.txt ./local-dir/
+aerolab files download -n asd /tmp/remote-file.txt ./local-dir/
 ```
 
 **Download from specific node:**
 ```bash
-aerolab files download -n mydc -l 1 /tmp/remote-file.txt ./local-dir/
+aerolab files download -n asd -l 1 /tmp/remote-file.txt ./local-dir/
 ```
 
 **Download from multiple nodes:**
 ```bash
-aerolab files download -n mydc -l 1-3 /tmp/remote-file.txt ./local-dir/
+aerolab files download -n asd -l 1-3 /tmp/remote-file.txt ./local-dir/
 ```
 
 **Note**: Files from different nodes are saved with node numbers appended.
@@ -91,7 +91,7 @@ Sync files from one node to all other nodes in the cluster.
 ### Basic Usage
 
 ```bash
-aerolab files sync -n mydc -l 1 /tmp/file.txt
+aerolab files sync -n asd -l 1 /tmp/file.txt
 ```
 
 ### Options
@@ -105,14 +105,14 @@ aerolab files sync -n mydc -l 1 /tmp/file.txt
 
 **Sync from node 1:**
 ```bash
-aerolab files sync -n mydc -l 1 /tmp/file.txt
+aerolab files sync -n asd -l 1 /tmp/file.txt
 ```
 
 This copies `/tmp/file.txt` from node 1 to all other nodes in the cluster.
 
 **Sync configuration file:**
 ```bash
-aerolab files sync -n mydc -l 1 /etc/aerospike/aerospike.conf
+aerolab files sync -n asd -l 1 /etc/aerospike/aerospike.conf
 ```
 
 ### Workflow
@@ -128,7 +128,7 @@ Edit files on cluster nodes.
 ### Basic Usage
 
 ```bash
-aerolab files edit -n mydc /tmp/file.txt
+aerolab files edit -n asd /tmp/file.txt
 ```
 
 ### Options
@@ -142,12 +142,12 @@ aerolab files edit -n mydc /tmp/file.txt
 
 **Edit file on all nodes:**
 ```bash
-aerolab files edit -n mydc /tmp/file.txt
+aerolab files edit -n asd /tmp/file.txt
 ```
 
 **Edit file on specific node:**
 ```bash
-aerolab files edit -n mydc -l 1 /tmp/file.txt
+aerolab files edit -n asd -l 1 /tmp/file.txt
 ```
 
 **Note**: Opens the file in your default editor. Changes are saved back to the node.
@@ -158,62 +158,62 @@ aerolab files edit -n mydc -l 1 /tmp/file.txt
 
 ```bash
 # 1. Upload custom configuration
-aerolab files upload -n mydc custom-aerospike.conf /etc/aerospike/aerospike.conf
+aerolab files upload -n asd custom-aerospike.conf /etc/aerospike/aerospike.conf
 
 # 2. Restart Aerospike
-aerolab aerospike restart -n mydc
+aerolab aerospike restart -n asd
 
 # 3. Wait for stability
-aerolab aerospike is-stable -n mydc -w
+aerolab aerospike is-stable -n asd -w
 ```
 
 ### Sync Configuration Across Nodes
 
 ```bash
 # 1. Edit configuration on node 1
-aerolab files edit -n mydc -l 1 /etc/aerospike/aerospike.conf
+aerolab files edit -n asd -l 1 /etc/aerospike/aerospike.conf
 
 # 2. Sync to all other nodes
-aerolab files sync -n mydc -l 1 /etc/aerospike/aerospike.conf
+aerolab files sync -n asd -l 1 /etc/aerospike/aerospike.conf
 
 # 3. Restart Aerospike
-aerolab aerospike restart -n mydc
+aerolab aerospike restart -n asd
 
 # 4. Wait for stability
-aerolab aerospike is-stable -n mydc -w
+aerolab aerospike is-stable -n asd -w
 ```
 
 ### Download Logs
 
 ```bash
 # Download logs from all nodes
-aerolab files download -n mydc /var/log/aerospike/aerospike.log ./logs/
+aerolab files download -n asd /var/log/aerospike/aerospike.log ./logs/
 ```
 
 ### Upload Scripts
 
 ```bash
 # Upload script to all nodes
-aerolab files upload -n mydc local-script.sh /opt/script.sh
+aerolab files upload -n asd local-script.sh /opt/script.sh
 
 # Make executable
-aerolab attach shell -n mydc -- chmod +x /opt/script.sh
+aerolab attach shell -n asd -- chmod +x /opt/script.sh
 
 # Run script
-aerolab attach shell -n mydc -- /opt/script.sh
+aerolab attach shell -n asd -- /opt/script.sh
 ```
 
 ### Upload Certificate Files
 
 ```bash
 # Upload TLS certificate
-aerolab files upload -n mydc ca.pem /opt/ca.pem
+aerolab files upload -n asd ca.pem /opt/ca.pem
 
 # Upload client certificate
-aerolab files upload -n mydc client.pem /opt/client.pem
+aerolab files upload -n asd client.pem /opt/client.pem
 
 # Upload key file
-aerolab files upload -n mydc client.key /opt/client.key
+aerolab files upload -n asd client.key /opt/client.key
 ```
 
 ## Tips

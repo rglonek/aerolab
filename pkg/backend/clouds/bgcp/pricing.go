@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -373,17 +372,12 @@ func (s *b) getInstanceTypesFromGCP() (backends.InstanceTypeList, error) {
 					errs = errors.Join(errs, err)
 					return
 				}
-				// Skip instance types that don't have standard on-demand pricing
-				// TPU instances (ct3, ct5, ct6, ct7, tpu), X4 (commitment-only), A4 (DWS GPU only)
+				// Families such as x4 and a4 are listed even though GCP
+				// publishes no pay-as-you-go SKU for them; they end up priced
+				// at zero rather than being hidden from the catalog.
 				name := *machineType.Name
-				if strings.HasPrefix(name, "ct3") || strings.HasPrefix(name, "ct5") ||
-					strings.HasPrefix(name, "ct6") || strings.HasPrefix(name, "ct7") ||
-					strings.HasPrefix(name, "tpu") || strings.HasPrefix(name, "x4-") ||
-					strings.HasPrefix(name, "a4-") {
-					continue
-				}
 				arch := backends.ArchitectureX8664
-				if strings.HasPrefix(name, "t2") {
+				if armFamilies[machineFamilyToken(name)] {
 					arch = backends.ArchitectureARM64
 				}
 				ssds := 0
@@ -486,30 +480,11 @@ func getGcpInstancePricing(t *backends.InstanceType) *gcpInstancePricing {
 	return t.BackendSpecific.(*gcpInstancePricing)
 }
 
-// skuGroupToInstancePrefix maps SKU description group names to instance type prefixes
-// This handles cases where SKU descriptions don't match instance type naming
-var skuGroupToInstancePrefix = map[string][]string{
-	"memory-optimized": {"m1", "m2"},
-	"compute":          {"c2"},
-}
-
-// instanceMatchesGroup checks if an instance type name matches a SKU group
-// It first checks the mapping, then falls back to prefix matching
-func instanceMatchesGroup(instanceName, group string) bool {
-	// Check mapping first
-	if prefixes, ok := skuGroupToInstancePrefix[group]; ok {
-		for _, prefix := range prefixes {
-			if strings.HasPrefix(instanceName, prefix) {
-				return true
-			}
-		}
-		return false
-	}
-	// Fall back to direct prefix matching
-	return strings.HasPrefix(instanceName, group)
-}
-
-// map[instanceTypePrefix]gcpInstancePricing
+// getInstancePrices fills in per-hour prices on an instance-type catalog by
+// walking the Cloud Billing SKU list for Compute Engine. Rates are collected
+// per region and per billing family first, then applied, so that a machine
+// type is only ever priced with the rates published for its own region and
+// its own family.
 func (s *b) getInstancePrices(out backends.InstanceTypeList) (backends.InstanceTypeList, error) {
 	log := s.log.WithPrefix("getInstancePrices: job=" + shortuuid.New() + " ")
 	log.Detail("Start")
@@ -518,11 +493,11 @@ func (s *b) getInstancePrices(out backends.InstanceTypeList) (backends.InstanceT
 	if err != nil {
 		return nil, err
 	}
-	zones := []string{}
+	regions := map[string]bool{}
 	for _, zone := range s.allZones {
 		for _, enabledZone := range enabledZones {
 			if strings.HasPrefix(zone, enabledZone) {
-				zones = append(zones, zone)
+				regions[zoneToRegion(zone)] = true
 				break
 			}
 		}
@@ -546,389 +521,46 @@ func (s *b) getInstancePrices(out backends.InstanceTypeList) (backends.InstanceT
 	if err != nil {
 		if strings.Contains(err.Error(), "accessNotConfigured") {
 			return s.getInstancePricesEnableService(out)
-		} else {
-			return out, err
 		}
+		return out, err
 	}
+
+	base := rateTable{}
+	premium := rateTable{}
 	srv := cloudbilling.NewServicesSkusService(svc)
 	call := srv.List("services/6F81-5844-456A").CurrencyCode("USD")
 	err = call.Pages(ctx, func(resp *cloudbilling.ListSkusResponse) error {
-		for _, i := range resp.Skus {
-			if i.Category.ResourceFamily != "Compute" {
+		for _, sku := range resp.Skus {
+			if sku.Category == nil || sku.Category.ResourceFamily != "Compute" {
 				continue
 			}
-			onDemand := true
-			if i.Category.UsageType == "Preemptible" {
-				onDemand = false
-			} else if i.Category.UsageType != "OnDemand" {
+			if sku.Category.UsageType != "OnDemand" && sku.Category.UsageType != "Preemptible" {
 				continue
 			}
-			zoneFound := false
-			for _, zone := range zones {
-				if strings.Count(zone, "-") == 2 {
-					parts := strings.Split(zone, "-")
-					zone = parts[0] + "-" + parts[1]
-				}
-				if slices.Contains(i.ServiceRegions, zone) {
-					zoneFound = true
-					break
+			skuRegions := []string{}
+			for _, region := range sku.ServiceRegions {
+				if regions[region] {
+					skuRegions = append(skuRegions, region)
 				}
 			}
-			if !zoneFound {
+			if len(skuRegions) == 0 {
 				continue
 			}
-			iGroup := strings.Split(i.Description, " ")
-			if len(iGroup) < 6 {
+			parsed, ok := parseComputeSku(sku.Description, sku.Category.ResourceGroup, sku.Category.UsageType == "Preemptible")
+			if !ok {
 				continue
 			}
-			if !onDemand {
-				iGroup = iGroup[2:]
-			}
-			if i.Category.ResourceGroup == "GPU" && iGroup[0] == "Nvidia" {
-				grp := ""
-				if strings.HasPrefix(i.Description, "Nvidia Tesla A100 GPU ") {
-					grp = "a2"
-				} else if strings.HasPrefix(i.Description, "Nvidia Tesla A100 80GB GPU ") {
-					grp = "a2"
-				} else if strings.HasPrefix(i.Description, "Nvidia L4 GPU ") {
-					grp = "g2"
-				} else {
-					continue
-				}
-				if strings.HasPrefix(i.Description, "Nvidia Tesla A100 GPU ") {
-					for _, j := range i.PricingInfo {
-						if j.PricingExpression == nil {
-							continue
-						}
-						if j.PricingExpression.UsageUnit != "h" {
-							continue
-						}
-						for _, x := range j.PricingExpression.TieredRates {
-							if x.UnitPrice == nil {
-								continue
-							}
-							if x.UnitPrice.CurrencyCode != "USD" {
-								continue
-							}
-							if onDemand {
-								pricePerUnitHour := float64(x.UnitPrice.Units) + float64(x.UnitPrice.Nanos)/1000000000
-								for _, t := range out {
-									if instanceMatchesGroup(t.Name, grp) {
-										t.PricePerHour.Currency = "USD"
-										pricing := getGcpInstancePricing(t)
-										pricing.OnDemandPerGPUHour = pricePerUnitHour
-									}
-								}
-							} else {
-								pricePerUnitHour := float64(x.UnitPrice.Units) + float64(x.UnitPrice.Nanos)/1000000000
-								for _, t := range out {
-									if instanceMatchesGroup(t.Name, grp) {
-										t.PricePerHour.Currency = "USD"
-										pricing := getGcpInstancePricing(t)
-										pricing.SpotPerGPUHour = pricePerUnitHour
-									}
-								}
-							}
-						}
-					}
-				} else if strings.HasPrefix(i.Description, "Nvidia Tesla A100 80GB GPU ") {
-					for _, j := range i.PricingInfo {
-						if j.PricingExpression == nil {
-							continue
-						}
-						if j.PricingExpression.UsageUnit != "h" {
-							continue
-						}
-						for _, x := range j.PricingExpression.TieredRates {
-							if x.UnitPrice == nil {
-								continue
-							}
-							if x.UnitPrice.CurrencyCode != "USD" {
-								continue
-							}
-							if onDemand {
-								pricePerUnitHour := float64(x.UnitPrice.Units) + float64(x.UnitPrice.Nanos)/1000000000
-								for _, t := range out {
-									if instanceMatchesGroup(t.Name, grp) {
-										t.PricePerHour.Currency = "USD"
-										pricing := getGcpInstancePricing(t)
-										pricing.OnDemandPerCPUHour = pricePerUnitHour
-									}
-								}
-							} else {
-								pricePerUnitHour := float64(x.UnitPrice.Units) + float64(x.UnitPrice.Nanos)/1000000000
-								for _, t := range out {
-									if instanceMatchesGroup(t.Name, grp) {
-										t.PricePerHour.Currency = "USD"
-										pricing := getGcpInstancePricing(t)
-										pricing.SpotPerCPUHour = pricePerUnitHour
-									}
-								}
-							}
-						}
-					}
-				} else if strings.HasPrefix(i.Description, "Nvidia L4 GPU ") {
-					for _, j := range i.PricingInfo {
-						if j.PricingExpression == nil {
-							continue
-						}
-						if j.PricingExpression.UsageUnit != "h" {
-							continue
-						}
-						for _, x := range j.PricingExpression.TieredRates {
-							if x.UnitPrice == nil {
-								continue
-							}
-							if x.UnitPrice.CurrencyCode != "USD" {
-								continue
-							}
-							if onDemand {
-								pricePerUnitHour := float64(x.UnitPrice.Units) + float64(x.UnitPrice.Nanos)/1000000000
-								for _, t := range out {
-									if instanceMatchesGroup(t.Name, grp) {
-										t.PricePerHour.Currency = "USD"
-										pricing := getGcpInstancePricing(t)
-										pricing.OnDemandPerGPUHour = pricePerUnitHour
-									}
-								}
-							} else {
-								pricePerUnitHour := float64(x.UnitPrice.Units) + float64(x.UnitPrice.Nanos)/1000000000
-								for _, t := range out {
-									if instanceMatchesGroup(t.Name, grp) {
-										t.PricePerHour.Currency = "USD"
-										pricing := getGcpInstancePricing(t)
-										pricing.SpotPerGPUHour = pricePerUnitHour
-									}
-								}
-							}
-						}
-					}
-				}
+			value, ok := skuHourlyRate(sku, parsed.resource)
+			if !ok {
 				continue
 			}
-			if len(i.PricingInfo) == 0 || i.PricingInfo[0].PricingExpression == nil || len(i.PricingInfo[0].PricingExpression.TieredRates) == 0 {
-				continue
+			table := base
+			if parsed.additive {
+				table = premium
 			}
-			if i.Category.ResourceGroup == "G1Small" {
-				for _, j := range i.PricingInfo {
-					if j.PricingExpression == nil {
-						continue
-					}
-					if j.PricingExpression.UsageUnit != "h" {
-						continue
-					}
-					for _, x := range j.PricingExpression.TieredRates {
-						if x.UnitPrice == nil {
-							continue
-						}
-						if x.UnitPrice.CurrencyCode != "USD" {
-							continue
-						}
-						grp := "g1"
-						if onDemand {
-							pricePerCoreHour := float64(x.UnitPrice.Units) + float64(x.UnitPrice.Nanos)/1000000000
-							pricePerRamGBHour := 0.0000000000001
-							for _, t := range out {
-								if instanceMatchesGroup(t.Name, grp) {
-									t.PricePerHour.Currency = "USD"
-									if t.BackendSpecific == nil {
-										t.BackendSpecific = &gcpInstancePricing{}
-									}
-									pricing := getGcpInstancePricing(t)
-									pricing.OnDemandPerCPUHour = pricePerCoreHour
-									pricing.OnDemandPerRamGBHour = pricePerRamGBHour
-								}
-							}
-						} else {
-							pricePerCoreHour := float64(x.UnitPrice.Units) + float64(x.UnitPrice.Nanos)/1000000000
-							pricePerRamGBHour := 0.0000000000001
-							for _, t := range out {
-								if instanceMatchesGroup(t.Name, grp) {
-									t.PricePerHour.Currency = "USD"
-									if t.BackendSpecific == nil {
-										t.BackendSpecific = &gcpInstancePricing{}
-									}
-									pricing := getGcpInstancePricing(t)
-									pricing.SpotPerCPUHour = pricePerCoreHour
-									pricing.SpotPerRamGBHour = pricePerRamGBHour
-								}
-							}
-						}
-					}
-				}
-				continue
-			} else if i.Category.ResourceGroup == "F1Micro" {
-				for _, j := range i.PricingInfo {
-					if j.PricingExpression == nil {
-						continue
-					}
-					if j.PricingExpression.UsageUnit != "h" {
-						continue
-					}
-					for _, x := range j.PricingExpression.TieredRates {
-						if x.UnitPrice == nil {
-							continue
-						}
-						if x.UnitPrice.CurrencyCode != "USD" {
-							continue
-						}
-						grp := "f1"
-						if onDemand {
-							pricePerCoreHour := float64(x.UnitPrice.Units) + float64(x.UnitPrice.Nanos)/1000000000
-							pricePerRamGBHour := 0.0000000000001
-							for _, t := range out {
-								if instanceMatchesGroup(t.Name, grp) {
-									t.PricePerHour.Currency = "USD"
-									if t.BackendSpecific == nil {
-										t.BackendSpecific = &gcpInstancePricing{}
-									}
-									pricing := getGcpInstancePricing(t)
-									pricing.OnDemandPerCPUHour = pricePerCoreHour
-									pricing.OnDemandPerRamGBHour = pricePerRamGBHour
-								}
-							}
-						} else {
-							pricePerCoreHour := float64(x.UnitPrice.Units) + float64(x.UnitPrice.Nanos)/1000000000
-							pricePerRamGBHour := 0.0000000000001
-							for _, t := range out {
-								if instanceMatchesGroup(t.Name, grp) {
-									t.PricePerHour.Currency = "USD"
-									if t.BackendSpecific == nil {
-										t.BackendSpecific = &gcpInstancePricing{}
-									}
-									pricing := getGcpInstancePricing(t)
-									pricing.SpotPerCPUHour = pricePerCoreHour
-									pricing.SpotPerRamGBHour = pricePerRamGBHour
-								}
-							}
-						}
-					}
-				}
-				continue
-			} else {
-				// Check for valid pricing patterns:
-				// Pattern 1: "{Family} Instance Core/Ram running in..."
-				// Pattern 2: "{Family} {Modifier} Instance Core/Ram running in..." where Modifier is Predefined/AMD/Arm/Memory-optimized
-				// Pattern 3: "Compute optimized Core/Ram running in..." (for C2 instances)
-				// Pattern 4: "Compute optimized Instance Core/Ram running in..." (for C2 instances)
-				// Pattern 5: "Memory-optimized Instance Core/Ram running in..." (for M1/M2 instances)
-				isValidPattern := false
-
-				// Pattern 1: {Family} Instance Core/Ram running in...
-				if iGroup[1] == "Instance" && (iGroup[2] == "Core" || iGroup[2] == "Ram") && iGroup[3] == "running" && iGroup[4] == "in" {
-					isValidPattern = true
-				}
-				// Pattern 2: {Family} {Modifier} Instance Core/Ram running in...
-				if (iGroup[1] == "Predefined" || iGroup[1] == "AMD" || iGroup[1] == "Arm" || iGroup[1] == "Memory-optimized") &&
-					iGroup[2] == "Instance" && (iGroup[3] == "Core" || iGroup[3] == "Ram") && iGroup[4] == "running" && iGroup[5] == "in" {
-					isValidPattern = true
-				}
-				// Pattern 3: Compute optimized Core/Ram running in...
-				if iGroup[1] == "optimized" && (iGroup[2] == "Core" || iGroup[2] == "Ram") && iGroup[3] == "running" && iGroup[4] == "in" {
-					isValidPattern = true
-				}
-				// Pattern 4: Compute optimized Instance Core/Ram running in...
-				if iGroup[1] == "optimized" && iGroup[2] == "Instance" && (iGroup[3] == "Core" || iGroup[3] == "Ram") && iGroup[4] == "running" && iGroup[5] == "in" {
-					isValidPattern = true
-				}
-
-				if !isValidPattern {
-					continue
-				}
-			}
-			grp := strings.ToLower(iGroup[0])
-			if i.Category.ResourceGroup != "CPU" && i.Category.ResourceGroup != "RAM" && iGroup[1] == "Predefined" {
-				switch iGroup[3] {
-				case "Core":
-					i.Category.ResourceGroup = "CPU"
-				case "Ram":
-					i.Category.ResourceGroup = "RAM"
-				}
-			}
-			switch i.Category.ResourceGroup {
-			case "CPU":
-				for _, j := range i.PricingInfo {
-					if j.PricingExpression == nil {
-						continue
-					}
-					if j.PricingExpression.UsageUnit != "h" {
-						continue
-					}
-					for _, x := range j.PricingExpression.TieredRates {
-						if x.UnitPrice == nil {
-							continue
-						}
-						if x.UnitPrice.CurrencyCode != "USD" {
-							continue
-						}
-						if onDemand {
-							pricePerCoreHour := float64(x.UnitPrice.Units) + float64(x.UnitPrice.Nanos)/1000000000
-							for _, t := range out {
-								if instanceMatchesGroup(t.Name, grp) {
-									t.PricePerHour.Currency = "USD"
-									if t.BackendSpecific == nil {
-										t.BackendSpecific = &gcpInstancePricing{}
-									}
-									pricing := getGcpInstancePricing(t)
-									pricing.OnDemandPerCPUHour = pricePerCoreHour
-								}
-							}
-						} else {
-							pricePerCoreHour := float64(x.UnitPrice.Units) + float64(x.UnitPrice.Nanos)/1000000000
-							for _, t := range out {
-								if instanceMatchesGroup(t.Name, grp) {
-									t.PricePerHour.Currency = "USD"
-									if t.BackendSpecific == nil {
-										t.BackendSpecific = &gcpInstancePricing{}
-									}
-									pricing := getGcpInstancePricing(t)
-									pricing.SpotPerCPUHour = pricePerCoreHour
-								}
-							}
-						}
-					}
-				}
-			case "RAM":
-				for _, j := range i.PricingInfo {
-					if j.PricingExpression == nil {
-						continue
-					}
-					if j.PricingExpression.UsageUnit != "GiBy.h" {
-						continue
-					}
-					for _, x := range j.PricingExpression.TieredRates {
-						if x.UnitPrice == nil {
-							continue
-						}
-						if x.UnitPrice.CurrencyCode != "USD" {
-							continue
-						}
-						if onDemand {
-							pricePerRamGBHour := float64(x.UnitPrice.Units) + float64(x.UnitPrice.Nanos)/1000000000
-							for _, t := range out {
-								if instanceMatchesGroup(t.Name, grp) {
-									t.PricePerHour.Currency = "USD"
-									if t.BackendSpecific == nil {
-										t.BackendSpecific = &gcpInstancePricing{}
-									}
-									pricing := getGcpInstancePricing(t)
-									pricing.OnDemandPerRamGBHour = pricePerRamGBHour
-								}
-							}
-						} else {
-							pricePerRamGBHour := float64(x.UnitPrice.Units) + float64(x.UnitPrice.Nanos)/1000000000
-							for _, t := range out {
-								if instanceMatchesGroup(t.Name, grp) {
-									t.PricePerHour.Currency = "USD"
-									if t.BackendSpecific == nil {
-										t.BackendSpecific = &gcpInstancePricing{}
-									}
-									pricing := getGcpInstancePricing(t)
-									pricing.SpotPerRamGBHour = pricePerRamGBHour
-								}
-							}
-						}
-					}
+			for _, region := range skuRegions {
+				for _, family := range parsed.families {
+					table.rates(region, family).set(parsed.resource, parsed.spot, value)
 				}
 			}
 		}
@@ -937,18 +569,72 @@ func (s *b) getInstancePrices(out backends.InstanceTypeList) (backends.InstanceT
 	if err != nil {
 		if strings.Contains(err.Error(), "accessNotConfigured") {
 			return s.getInstancePricesEnableService(out)
-		} else {
-			return out, err
+		}
+		return out, err
+	}
+	for region, byFamily := range premium {
+		for family, rates := range byFamily {
+			base.rates(region, family).add(rates)
 		}
 	}
-	// compute total instance price per hour for each instance type
+
 	for _, t := range out {
-		if t.BackendSpecific == nil {
+		region := zoneToRegion(t.Region)
+		family := billingFamilyFor(t.Name)
+		pricing := getGcpInstancePricing(t)
+		if rates := base.lookup(region, family.cpuRAM); rates != nil {
+			pricing.OnDemandPerCPUHour = rates.onDemand[billingResourceCPU]
+			pricing.OnDemandPerRamGBHour = rates.onDemand[billingResourceRAM]
+			pricing.SpotPerCPUHour = rates.spot[billingResourceCPU]
+			pricing.SpotPerRamGBHour = rates.spot[billingResourceRAM]
+		}
+		if rates := base.lookup(region, family.gpu); rates != nil {
+			pricing.OnDemandPerGPUHour = rates.onDemand[billingResourceGPU]
+			pricing.SpotPerGPUHour = rates.spot[billingResourceGPU]
+		}
+		onDemand := pricing.OnDemandPerCPUHour*float64(t.CPUs) + pricing.OnDemandPerRamGBHour*t.MemoryGiB + pricing.OnDemandPerGPUHour*float64(t.GPUs)
+		spot := pricing.SpotPerCPUHour*float64(t.CPUs) + pricing.SpotPerRamGBHour*t.MemoryGiB + pricing.SpotPerGPUHour*float64(t.GPUs)
+		if rates := base.lookup(region, family.tpu); rates != nil {
+			chips := float64(tpuChipCount(t.Name))
+			onDemand += rates.onDemand[billingResourceTPU] * chips
+			spot += rates.spot[billingResourceTPU] * chips
+		}
+		if onDemand == 0 && spot == 0 {
+			log.Detail("No price published for instance type %s in %s", t.Name, t.Region)
 			continue
 		}
-		pricing := getGcpInstancePricing(t)
-		t.PricePerHour.OnDemand = pricing.OnDemandPerCPUHour*float64(t.CPUs) + pricing.OnDemandPerRamGBHour*t.MemoryGiB + pricing.OnDemandPerGPUHour*float64(t.GPUs)
-		t.PricePerHour.Spot = pricing.SpotPerCPUHour*float64(t.CPUs) + pricing.SpotPerRamGBHour*t.MemoryGiB + pricing.SpotPerGPUHour*float64(t.GPUs)
+		t.PricePerHour.Currency = "USD"
+		t.PricePerHour.OnDemand = onDemand
+		t.PricePerHour.Spot = spot
 	}
 	return out, nil
+}
+
+// skuHourlyRate pulls the hourly USD rate out of a SKU for a given resource,
+// skipping any zero-priced free tier.
+func skuHourlyRate(sku *cloudbilling.Sku, resource billingResource) (float64, bool) {
+	for _, info := range sku.PricingInfo {
+		expr := info.PricingExpression
+		if expr == nil {
+			continue
+		}
+		if resource == billingResourceRAM {
+			// GCP is inconsistent about GB vs GiB across families.
+			if expr.UsageUnit != "GiBy.h" && expr.UsageUnit != "GBy.h" {
+				continue
+			}
+		} else if expr.UsageUnit != "h" {
+			continue
+		}
+		for _, tier := range expr.TieredRates {
+			if tier.UnitPrice == nil || tier.UnitPrice.CurrencyCode != "USD" {
+				continue
+			}
+			value := float64(tier.UnitPrice.Units) + float64(tier.UnitPrice.Nanos)/1000000000
+			if value > 0 {
+				return value, true
+			}
+		}
+	}
+	return 0, false
 }
