@@ -65,13 +65,13 @@ func (i *imageTest) testCreateVanillaInstance(t *testing.T) {
 			Disks:            []string{"type=gp2,size=20,count=1,encrypted=true"},
 			Firewalls:        []string{},
 		},
-		backends.BackendTypeGCP: &bgcp.CreateInstanceParams{
+		backends.BackendTypeGCP: gcpParams(&bgcp.CreateInstanceParams{
 			Image:            image,
 			NetworkPlacement: placement,
 			InstanceType:     "e2-standard-4",
 			Disks:            []string{"type=pd-ssd,size=20,count=1"},
 			Firewalls:        []string{},
-		},
+		}),
 		backends.BackendTypeDocker: &bdocker.CreateInstanceParams{
 			Image:            image,
 			NetworkPlacement: "",
@@ -189,13 +189,13 @@ func (i *imageTest) testCreateInstanceFromImage(t *testing.T) {
 			Disks:            []string{"type=gp2,size=30,count=1,encrypted=true"},
 			Firewalls:        []string{},
 		},
-		backends.BackendTypeGCP: &bgcp.CreateInstanceParams{
+		backends.BackendTypeGCP: gcpParams(&bgcp.CreateInstanceParams{
 			Image:            image.Describe()[0],
 			NetworkPlacement: placement,
 			InstanceType:     "e2-standard-4",
 			Disks:            []string{"type=pd-ssd,size=30,count=1"},
 			Firewalls:        []string{},
-		},
+		}),
 		backends.BackendTypeDocker: &bdocker.CreateInstanceParams{
 			Image:            image.Describe()[0],
 			NetworkPlacement: "",

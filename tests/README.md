@@ -66,6 +66,34 @@ Covers `tests/backend` (AWS/GCP backend behavior) and the `tests/e2e` cloud
 tier. These require real credentials and are opt-in; they skip unless the
 relevant environment variables are set.
 
+Note that `tests/backend` is destructive: it terminates instances and deletes
+volumes, firewalls, in-account images, and expiry systems in the configured
+regions. Point it at a throwaway account/project.
+
+### `tests/backend` environment variables
+
+| Variable | Purpose | Default |
+|----------|---------|---------|
+| `AEROLAB_CLOUD` | `aws`, `gcp`, `docker`, or `podman` | _(required)_ |
+| `AEROLAB_<CLOUD>_TEST_REGIONS` | comma-separated regions, e.g. `AEROLAB_GCP_TEST_REGIONS=us-central1` | _(required)_ |
+| `AWS_PROFILE` | AWS shared-credentials profile | _(required for aws)_ |
+| `GCP_PROJECT` | GCP project id | _(required for gcp)_ |
+| `AEROLAB_GCP_USE_IAP` | route all SSH/SFTP through IAP TCP forwarding | off |
+| `AEROLAB_GCP_NO_PUBLIC_IP` | create every GCP instance without a public IP | off |
+| `AEROLAB_SKIP_CLEANUP` | leave created resources behind after the run | off |
+| `AEROLAB_TEST_CUSTOM_TMPDIR` | fixed temp dir instead of a fresh one | fresh `mkdtemp` |
+
+Set `AEROLAB_GCP_USE_IAP=1` and `AEROLAB_GCP_NO_PUBLIC_IP=1` when the target
+project only reaches instances that way, so the suite exercises the same path
+your environment actually uses. The two are independent: IAP is never
+auto-enabled just because public IPs are disabled. A private-only project needs
+Cloud NAT for instance egress, and IAP needs `iap.googleapis.com` enabled plus
+the `roles/iap.tunnelResourceAccessor` permission.
+
+Pinning `AEROLAB_TEST_CUSTOM_TMPDIR` is worthwhile on GCP: the OAuth token is
+cached at `<tmpdir>/gcp_token.json`, so a fixed directory avoids a browser
+login on every run.
+
 ## `tests/e2e` environment variables
 
 The e2e suite drives the real `aerolab` binary. No machine-specific paths are

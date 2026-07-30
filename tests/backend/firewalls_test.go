@@ -172,13 +172,13 @@ func (fw *fwTest) testCreateTestInstanceForFirewall(t *testing.T) {
 			Disks:            []string{"type=gp2,size=20,count=2"},
 			Firewalls:        []string{"test-firewall"},
 		},
-		backends.BackendTypeGCP: &bgcp.CreateInstanceParams{
+		backends.BackendTypeGCP: gcpParams(&bgcp.CreateInstanceParams{
 			Image:            image,
 			NetworkPlacement: Options.TestRegions[0] + "-a",
 			InstanceType:     "e2-standard-4",
 			Disks:            []string{"type=pd-ssd,size=20,count=2"},
 			Firewalls:        []string{"test-firewall"},
-		},
+		}),
 	}
 	insts, err := testBackend.CreateInstances(&backends.CreateInstanceInput{
 		ClusterName:           "test-cluster",

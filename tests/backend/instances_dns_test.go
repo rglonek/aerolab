@@ -51,7 +51,7 @@ func (d *testInstancesDNS) testCreateInstance(t *testing.T) {
 				Region:     "us-east-1",
 			},
 		},
-		backends.BackendTypeGCP: &bgcp.CreateInstanceParams{
+		backends.BackendTypeGCP: gcpParams(&bgcp.CreateInstanceParams{
 			Image:            image,
 			NetworkPlacement: placement,
 			InstanceType:     "e2-standard-4",
@@ -62,7 +62,7 @@ func (d *testInstancesDNS) testCreateInstance(t *testing.T) {
 				DomainName: "aerospike.me",
 				Region:     "global",
 			},
-		},
+		}),
 	}
 	insts, err := testBackend.CreateInstances(&backends.CreateInstanceInput{
 		ClusterName:           "test-cluster",

@@ -17,6 +17,7 @@ import (
 	"github.com/aerospike/aerolab/pkg/backend"
 	"github.com/aerospike/aerolab/pkg/backend/backends"
 	"github.com/aerospike/aerolab/pkg/backend/clouds"
+	"github.com/aerospike/aerolab/pkg/backend/clouds/bgcp"
 	"github.com/rglonek/logger"
 	"github.com/stretchr/testify/require"
 )
@@ -38,6 +39,13 @@ type BackendTestOptions struct {
 	// Put test options here
 	SkipCleanup bool
 	TempDir     string
+	// GCPUseIAP routes all SSH/SFTP traffic through IAP TCP forwarding
+	// (AEROLAB_GCP_USE_IAP). Set it when the target project only reaches
+	// instances that way, so every GCP test exercises the IAP path.
+	GCPUseIAP bool
+	// GCPNoPublicIP creates every GCP test instance without a public IP
+	// (AEROLAB_GCP_NO_PUBLIC_IP). The project needs Cloud NAT for egress.
+	GCPNoPublicIP bool
 }
 
 func (o *BackendTestOptions) Validate() error {
@@ -63,6 +71,12 @@ func (o *BackendTestOptions) Validate() error {
 			return errors.New("GCP_PROJECT environment variable not set")
 		}
 		backendType = backends.BackendTypeGCP
+		if err := lookupBoolEnv("AEROLAB_GCP_USE_IAP", &o.GCPUseIAP); err != nil {
+			return err
+		}
+		if err := lookupBoolEnv("AEROLAB_GCP_NO_PUBLIC_IP", &o.GCPNoPublicIP); err != nil {
+			return err
+		}
 	case "docker":
 		backendType = backends.BackendTypeDocker
 	}
@@ -85,6 +99,31 @@ func (o *BackendTestOptions) Validate() error {
 	}
 
 	return nil
+}
+
+// lookupBoolEnv sets dst from the named environment variable, leaving it
+// untouched when the variable is unset or empty.
+func lookupBoolEnv(name string, dst *bool) error {
+	value, isSet := os.LookupEnv(name)
+	if !isSet || value == "" {
+		return nil
+	}
+	parsed, err := strconv.ParseBool(value)
+	if err != nil {
+		return fmt.Errorf("%s: %w", name, err)
+	}
+	*dst = parsed
+	return nil
+}
+
+// gcpParams applies the suite-wide GCP options to a set of create-instance
+// params. Every GCP instance the suite creates goes through here so a project
+// that requires private-only instances is tested the way it is actually used.
+func gcpParams(p *bgcp.CreateInstanceParams) *bgcp.CreateInstanceParams {
+	if Options != nil {
+		p.DisablePublicIP = Options.GCPNoPublicIP
+	}
+	return p
 }
 
 func setup(fresh bool) error {
@@ -117,6 +156,7 @@ func setup(fresh bool) error {
 		GCP: clouds.GCP{
 			Project:    os.Getenv("GCP_PROJECT"),
 			AuthMethod: clouds.GCPAuthMethodLogin,
+			UseIAP:     Options.GCPUseIAP,
 			Login: clouds.LoginGCPConfig{
 				Browser:            true,
 				TokenCacheFilePath: filepath.Join(tempDir, "gcp_token.json"),

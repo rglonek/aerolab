@@ -203,13 +203,13 @@ func (o *osTestDef) test(os *osTestDef) error {
 			Disks:            []string{"type=gp2,size=20,count=1"},
 			Firewalls:        []string{},
 		},
-		backends.BackendTypeGCP: &bgcp.CreateInstanceParams{
+		backends.BackendTypeGCP: gcpParams(&bgcp.CreateInstanceParams{
 			Image:            image,
 			NetworkPlacement: placement,
 			InstanceType:     "e2-standard-4",
 			Disks:            []string{"type=pd-ssd,size=20,count=1"},
 			Firewalls:        []string{},
-		},
+		}),
 		backends.BackendTypeDocker: &bdocker.CreateInstanceParams{
 			Image:            image,
 			NetworkPlacement: "default,default",
@@ -296,13 +296,13 @@ func (o *osTestDef) test(os *osTestDef) error {
 			Disks:            []string{"type=gp2,size=20,count=1"},
 			Firewalls:        []string{},
 		},
-		backends.BackendTypeGCP: &bgcp.CreateInstanceParams{
+		backends.BackendTypeGCP: gcpParams(&bgcp.CreateInstanceParams{
 			Image:            image,
 			NetworkPlacement: placement,
 			InstanceType:     "e2-standard-4",
 			Disks:            []string{"type=pd-ssd,size=20,count=1"},
 			Firewalls:        []string{},
-		},
+		}),
 		backends.BackendTypeDocker: &bdocker.CreateInstanceParams{
 			Image:            image,
 			NetworkPlacement: "default,default",

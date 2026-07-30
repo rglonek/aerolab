@@ -82,13 +82,13 @@ func testCreateInstanceGetPrice(t *testing.T) {
 			Disks:            []string{"type=gp2,size=20,count=2"},
 			Firewalls:        []string{"test-aerolab-fw"},
 		},
-		backends.BackendTypeGCP: &bgcp.CreateInstanceParams{
+		backends.BackendTypeGCP: gcpParams(&bgcp.CreateInstanceParams{
 			Image:            image,
 			NetworkPlacement: placement,
 			InstanceType:     "e2-standard-4",
 			Disks:            []string{"type=pd-ssd,size=20,count=2"},
 			Firewalls:        []string{"test-aerolab-fw"},
-		},
+		}),
 		backends.BackendTypeDocker: &bdocker.CreateInstanceParams{
 			Image:            image,
 			NetworkPlacement: "default,default",
@@ -136,13 +136,13 @@ func testCreateInstance(t *testing.T) {
 			Disks:            []string{"type=gp2,size=20,count=2"},
 			Firewalls:        []string{},
 		},
-		backends.BackendTypeGCP: &bgcp.CreateInstanceParams{
+		backends.BackendTypeGCP: gcpParams(&bgcp.CreateInstanceParams{
 			Image:            image,
 			NetworkPlacement: placement,
 			InstanceType:     "e2-standard-4",
 			Disks:            []string{"type=pd-ssd,size=20,count=2"},
 			Firewalls:        []string{},
-		},
+		}),
 		backends.BackendTypeDocker: &bdocker.CreateInstanceParams{
 			Image:            image,
 			NetworkPlacement: "default,default",
@@ -173,6 +173,11 @@ func testCreateInstance(t *testing.T) {
 	}
 	require.Equal(t, testBackend.GetInventory().Firewalls.Count(), fwCount)
 	require.Equal(t, testBackend.GetInventory().Instances.WithNotState(backends.LifeCycleStateTerminated).Count(), 3)
+	if cloud == "gcp" && Options.GCPNoPublicIP {
+		for _, inst := range testBackend.GetInventory().Instances.WithNotState(backends.LifeCycleStateTerminated).Describe() {
+			require.Empty(t, inst.IP.Public, "instance %s got a public IP despite AEROLAB_GCP_NO_PUBLIC_IP", inst.Name)
+		}
+	}
 	volCount := 6
 	if cloud == "docker" {
 		volCount = 0
