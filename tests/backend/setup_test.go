@@ -116,6 +116,31 @@ func lookupBoolEnv(name string, dst *bool) error {
 	return nil
 }
 
+// getenvDefault returns the environment value for key, or def if unset/empty.
+func getenvDefault(key, def string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return def
+}
+
+// awsArchInstanceType and gcpArchInstanceType return an instance type matching
+// the CPU architecture under test. ARM images do not boot on the x86 types the
+// rest of the suite uses, so the arch tests must pick per-architecture types.
+func awsArchInstanceType(arch backends.Architecture) string {
+	if arch == backends.ArchitectureARM64 {
+		return getenvDefault("AEROLAB_TEST_AWS_ARM_INSTANCE_TYPE", "r6g.large")
+	}
+	return getenvDefault("AEROLAB_TEST_AWS_INSTANCE_TYPE", "r6a.large")
+}
+
+func gcpArchInstanceType(arch backends.Architecture) string {
+	if arch == backends.ArchitectureARM64 {
+		return getenvDefault("AEROLAB_TEST_GCP_ARM_INSTANCE_TYPE", "t2a-standard-4")
+	}
+	return getenvDefault("AEROLAB_TEST_GCP_INSTANCE_TYPE", "e2-standard-4")
+}
+
 // gcpParams applies the suite-wide GCP options to a set of create-instance
 // params. Every GCP instance the suite creates goes through here so a project
 // that requires private-only instances is tested the way it is actually used.
@@ -276,6 +301,13 @@ func cleanup() {
 	if !skipCleanup && (Options == nil || !Options.SkipCleanup) {
 		cleanupBackend() //nolint:errcheck
 		os.RemoveAll(tempDir)
+		// setup() short-circuits while Options is set, so without this the next
+		// top-level Test function would keep using a backend whose root dir
+		// (and GCP token cache) has just been deleted.
+		Options = nil
+		testBackend = nil
+		tempDir = ""
+		return
 	}
 	if Options != nil {
 		Options.SkipCleanup = skipCleanup

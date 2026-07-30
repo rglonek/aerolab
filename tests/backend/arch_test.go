@@ -57,14 +57,14 @@ func (at *archTest) testDeployAmd64(t *testing.T) {
 		backends.BackendTypeAWS: &baws.CreateInstanceParams{
 			Image:            image,
 			NetworkPlacement: Options.TestRegions[0] + "a",
-			InstanceType:     "r6a.large",
+			InstanceType:     awsArchInstanceType(backends.ArchitectureX8664),
 			Disks:            []string{"type=gp2,size=20,count=1"},
 			Firewalls:        []string{},
 		},
 		backends.BackendTypeGCP: gcpParams(&bgcp.CreateInstanceParams{
 			Image:            image,
 			NetworkPlacement: Options.TestRegions[0] + "-a",
-			InstanceType:     "e2-standard-4",
+			InstanceType:     gcpArchInstanceType(backends.ArchitectureX8664),
 			Disks:            []string{"type=pd-ssd,size=20,count=1"},
 			Firewalls:        []string{},
 		}),
@@ -115,14 +115,14 @@ func (at *archTest) testDeployArm64(t *testing.T) {
 		backends.BackendTypeAWS: &baws.CreateInstanceParams{
 			Image:            image,
 			NetworkPlacement: Options.TestRegions[0] + "a",
-			InstanceType:     "r6a.large",
+			InstanceType:     awsArchInstanceType(backends.ArchitectureARM64),
 			Disks:            []string{"type=gp2,size=20,count=1"},
 			Firewalls:        []string{},
 		},
 		backends.BackendTypeGCP: gcpParams(&bgcp.CreateInstanceParams{
 			Image:            image,
 			NetworkPlacement: Options.TestRegions[0] + "-a",
-			InstanceType:     "e2-standard-4",
+			InstanceType:     gcpArchInstanceType(backends.ArchitectureARM64),
 			Disks:            []string{"type=pd-ssd,size=20,count=1"},
 			Firewalls:        []string{},
 		}),

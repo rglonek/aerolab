@@ -36,7 +36,7 @@ func (n *networkTest) testListNetworks(t *testing.T) {
 	subs = subs.WithDefault(true)
 	subs = subs.WithAerolabManaged(false)
 	if backendType == backends.BackendTypeAWS {
-		subs = subs.WithZoneID("ca-central-1a")
+		subs = subs.WithZoneID(Options.TestRegions[0] + "a")
 	}
 	require.Equal(t, len(subs), 1)
 }

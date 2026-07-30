@@ -9,11 +9,13 @@ import (
 	"testing"
 
 	"github.com/aerospike/aerolab/pkg/utils/installers/vscode"
+	"github.com/aerospike/aerolab/tests/installers/installertest"
 	"github.com/lithammer/shortuuid"
 	"github.com/stretchr/testify/require"
 )
 
 func TestVscodeLatestUbuntu24(t *testing.T) {
+	installertest.RequireDocker(t)
 	os.RemoveAll("dockertest")
 	defer os.RemoveAll("dockertest")
 	os.MkdirAll("dockertest", 0755) //nolint:errcheck
@@ -34,6 +36,7 @@ func TestVscodeLatestUbuntu24(t *testing.T) {
 }
 
 func TestVscodeLatestCentos8(t *testing.T) {
+	installertest.RequireDocker(t)
 	os.RemoveAll("dockertest")
 	defer os.RemoveAll("dockertest")
 	os.MkdirAll("dockertest", 0755) //nolint:errcheck

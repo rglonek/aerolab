@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/aerospike/aerolab/pkg/utils/installers/aerospike"
+	"github.com/aerospike/aerolab/tests/installers/installertest"
 	"github.com/lithammer/shortuuid"
 	"github.com/stretchr/testify/require"
 )
@@ -55,6 +56,7 @@ func Test000_LatestVersion(t *testing.T) {
 }
 
 func Test00_ServerScript(t *testing.T) {
+	installertest.RequireDocker(t)
 	fmt.Println("Getting file list")
 	files := serverScript(t, "6.")
 	filesNew := serverScript(t, "8.")
@@ -83,6 +85,7 @@ func Test00_ServerScript(t *testing.T) {
 }
 
 func Test00_ServerScriptOldAsd(t *testing.T) {
+	installertest.RequireDocker(t)
 	fmt.Println("Getting file list")
 	files := serverScript(t, "5.1.")
 	img := []string{"quay.io/centos/amd64:stream8", "amd64/rockylinux:8", "amd64/ubuntu:20.04", "amd64/debian:10"}
@@ -107,6 +110,7 @@ func Test00_ServerScriptOldAsd(t *testing.T) {
 }
 
 func Test00_ServerScriptVOldAsd(t *testing.T) {
+	installertest.RequireDocker(t)
 	fmt.Println("Getting file list")
 	files := serverScript(t, "4.8.")
 	img := []string{"quay.io/centos/amd64:stream8"}

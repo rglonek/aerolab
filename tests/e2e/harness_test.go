@@ -21,15 +21,18 @@
 // Optional environment overrides (no hardcoded machine-specific paths):
 //   - AEROLAB_BIN                    prebuilt aerolab binary to use instead of building
 //   - AEROLAB_FEATURES_FILE          path to an Aerospike features file (needed for
-//                                    Enterprise images); wired via
-//                                    `config defaults -k '*.FeaturesFilePath'`
+//     Enterprise images); wired via `config defaults -k '*.FeaturesFilePath'`
 //   - AEROLAB_E2E_DISTRO             base distro (default: ubuntu)
 //   - AEROLAB_E2E_DISTRO_VER         distro version (default: 24.04)
 //   - AEROLAB_E2E_ASVER              Aerospike version selector (default: 8.*)
 //   - AEROLAB_E2E_OS_MATRIX          set to run the multi-distro OS matrix test
+//   - AEROLAB_E2E_EXTENDED           set to run the TLS/XDR/data/net/client tests
 //   - AEROLAB_E2E_CLOUD              set to run the Aerospike Cloud tier
 //   - AEROLAB_E2E_AWS_REGION         AWS region for the cloud tier (default: us-east-1)
-//   - AEROLAB_E2E_VPC_ID             VPC id used when creating a cloud database
+//   - AEROLAB_E2E_AWS_PROFILE        AWS shared-credentials profile (default: AWS_PROFILE)
+//   - AEROLAB_E2E_VPC_ID             VPC id used when creating a cloud cluster
+//   - AEROLAB_E2E_MIGRATE            set to run the inventory migrate dry-run test
+//   - AEROLAB_E2E_SSH_KEY_PATH       ssh key dir passed to `inventory migrate`
 package e2e_test
 
 import (
@@ -153,7 +156,11 @@ func newCloudCLI(t *testing.T) *cli {
 	)
 	c := &cli{t: t, bin: bin, env: env}
 
-	c.run("config", "backend", "-t", "aws", "-r", region, "--aws.profile", "eks")
+	backendArgs := []string{"config", "backend", "-t", "aws", "-r", region}
+	if profile := getenvDefault("AEROLAB_E2E_AWS_PROFILE", os.Getenv("AWS_PROFILE")); profile != "" {
+		backendArgs = append(backendArgs, "--aws.profile", profile)
+	}
+	c.run(backendArgs...)
 	if ff := os.Getenv("AEROLAB_FEATURES_FILE"); ff != "" {
 		c.run("config", "defaults", "-k", "*.FeaturesFilePath", "-v", ff)
 	}

@@ -9,11 +9,13 @@ import (
 	"testing"
 
 	"github.com/aerospike/aerolab/pkg/utils/installers/prometheus"
+	"github.com/aerospike/aerolab/tests/installers/installertest"
 	"github.com/lithammer/shortuuid"
 	"github.com/stretchr/testify/require"
 )
 
 func TestPrometheusLatestUbuntu24(t *testing.T) {
+	installertest.RequireDocker(t)
 	os.RemoveAll("dockertest")
 	defer os.RemoveAll("dockertest")
 	err := os.MkdirAll("dockertest", 0755)
@@ -35,6 +37,7 @@ func TestPrometheusLatestUbuntu24(t *testing.T) {
 }
 
 func TestPrometheusLatestCentos8(t *testing.T) {
+	installertest.RequireDocker(t)
 	os.RemoveAll("dockertest")
 	defer os.RemoveAll("dockertest")
 	err := os.MkdirAll("dockertest", 0755)

@@ -9,19 +9,21 @@ import (
 	"testing"
 )
 
-// cloud JSON response shapes (subset of fields we assert on).
+// cloud JSON response shapes (subset of fields we assert on). These mirror the
+// Aerospike Cloud API collection schemas the CLI prints verbatim.
 type secretsList struct {
 	Secrets []struct {
 		ID          string `json:"id"`
+		Name        string `json:"name"`
 		Description string `json:"description"`
 	} `json:"secrets"`
 }
 
-type databasesList struct {
-	Databases []struct {
+type clustersList struct {
+	Clusters []struct {
 		ID   string `json:"id"`
 		Name string `json:"name"`
-	} `json:"databases"`
+	} `json:"clusters"`
 }
 
 type credentialsList struct {
@@ -40,7 +42,7 @@ func TestCloudSecretsLifecycle(t *testing.T) {
 	c.run("cloud", "secrets", "create", "--name", "aerolab", "--description", "aerolab", "--value", "aerolab")
 
 	var sl secretsList
-	mustJSON(t, c.run("cloud", "secrets", "list", "-o", "json"), &sl)
+	mustJSON(t, c.run("cloud", "secrets", "list"), &sl)
 
 	// Clean up every secret we own with our marker description, registered
 	// before the assertion below so it still runs if the assertion fails.
@@ -63,38 +65,43 @@ func TestCloudSecretsLifecycle(t *testing.T) {
 	}
 }
 
-// TestCloudDatabaseLifecycle reproduces the database + credentials portion of
-// test.sh's testcloud: create a database, add/list/delete credentials, update
-// the database, then delete it. It needs a VPC id (AEROLAB_E2E_VPC_ID).
-func TestCloudDatabaseLifecycle(t *testing.T) {
+// TestCloudClusterLifecycle reproduces the cluster + credentials portion of
+// test.sh's testcloud: create a cluster, add/list/delete credentials, update
+// the cluster, then delete it. It needs a VPC id (AEROLAB_E2E_VPC_ID).
+//
+// `cloud clusters create` blocks until provisioning finishes and
+// `cloud clusters delete` blocks until the cluster is decommissioned, so no
+// separate wait step is needed.
+func TestCloudClusterLifecycle(t *testing.T) {
 	c := newCloudCLI(t)
 	vpc := os.Getenv("AEROLAB_E2E_VPC_ID")
 	if vpc == "" {
-		t.Skip("set AEROLAB_E2E_VPC_ID to run the cloud database lifecycle test")
+		t.Skip("set AEROLAB_E2E_VPC_ID to run the cloud cluster lifecycle test")
 	}
 	region := getenvDefault("AEROLAB_E2E_AWS_REGION", "us-east-1")
-	const dbName = "aerolabtest"
+	const clusterName = "aerolabtest"
 
 	// Ensure a clean slate and always clean up on exit.
-	deleteDBByName(t, c, dbName)
-	t.Cleanup(func() { deleteDBByName(t, c, dbName) })
+	deleteClusterByName(t, c, clusterName)
+	t.Cleanup(func() { deleteClusterByName(t, c, clusterName) })
 
-	c.run("cloud", "databases", "create", "-n", dbName, "-i", "m5d.large",
+	c.run("cloud", "clusters", "create", "-n", clusterName, "-i", "m5d.large",
 		"-r", region, "--availability-zone-count=2", "--cluster-size=2",
 		"--data-storage", "memory", "--vpc-id", vpc)
 
-	did := dbIDByName(t, c, dbName)
-	if did == "" {
-		t.Fatal("database creation failed: no id found")
+	cid := clusterIDByName(t, c, clusterName)
+	if cid == "" {
+		t.Fatal("cluster creation failed: no id found")
 	}
 
-	c.run("cloud", "databases", "credentials", "create", "--database-id", did,
-		"--username", "aerolab1", "--password", "aerolab1", "--privileges", "read-write", "--wait")
-	c.run("cloud", "databases", "credentials", "create", "--database-id", did,
-		"--username", "aerolab2", "--password", "aerolab2", "--privileges", "read-write", "--wait")
+	// Passwords must be at least 8 characters.
+	c.run("cloud", "clusters", "credentials", "create", "-c", cid,
+		"--username", "aerolab1", "--password", "aerolab1", "--roles", "read-write", "--wait")
+	c.run("cloud", "clusters", "credentials", "create", "-c", cid,
+		"--username", "aerolab2", "--password", "aerolab2", "--roles", "read-write", "--wait")
 
 	var cl credentialsList
-	mustJSON(t, c.run("cloud", "databases", "credentials", "list", "--database-id", did, "-o", "json"), &cl)
+	mustJSON(t, c.run("cloud", "clusters", "credentials", "list", "-c", cid), &cl)
 	var del string
 	for _, cred := range cl.Credentials {
 		if cred.Name == "aerolab2" {
@@ -104,34 +111,34 @@ func TestCloudDatabaseLifecycle(t *testing.T) {
 	if del == "" {
 		t.Fatal("expected credential 'aerolab2' to exist")
 	}
-	c.run("cloud", "databases", "credentials", "delete", "--database-id", did, "--credentials-id", del)
+	c.run("cloud", "clusters", "credentials", "delete", "-c", cid, "--credentials-id", del)
 
-	c.run("cloud", "databases", "update", "--database-id", did, "--cluster-size", "4", "-i", "m5d.xlarge")
-	c.run("cloud", "databases", "delete", "--database-id", did, "--force", "--wait")
+	c.run("cloud", "clusters", "update", "-c", cid, "--cluster-size", "4", "-i", "m5d.xlarge")
+	c.run("cloud", "clusters", "delete", "-c", cid, "--force")
 }
 
-// deleteDBByName deletes any database matching name, ignoring "not found".
-func deleteDBByName(t *testing.T, c *cli, name string) {
+// deleteClusterByName deletes any cluster matching name, ignoring "not found".
+func deleteClusterByName(t *testing.T, c *cli, name string) {
 	t.Helper()
-	if did := dbIDByName(t, c, name); did != "" {
-		_, _ = c.runErr("cloud", "databases", "delete", "--database-id", did, "--force", "--wait")
+	if cid := clusterIDByName(t, c, name); cid != "" {
+		_, _ = c.runErr("cloud", "clusters", "delete", "-c", cid, "--force")
 	}
 }
 
-// dbIDByName returns the id of the database with the given name, or "".
-func dbIDByName(t *testing.T, c *cli, name string) string {
+// clusterIDByName returns the id of the cluster with the given name, or "".
+func clusterIDByName(t *testing.T, c *cli, name string) string {
 	t.Helper()
-	out, err := c.runErr("cloud", "databases", "list", "-o", "json")
+	out, err := c.runErr("cloud", "clusters", "list", "-o", "json")
 	if err != nil {
 		return ""
 	}
-	var dl databasesList
-	if json.Unmarshal([]byte(firstJSONObject(out)), &dl) != nil {
+	var cl clustersList
+	if json.Unmarshal([]byte(firstJSONObject(out)), &cl) != nil {
 		return ""
 	}
-	for _, d := range dl.Databases {
-		if d.Name == name {
-			return d.ID
+	for _, cluster := range cl.Clusters {
+		if cluster.Name == name {
+			return cluster.ID
 		}
 	}
 	return ""

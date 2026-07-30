@@ -9,11 +9,13 @@ import (
 	"testing"
 
 	"github.com/aerospike/aerolab/pkg/utils/installers/aerolab"
+	"github.com/aerospike/aerolab/tests/installers/installertest"
 	"github.com/lithammer/shortuuid"
 	"github.com/stretchr/testify/require"
 )
 
 func TestAerolabLatestUbuntu24(t *testing.T) {
+	installertest.RequireDocker(t)
 	os.RemoveAll("dockertest")
 	defer os.RemoveAll("dockertest")
 	os.MkdirAll("dockertest", 0755) //nolint:errcheck
@@ -34,6 +36,7 @@ func TestAerolabLatestUbuntu24(t *testing.T) {
 }
 
 func TestAerolabLatestCentos8(t *testing.T) {
+	installertest.RequireDocker(t)
 	os.RemoveAll("dockertest")
 	defer os.RemoveAll("dockertest")
 	os.MkdirAll("dockertest", 0755) //nolint:errcheck
@@ -54,6 +57,7 @@ func TestAerolabLatestCentos8(t *testing.T) {
 }
 
 func TestAerolabLatestStable(t *testing.T) {
+	installertest.RequireDocker(t)
 	os.RemoveAll("dockertest")
 	defer os.RemoveAll("dockertest")
 	os.MkdirAll("dockertest", 0755) //nolint:errcheck
@@ -74,6 +78,7 @@ func TestAerolabLatestStable(t *testing.T) {
 }
 
 func TestAerolabLatestPrelease(t *testing.T) {
+	installertest.RequireDocker(t)
 	os.RemoveAll("dockertest")
 	defer os.RemoveAll("dockertest")
 	os.MkdirAll("dockertest", 0755) //nolint:errcheck
@@ -94,6 +99,7 @@ func TestAerolabLatestPrelease(t *testing.T) {
 }
 
 func TestAerolabVersioned(t *testing.T) {
+	installertest.RequireDocker(t)
 	os.RemoveAll("dockertest")
 	defer os.RemoveAll("dockertest")
 	os.MkdirAll("dockertest", 0755) //nolint:errcheck
@@ -115,6 +121,7 @@ func TestAerolabVersioned(t *testing.T) {
 }
 
 func TestAerolabVersionPrefixed(t *testing.T) {
+	installertest.RequireDocker(t)
 	os.RemoveAll("dockertest")
 	defer os.RemoveAll("dockertest")
 	os.MkdirAll("dockertest", 0755) //nolint:errcheck
@@ -123,7 +130,8 @@ func TestAerolabVersionPrefixed(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, script)
 	require.NotEmpty(t, script)
-	require.Contains(t, string(script), "7.7.1")
+	// The selector resolves to the newest 7.7.x, so only the prefix is stable.
+	require.Contains(t, string(script), "7.7.")
 
 	img := "amd64/ubuntu:24.04"
 	uuid := shortuuid.New()

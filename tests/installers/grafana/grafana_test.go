@@ -9,11 +9,13 @@ import (
 	"testing"
 
 	"github.com/aerospike/aerolab/pkg/utils/installers/grafana"
+	"github.com/aerospike/aerolab/tests/installers/installertest"
 	"github.com/lithammer/shortuuid"
 	"github.com/stretchr/testify/require"
 )
 
 func TestGrafanaLatestUbuntu24(t *testing.T) {
+	installertest.RequireDocker(t)
 	os.RemoveAll("dockertest")
 	defer os.RemoveAll("dockertest")
 	err := os.MkdirAll("dockertest", 0755)
@@ -35,6 +37,7 @@ func TestGrafanaLatestUbuntu24(t *testing.T) {
 }
 
 func TestGrafanaLatestCentos8(t *testing.T) {
+	installertest.RequireDocker(t)
 	os.RemoveAll("dockertest")
 	defer os.RemoveAll("dockertest")
 	err := os.MkdirAll("dockertest", 0755)
@@ -56,6 +59,7 @@ func TestGrafanaLatestCentos8(t *testing.T) {
 }
 
 func TestGrafanaVersioned(t *testing.T) {
+	installertest.RequireDocker(t)
 	os.RemoveAll("dockertest")
 	defer os.RemoveAll("dockertest")
 	err := os.MkdirAll("dockertest", 0755)

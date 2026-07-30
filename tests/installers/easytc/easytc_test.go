@@ -9,11 +9,13 @@ import (
 	"testing"
 
 	"github.com/aerospike/aerolab/pkg/utils/installers/easytc"
+	"github.com/aerospike/aerolab/tests/installers/installertest"
 	"github.com/lithammer/shortuuid"
 	"github.com/stretchr/testify/require"
 )
 
 func TestEasytcLatestUbuntu24(t *testing.T) {
+	installertest.RequireDocker(t)
 	os.RemoveAll("dockertest")
 	defer os.RemoveAll("dockertest")
 	os.MkdirAll("dockertest", 0755) //nolint:errcheck
@@ -34,6 +36,7 @@ func TestEasytcLatestUbuntu24(t *testing.T) {
 }
 
 func TestEasytcLatestCentos8(t *testing.T) {
+	installertest.RequireDocker(t)
 	os.RemoveAll("dockertest")
 	defer os.RemoveAll("dockertest")
 	os.MkdirAll("dockertest", 0755) //nolint:errcheck
@@ -54,6 +57,7 @@ func TestEasytcLatestCentos8(t *testing.T) {
 }
 
 func TestEasytcLatestStable(t *testing.T) {
+	installertest.RequireDocker(t)
 	os.RemoveAll("dockertest")
 	defer os.RemoveAll("dockertest")
 	os.MkdirAll("dockertest", 0755) //nolint:errcheck

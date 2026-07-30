@@ -224,10 +224,16 @@ func (fw *fwTest) testRemoveFirewallFromInstance(t *testing.T) {
 	// refresh inventory
 	require.NoError(t, testBackend.RefreshChangedInventory())
 
-	// get instance and confirm firewall removed
+	// get instance and confirm firewall removed; Instance.Firewalls holds
+	// backend ids rather than names, so count what is left instead of looking
+	// for the name (which would never be there on AWS).
 	inst = testBackend.GetInventory().Instances.WithNotState(backends.LifeCycleStateTerminated).WithName("test-instance")
 	require.Equal(t, inst.Count(), 1)
-	require.NotContains(t, inst.Describe()[0].Firewalls, "test-firewall")
+	fwCount := 1
+	if cloud == "gcp" {
+		fwCount = 2
+	}
+	require.Len(t, inst.Describe()[0].Firewalls, fwCount)
 }
 
 func (fw *fwTest) testAssignFirewallToInstance(t *testing.T) {

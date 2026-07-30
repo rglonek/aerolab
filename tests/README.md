@@ -82,6 +82,13 @@ regions. Point it at a throwaway account/project.
 | `AEROLAB_GCP_NO_PUBLIC_IP` | create every GCP instance without a public IP | off |
 | `AEROLAB_SKIP_CLEANUP` | leave created resources behind after the run | off |
 | `AEROLAB_TEST_CUSTOM_TMPDIR` | fixed temp dir instead of a fresh one | fresh `mkdtemp` |
+| `AEROLAB_TEST_DNS_DOMAIN` | domain of a hosted zone you own, e.g. `example.com` | _(unset → DNS test skips)_ |
+| `AEROLAB_TEST_DNS_ZONE_ID` | Route53 hosted zone id (aws) / managed zone name (gcp) | _(unset → DNS test skips)_ |
+| `AEROLAB_TEST_DNS_REGION` | Route53 region | `us-east-1` (aws), `global` (gcp) |
+| `AEROLAB_TEST_AWS_INSTANCE_TYPE` | x86 instance type used by the arch test | `r6a.large` |
+| `AEROLAB_TEST_AWS_ARM_INSTANCE_TYPE` | arm64 instance type used by the arch test | `r6g.large` |
+| `AEROLAB_TEST_GCP_INSTANCE_TYPE` | x86 machine type used by the arch test | `e2-standard-4` |
+| `AEROLAB_TEST_GCP_ARM_INSTANCE_TYPE` | arm64 machine type used by the arch test | `t2a-standard-4` |
 
 Set `AEROLAB_GCP_USE_IAP=1` and `AEROLAB_GCP_NO_PUBLIC_IP=1` when the target
 project only reaches instances that way, so the suite exercises the same path
@@ -110,7 +117,8 @@ hardcoded; everything is configured via environment.
 | `AEROLAB_E2E_EXTENDED` | Run the extended docker suite (TLS/XDR/data/net/clients) | off |
 | `AEROLAB_E2E_CLOUD` | Enable the Aerospike Cloud tier | off |
 | `AEROLAB_E2E_AWS_REGION` | AWS region for the cloud tier | `us-east-1` |
-| `AEROLAB_E2E_VPC_ID` | VPC id used when creating a cloud database | _(unset → db test skips)_ |
+| `AEROLAB_E2E_AWS_PROFILE` | AWS shared-credentials profile for the cloud tier | `AWS_PROFILE`, else the default profile |
+| `AEROLAB_E2E_VPC_ID` | VPC id used when creating a cloud cluster | _(unset → cluster test skips)_ |
 | `AEROLAB_E2E_MIGRATE` | Run the `inventory migrate --dry-run` test | off |
 | `AEROLAB_E2E_SSH_KEY_PATH` | SSH key path passed to `inventory migrate` | _(optional)_ |
 
@@ -120,6 +128,9 @@ Example — full Docker golden path against a local features file:
 AEROLAB_FEATURES_FILE=/path/to/features.conf \
   go test -tags=integration_docker -run TestDockerClusterLifecycle -v ./tests/e2e/
 ```
+
+`tests/everything.sh` runs every tier in order with a single set of variables;
+edit the values at the top to match your environment.
 
 ## Adding tests
 

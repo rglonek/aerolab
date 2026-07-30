@@ -265,8 +265,9 @@ func testInstancesStop(t *testing.T) {
 	require.Equal(t, insts.Count(), 3)
 	require.NoError(t, insts.Stop(false, 2*time.Minute))
 	require.NoError(t, testBackend.RefreshChangedInventory())
-	insts = testBackend.GetInventory().Instances.WithState(backends.LifeCycleStateRunning)
-	require.Equal(t, insts.Count(), 0)
+	require.Equal(t, testBackend.GetInventory().Instances.WithState(backends.LifeCycleStateRunning).Count(), 0)
+	insts = testBackend.GetInventory().Instances.WithState(backends.LifeCycleStateStopped)
+	require.Equal(t, insts.Count(), 3)
 	for _, inst := range insts.Describe() {
 		require.Equal(t, inst.InstanceState, backends.LifeCycleStateStopped)
 	}
