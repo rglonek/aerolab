@@ -15,11 +15,17 @@ func TestImageNaming(t *testing.T) {
 	}{
 		{"ubuntu", "22.04", "amd64", "amd64/ubuntu:22.04"},
 		{"ubuntu", "22.04", "arm64", "arm64v8/ubuntu:22.04"},
+		{"ubuntu", "26.04", "amd64", "amd64/ubuntu:26.04"},
+		{"ubuntu", "26.04", "arm64", "arm64v8/ubuntu:26.04"},
 		{"debian", "12", "amd64", "amd64/debian:12"},
 		{"ubuntu", "22.04", "", "ubuntu:22.04"}, // fallthrough to default
 		{"rocky", "9", "amd64", "amd64/rockylinux:9"},
 		{"rocky", "9", "arm64", "arm64v8/rockylinux:9"},
 		{"rocky", "9", "", "rockylinux:9"},
+		// The arch-prefixed rockylinux repos stop at 9; 10+ is multi-arch only.
+		{"rocky", "10", "amd64", "rockylinux/rockylinux:10"},
+		{"rocky", "10", "arm64", "rockylinux/rockylinux:10"},
+		{"rocky", "10", "", "rockylinux/rockylinux:10"},
 		{"amazon", "2023", "amd64", "amd64/amazonlinux:2023"},
 		{"amazon", "2023", "arm64", "arm64v8/amazonlinux:2023"},
 		{"centos", "6", "amd64", "quay.io/centos/centos:6"},
@@ -27,11 +33,13 @@ func TestImageNaming(t *testing.T) {
 		{"centos", "9", "amd64", "quay.io/centos/amd64:stream9"},
 		{"centos", "9", "arm64", "quay.io/centos/arm64v8:stream9"},
 		{"centos", "9", "", "quay.io/centos/centos:stream9"},
+		{"centos", "10", "amd64", "quay.io/centos/amd64:stream10"},
+		{"centos", "10", "arm64", "quay.io/centos/arm64v8:stream10"},
 		{"alpine", "3.19", "amd64", "alpine:3.19"}, // unknown distro -> default
 	}
 	for _, c := range cases {
-		if got := imageNaming(c.distro, c.version, c.arch); got != c.want {
-			t.Errorf("imageNaming(%q,%q,%q) = %q, want %q", c.distro, c.version, c.arch, got, c.want)
+		if got := ImageNaming(c.distro, c.version, c.arch); got != c.want {
+			t.Errorf("ImageNaming(%q,%q,%q) = %q, want %q", c.distro, c.version, c.arch, got, c.want)
 		}
 	}
 }

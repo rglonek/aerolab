@@ -22,15 +22,15 @@ var osTestList = make(chan *osTestDef, 100)
 /* supported OSes:
 * AWS:
   - amazon: 2023, 2
-  - ubuntu: 24.04, 22.04, 20.04, 18.04
+  - ubuntu: 26.04, 24.04, 22.04, 20.04, 18.04
   - rocky: 10, 9, 8
   - centos: 10, 9
-  - debian: 12, 11, 10
+  - debian: 13, 12, 11, 10
 * GCP:
-  - ubuntu: 24.04, 22.04, 20.04, 18.04
+  - ubuntu: 26.04, 24.04, 22.04, 20.04, 18.04
   - rocky: 10, 9, 8
   - centos: 10, 9, 8
-  - debian: 12, 11, 10
+  - debian: 13, 12, 11, 10
 */
 
 var osTestSequential = false
@@ -45,6 +45,10 @@ func fillOsTestList() {
 			name:    "amazon",
 			version: "2",
 		}
+	}
+	osTestList <- &osTestDef{
+		name:    "ubuntu",
+		version: "26.04",
 	}
 	osTestList <- &osTestDef{
 		name:    "ubuntu",

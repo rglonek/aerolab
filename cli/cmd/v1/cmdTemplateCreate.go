@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"runtime"
+	"sort"
 	"strings"
 	"time"
 
@@ -187,7 +188,9 @@ func (c *TemplateCreateCmd) CreateTemplate(system *System, inventory *backends.I
 		if osVersion != "latest" {
 			installScript, err = files.GetInstallScript(arch, osName, osVersion, system.logLevel >= 5, true, true, false)
 			if err != nil {
-				return "", fmt.Errorf("could not get install script: %s", err)
+				return "", fmt.Errorf("aerospike server %s %s does not ship a %s build for %s%s; available for this version: %s",
+					flavor, c.AerospikeVersion, arch, describeTargetOS(c.Distro, osName, osVersion),
+					minServerVersionHint(c.Distro, osVersion), availableOSVersions(files, arch))
 			}
 		} else {
 			var versionList []string
@@ -213,7 +216,8 @@ func (c *TemplateCreateCmd) CreateTemplate(system *System, inventory *backends.I
 				}
 			}
 			if installScript == nil {
-				return "", fmt.Errorf("could not get install script: could not find a matching OS Version and Architecture for the given aerospike version %s %s", flavor, c.AerospikeVersion)
+				return "", fmt.Errorf("aerospike server %s %s does not ship any %s build for %s; available for this version: %s",
+					flavor, c.AerospikeVersion, arch, describeTargetOS(c.Distro, osName, ""), availableOSVersions(files, arch))
 			}
 		}
 
@@ -658,4 +662,62 @@ func sanitizeGCPName(s string) string {
 		}
 	}
 	return ret
+}
+
+// minServerVersionHints records the first Aerospike server release to ship
+// packages for an OS that was added late. It only ever decorates an error
+// message; the actual availability check stays driven by the published
+// artifacts so a new release needs no code change here.
+var minServerVersionHints = map[string]string{
+	"ubuntu:26.04": "8.1.3",
+}
+
+// describeTargetOS renders the OS the user asked for, noting the artifact
+// family it resolves to when the two differ (rocky installs centos packages),
+// so the error lines up with the os:version pairs listed as available.
+func describeTargetOS(distro string, osName aerospike.OSName, osVersion string) string {
+	target := distro
+	if osVersion != "" {
+		target += " " + osVersion
+	}
+	if string(osName) != distro {
+		target += " (packaged as " + string(osName) + ")"
+	}
+	return target
+}
+
+func minServerVersionHint(distro string, distroVersion string) string {
+	v, ok := minServerVersionHints[distro+":"+distroVersion]
+	if !ok {
+		return ""
+	}
+	return fmt.Sprintf(" (%s %s requires aerospike server %s or later)", distro, distroVersion, v)
+}
+
+// availableOSVersions lists the os:version pairs the given file set actually
+// ships for an architecture, so a failed lookup can tell the caller what they
+// can pick instead of only reporting that nothing matched.
+func availableOSVersions(files aerospike.Files, arch aerospike.ArchitectureType) string {
+	seen := make(map[string]bool)
+	out := []string{}
+	for _, f := range files {
+		d := f.ParseNameParts()
+		if d == nil || d.ProductType != aerospike.ProductTypeServer || d.FileType != aerospike.FileTypeTGZ {
+			continue
+		}
+		if d.Architecture != arch || d.OSName == "" || d.OSVersion == "" {
+			continue
+		}
+		k := string(d.OSName) + ":" + d.OSVersion
+		if seen[k] {
+			continue
+		}
+		seen[k] = true
+		out = append(out, k)
+	}
+	if len(out) == 0 {
+		return "none"
+	}
+	sort.Strings(out)
+	return strings.Join(out, ", ")
 }

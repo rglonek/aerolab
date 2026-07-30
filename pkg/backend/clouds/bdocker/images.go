@@ -7,6 +7,7 @@ import (
 	"maps"
 	"math"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -36,9 +37,19 @@ type ImageDetail struct {
 	Docker *image.Summary `json:"docker" yaml:"docker"`
 }
 
-func imageNaming(distroName string, distroVersion string, arch string) (templName string) {
+// ImageNaming maps a distro name, version and architecture onto the public
+// container image aerolab uses as the base for its templates. The arch-prefixed
+// Docker Hub repositories (amd64/..., arm64v8/...) are preferred where they
+// exist; where they do not, the multi-arch repository is returned and the
+// architecture is pinned by the caller through the build/create platform.
+func ImageNaming(distroName string, distroVersion string, arch string) (templName string) {
 	switch distroName {
 	case "rocky":
+		// The arch-prefixed rockylinux repositories were deprecated and never
+		// published anything past 9; 10 onwards only exists as multi-arch.
+		if major, err := strconv.Atoi(strings.SplitN(distroVersion, ".", 2)[0]); err == nil && major >= 10 {
+			return "rockylinux/rockylinux:" + distroVersion
+		}
 		switch arch {
 		case "amd64":
 			return "amd64/rockylinux:" + distroVersion
@@ -136,7 +147,7 @@ func (s *b) GetImages() (backends.ImageList, error) {
 								archString = "arm64"
 							}
 						}
-						imageName := imageNaming(distro, version, arch)
+						imageName := ImageNaming(distro, version, arch)
 						var sdImg *image.Summary
 						for _, img := range out {
 							// if arch, distro, version match, set sdImg

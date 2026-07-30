@@ -694,30 +694,7 @@ func (c *InstancesCreateCmd) CreateInstances(system *System, inventory *backends
 	case "docker":
 		if c.Docker.ImageName == "" {
 			dockerImageFromOfficial = true
-			narch := ""
-			switch c.Arch {
-			case "amd64":
-				narch = "amd64"
-			case "arm64":
-				narch = "arm64v8"
-			}
-			switch c.OS {
-			case "centos":
-				if narch != "" {
-					c.Docker.ImageName = fmt.Sprintf("quay.io/centos/%s:stream%s", narch, c.Version)
-				} else {
-					c.Docker.ImageName = fmt.Sprintf("quay.io/centos/centos:stream%s", c.Version)
-				}
-			default:
-				if narch != "" {
-					narch = narch + "/"
-				}
-				os := c.OS
-				if c.OS == "rocky" {
-					os = "rockylinux"
-				}
-				c.Docker.ImageName = fmt.Sprintf("%s%s:%s", narch, os, c.Version)
-			}
+			c.Docker.ImageName = bdocker.ImageNaming(c.OS, c.Version, c.Arch)
 		} else {
 			dockerCustomImage = true
 		}
@@ -911,7 +888,20 @@ func (c *InstancesCreateCmd) CreateInstances(system *System, inventory *backends
 	}
 	if _, ok := createInstancesInput.BackendSpecificParams["docker"]; ok {
 		if !dockerCustomImage {
-			createInstancesInput.BackendSpecificParams["docker"].(*bdocker.CreateInstanceParams).Image = inventory.Images.WithName(c.Docker.ImageName).Describe()[0]
+			// Multi-arch base images (rocky 10+) carry the same name for every
+			// architecture, so the name alone does not identify the entry.
+			narch := backends.ArchitectureNative
+			switch c.Arch {
+			case "amd64":
+				narch = backends.ArchitectureX8664
+			case "arm64":
+				narch = backends.ArchitectureARM64
+			}
+			imgs := inventory.Images.WithName(c.Docker.ImageName).WithOSName(c.OS).WithOSVersion(c.Version).WithArchitecture(narch).Describe()
+			if len(imgs) == 0 {
+				return nil, fmt.Errorf("docker: image %s (%s %s %s) does not exist", c.Docker.ImageName, c.OS, c.Version, narch)
+			}
+			createInstancesInput.BackendSpecificParams["docker"].(*bdocker.CreateInstanceParams).Image = imgs[0]
 		} else {
 			// Check if image exists locally
 			existingImages := inventory.Images.WithName(c.Docker.ImageName).Describe()
