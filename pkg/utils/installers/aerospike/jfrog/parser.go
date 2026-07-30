@@ -55,6 +55,47 @@ var debRE = regexp.MustCompile(
 		`_(amd64|arm64)\.deb$`,
 )
 
+// ToolsParts is the parsed form of an "aerospike-tools_*.tgz" artifact.
+// The tools bundle (asinfo, asadm, aql, …) is edition-agnostic, so unlike
+// NameParts it carries no edition/release/format.
+type ToolsParts struct {
+	Version   string // 11.2.2
+	OSName    string // amazon | centos | debian | ubuntu
+	OSVersion string // 2023 | 9 | 12 | 24.04
+	Arch      string // x86_64 | aarch64
+}
+
+// tools: [prefix-]aerospike-tools_{version}_{osTag}_{arch}.tgz
+//
+//	aerospike-tools_11.2.2_ubuntu24.04_aarch64.tgz
+//	aerospike-tools_11.2.2_ubuntu24.04_x86_64.tgz
+//	aerospike-tools_11.2.2_amzn2023_x86_64.tgz
+//
+// The optional prefix mirrors the server parser so double-prefixed CI
+// names (e.g. "aerospike-aerospike-tools_...") still match.
+var toolsRE = regexp.MustCompile(
+	`^(?:.*?-)?aerospike-tools_` +
+		`([0-9][0-9.]*)_` +
+		`((?:amzn|el|debian|ubuntu)[0-9]+(?:\.[0-9]+)?)_` +
+		`(x86_64|aarch64)\.tgz$`,
+)
+
+// ParseToolsFileName returns the parsed ToolsParts, or nil if the name is
+// not an Aerospike tools .tgz.
+func ParseToolsFileName(name string) *ToolsParts {
+	m := toolsRE.FindStringSubmatch(name)
+	if m == nil {
+		return nil
+	}
+	os, ver := splitOSTag(m[2])
+	return &ToolsParts{
+		Version:   m[1],
+		OSName:    os,
+		OSVersion: ver,
+		Arch:      m[3],
+	}
+}
+
 // ParseFileName returns the parsed NameParts, or nil if the name does not
 // match an Aerospike server RPM or DEB.
 func ParseFileName(name string) *NameParts {
@@ -99,6 +140,23 @@ func splitOSTag(tag string) (osName, osVersion string) {
 		return "ubuntu", strings.TrimPrefix(tag, "ubuntu")
 	}
 	return "", tag
+}
+
+// osTag is the inverse of splitOSTag: it renders an (osName, osVersion)
+// pair back into the JFrog filename tag ("ubuntu24.04", "amzn2023",
+// "el9", "debian12"). Returns "" for OS names JFrog does not publish.
+func osTag(osName, osVersion string) string {
+	switch osName {
+	case "amazon":
+		return "amzn" + osVersion
+	case "centos", "rocky":
+		return "el" + osVersion
+	case "debian":
+		return "debian" + osVersion
+	case "ubuntu":
+		return "ubuntu" + osVersion
+	}
+	return ""
 }
 
 // debArch maps Debian's package arch labels to the rpm/aerolab labels so
