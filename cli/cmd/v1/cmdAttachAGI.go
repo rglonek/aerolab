@@ -12,7 +12,7 @@ import (
 
 type AttachAGICmd struct {
 	ClusterName     TypeAgiClusterName     `short:"n" long:"name" description:"AGI name" default:"agi"`
-	Node            TypeNodesPlusAllOption `short:"l" long:"node" description:"Node to attach to (or comma-separated list, when using '-- ...'). Example: 'attach shell --node=all -- /some/command' will execute command on all nodes" default:"1"`
+	Node            TypeNodesPlusAllOption `short:"l" long:"nodes" description:"Node to attach to (or comma-separated list, when using '-- ...'). Example: 'attach shell --nodes=all -- /some/command' will execute command on all nodes" default:"1"`
 	Detach          bool                   `short:"d" long:"detach" description:"detach the process stdin - will not kill process on CTRL+C; it is up to the process to detach stdout/err"`
 	Parallel        bool                   `short:"p" long:"parallel" description:"enable parallel execution across all machines"`
 	ParallelThreads int                    `short:"t" long:"threads" description:"Number of parallel threads to use for the execution" default:"10"`

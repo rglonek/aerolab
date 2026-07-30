@@ -58,7 +58,7 @@ const ClusterFeatureAGI = 1
 type AgiCreateCmd struct {
 	// Instance naming
 	ClusterName TypeAgiClusterName `short:"n" long:"name" description:"AGI name (use ~auto~ for auto-generated name)" default:"agi"`
-	AGILabel    string             `long:"agi-label" description:"Friendly label for the AGI instance"`
+	AGILabel    string             `long:"label" description:"Friendly label for the AGI instance"`
 
 	// Source options
 	LocalSource   flags.Filename  `long:"source-local" description:"Get logs from a local directory; Docker: use 'bind:/path' prefix to bind-mount instead of copying"`
@@ -110,7 +110,7 @@ type AgiCreateCmd struct {
 	// Custom ingest options
 	CustomSourceName string         `long:"ingest-custom-source-name" description:"Custom source name to display in Grafana"`
 	PatternsFile     flags.Filename `long:"ingest-patterns-file" description:"Custom patterns YAML file for log ingest"`
-	FeaturesFilePath flags.Filename `short:"f" long:"featurefile" description:"Features file to install, overriding the template's features file"`
+	FeaturesFilePath flags.Filename `short:"f" long:"feature-file" description:"Features file to install, overriding the template's features file"`
 	IngestLogLevel   int            `long:"ingest-log-level" description:"Log level: 1=CRITICAL,2=ERROR,3=WARN,4=INFO,5=DEBUG,6=DETAIL" default:"4"`
 	IngestCpuProfile bool           `long:"ingest-cpu-profiling" description:"Enable CPU profiling for ingest"`
 	// Ingest pipeline tuning. Both default to 0 = use the
@@ -178,24 +178,24 @@ type AgiCreateCmd struct {
 
 // AgiCreateCmdAws contains AWS-specific options for AGI instance creation.
 type AgiCreateCmdAws struct {
-	InstanceType        guiInstanceType `short:"I" long:"instance-type" description:"Instance type (min 8GB RAM); empty=auto-select (m7i.xlarge / m6i.xlarge / m7g.xlarge by region+arch)" webchoice:"method::List"`
-	Ebs                 string          `short:"E" long:"ebs" description:"EBS volume size in GB" default:"40"`
-	SecurityGroupID     string          `short:"S" long:"secgroup-id" description:"Security group IDs (comma-separated)"`
-	SubnetID            string          `short:"U" long:"subnet-id" description:"Subnet ID or availability zone"`
-	Tags                []string        `long:"tags" description:"Custom tags (key=value)"`
+	InstanceType        guiInstanceType `long:"instance" description:"Instance type (min 8GB RAM); empty=auto-select (m7i.xlarge / m6i.xlarge / m7g.xlarge by region+arch)" webchoice:"method::List"`
+	Ebs                 string          `long:"ebs" description:"EBS volume size in GB" default:"40"`
+	SecurityGroupID     string          `long:"firewall" description:"Security group IDs (comma-separated)"`
+	SubnetID            string          `long:"placement" description:"Subnet ID or availability zone"`
+	Tags                []string        `long:"tag" description:"Custom tags (key=value); can be specified multiple times"`
 	WithEFS             bool            `long:"with-efs" description:"Use EFS for persistent storage"`
 	EFSName             string          `long:"efs-name" description:"EFS volume name" default:"{AGI_NAME}"`
 	EFSPath             string          `long:"efs-path" description:"EFS mount path" default:"/"`
-	EFSMultiZone        bool            `long:"efs-multizone" description:"Enable multi-AZ EFS (higher cost)"`
+	EFSMultiZone        bool            `long:"efs-multi-zone" description:"Enable multi-AZ EFS (higher cost)"`
 	EFSExpires          TypeExpiry      `long:"efs-expire" description:"EFS expiry after last use" default:"96h"`
 	EFSFips             bool            `long:"efs-fips" description:"Enable FIPS mode for the EFS mount"`
 	TerminateOnPoweroff bool            `long:"terminate-on-poweroff" description:"Terminate instance on poweroff"`
-	SpotInstance        bool            `long:"spot-instance" description:"Request spot instance"`
+	SpotInstance        bool            `long:"spot" description:"Request spot instance"`
 	SpotFallback        bool            `long:"spot-fallback" description:"Fall back to on-demand if spot unavailable"`
 	Expires             TypeExpiry      `long:"expire" description:"Instance expiry time" default:"30h"`
-	Route53ZoneId       string          `long:"route53-zoneid" description:"Route53 zone ID for DNS"`
+	Route53ZoneId       string          `long:"route53-zone-id" description:"Route53 zone ID for DNS"`
 	Route53DomainName   string          `long:"route53-domain" description:"Route53 domain name"`
-	DisablePublicIP     bool            `long:"disable-public-ip" description:"Disable public IP assignment"`
+	DisablePublicIP     bool            `long:"no-public-ip" description:"Disable public IP assignment"`
 }
 
 // AgiCreateCmdGcp contains GCP-specific options for AGI instance creation.
@@ -211,11 +211,11 @@ type AgiCreateCmdGcp struct {
 	Zone                guiZone         `long:"zone" description:"GCP zone" webchoice:"method::List"`
 	VPC                 guiVpc          `long:"vpc" description:"GCP VPC network name to use; empty=default VPC" webchoice:"method::List"`
 	Subnet              string          `long:"subnet" description:"GCP subnet name within the selected VPC; empty=auto-select first subnet in the zone's region"`
-	Tags                []string        `long:"tag" description:"Network tags"`
-	Labels              []string        `long:"label" description:"Labels (key=value)"`
-	SpotInstance        bool            `long:"spot-instance" description:"Request spot instance"`
+	Tags                []string        `long:"network-tag" description:"Network tags; can be specified multiple times"`
+	Labels              []string        `long:"tag" description:"Custom tags (labels) (key=value); can be specified multiple times"`
+	SpotInstance        bool            `long:"spot" description:"Request spot instance"`
 	Expires             TypeExpiry      `long:"expire" description:"Instance expiry time" default:"30h"`
-	DisablePublicIP     bool            `long:"disable-public-ip" description:"Disable public IP assignment"`
+	DisablePublicIP     bool            `long:"no-public-ip" description:"Disable public IP assignment"`
 	WithVol             bool            `long:"with-vol" description:"Use persistent volume for storage"`
 	VolName             string          `long:"vol-name" description:"Volume name" default:"{AGI_NAME}"`
 	VolExpires          TypeExpiry      `long:"vol-expire" description:"Volume expiry after last use" default:"96h"`
@@ -225,8 +225,8 @@ type AgiCreateCmdGcp struct {
 
 // AgiCreateCmdDocker contains Docker-specific options for AGI instance creation.
 type AgiCreateCmdDocker struct {
-	ExposePortsToHost string   `short:"e" long:"expose-ports" description:"Port forwarding (HOST_PORT:NODE_PORT)"`
-	Privileged        bool     `short:"B" long:"privileged" description:"Run in privileged mode"`
+	ExposePortsToHost string   `long:"expose-ports" description:"Port forwarding (HOST_PORT:NODE_PORT)"`
+	Privileged        bool     `long:"privileged" description:"Run in privileged mode"`
 	NetworkName       string   `long:"network" description:"Docker network name"`
 	Disks             []string `long:"disk" description:"Mount a host path or named volume into the container; format: {volumeName|/hostPath}:{mountTargetDirectory}[:ro|:rw]; example: /host/data:/mnt/data or myvol:/data:ro; can be specified multiple times"`
 }
@@ -339,7 +339,7 @@ func (c *AgiCreateCmd) CreateAGI(system *System, inventory *backends.Inventory, 
 		existingVol := inventory.Volumes.WithType(backends.VolumeTypeSharedDisk).WithName(volumeName)
 		if existingVol.Count() > 0 && !c.Force {
 			return nil, fmt.Errorf("EFS volume '%s' already exists.\n"+
-				"  - Use 'aerolab agi start -n %s --aws-with-efs' to start with existing EFS data\n"+
+				"  - Use 'aerolab agi start -n %s --aws.with-efs' to start with existing EFS data\n"+
 				"  - Use --force to create a new AGI and overwrite existing EFS data",
 				volumeName, c.ClusterName)
 		}
@@ -351,7 +351,7 @@ func (c *AgiCreateCmd) CreateAGI(system *System, inventory *backends.Inventory, 
 		existingVol := inventory.Volumes.WithType(backends.VolumeTypeAttachedDisk).WithName(volumeName)
 		if existingVol.Count() > 0 && !c.Force {
 			return nil, fmt.Errorf("GCP volume '%s' already exists.\n"+
-				"  - Use 'aerolab agi start -n %s --gcp-with-vol' to start with existing volume data\n"+
+				"  - Use 'aerolab agi start -n %s --gcp.with-vol' to start with existing volume data\n"+
 				"  - Use --force to create a new AGI and overwrite existing volume data",
 				volumeName, c.ClusterName)
 		}
@@ -742,7 +742,7 @@ func (c *AgiCreateCmd) validateParameters() error {
 	// Validate Route53 configuration
 	if (c.AWS.Route53ZoneId != "" && c.AWS.Route53DomainName == "") ||
 		(c.AWS.Route53ZoneId == "" && c.AWS.Route53DomainName != "") {
-		return fmt.Errorf("both --route53-zoneid and --route53-domain must be specified together")
+		return fmt.Errorf("both --aws.route53-zone-id and --aws.route53-domain must be specified together")
 	}
 
 	// Validate time ranges

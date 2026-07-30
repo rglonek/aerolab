@@ -11,7 +11,7 @@ type InstancesUpdateHostsFileCmd struct {
 	On                 []string `short:"o" long:"on" description:"Update hosts file on these clusters only; default: all clusters"`
 	With               []string `short:"w" long:"with" description:"Include only instances in these clusters; default: all clusters"`
 	IgnoreNotRunning   bool     `short:"i" long:"ignore-not-running" description:"Ignore instances that are not running"`
-	ParallelSSHThreads int      `short:"p" long:"parallel-ssh-threads" description:"Number of parallel SSH threads" default:"10"`
+	ParallelSSHThreads int      `short:"p" long:"threads" description:"Number of parallel SSH threads" default:"10"`
 	Help               HelpCmd  `command:"help" subcommands-optional:"true" description:"Print help"`
 }
 

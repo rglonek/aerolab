@@ -47,26 +47,26 @@ an EKS cluster name. A minimal policy:
 
 ### Optional: Disable Public IPs
 
-`--aws-nopublic-ip` stops Aerolab from requesting a public IP for new instances:
+`--aws.no-public-ip` stops Aerolab from requesting a public IP for new instances:
 
 ```bash
-aerolab config backend -t aws -r us-east-1 --aws-nopublic-ip
+aerolab config backend -t aws -r us-east-1 --aws.no-public-ip
 ```
 
 **There is no AWS equivalent of GCP's IAP tunnel.** This flag only removes the public IP
 from the EC2 launch request — it does not set up SSM Session Manager, a VPN, or any other
 path to the instance. You must already have private network access (VPN, VPC peering,
 Direct Connect, or a bastion/Session Manager you configure yourself); Aerolab does not check
-reachability and has no fallback if you don't. Combining `--aws-nopublic-ip` with
-`-L`/`--public-ip`/`--external-ip` on `cluster create` is rejected with an error.
+reachability and has no fallback if you don't. Combining `--aws.no-public-ip` with
+`-L`/`--public-ip`/`--gcp.public-ip` on `cluster create` is rejected with an error.
 
 ### Flags don't persist across `config backend` runs
 
-`--aws-nopublic-ip` and `--skip-pricing` (and their GCP equivalents) are **not** merged with
+`--aws.no-public-ip` and `--skip-pricing` (and their GCP equivalents) are **not** merged with
 your last saved config — omitting a previously-set flag silently turns it back off. If
-you've configured the backend with `--aws-nopublic-ip` and later run `config backend` again
+you've configured the backend with `--aws.no-public-ip` and later run `config backend` again
 to change something else (e.g. add `--inventory-cache`), you must repeat
-`--aws-nopublic-ip` too, or it reverts to requesting public IPs.
+`--aws.no-public-ip` too, or it reverts to requesting public IPs.
 
 ## Quick Start
 
@@ -77,8 +77,8 @@ aerolab config backend -t aws -r us-east-1
 # 2. Create a 2-node cluster
 aerolab cluster create -c 2 -d ubuntu -i 24.04 -v '8.*' \
   -I t3a.xlarge \
-  --aws-disk type=gp3,size=20 \
-  --aws-expire=8h
+  --aws.disk type=gp3,size=20 \
+  --aws.expire=8h
 
 # 3. Wait for it to come up, then use it
 aerolab aerospike is-stable -w
@@ -88,8 +88,8 @@ aerolab attach aql -n mydc -- -c "show namespaces"
 aerolab cluster destroy -n mydc --force
 ```
 
-`-I t3a.xlarge` picks the instance type, `--aws-disk type=gp3,size=20` sets a 20GB root
-disk, and `--aws-expire=8h` auto-destroys the cluster after 8 hours so you don't forget it.
+`-I t3a.xlarge` picks the instance type, `--aws.disk type=gp3,size=20` sets a 20GB root
+disk, and `--aws.expire=8h` auto-destroys the cluster after 8 hours so you don't forget it.
 
 ## Configure the Backend
 
@@ -101,9 +101,9 @@ Optional flags:
 
 | Flag | Effect |
 |------|--------|
-| `-P, --aws-profile` | Use a named AWS CLI profile instead of the default. |
+| `-P, --aws.profile` | Use a named AWS CLI profile instead of the default. |
 | `--inventory-cache` | Cache resource state locally for faster operations — only if you're the sole user of the account. |
-| `--aws-nopublic-ip` | See [Gotchas](#gotchas) above. |
+| `--aws.no-public-ip` | See [Gotchas](#gotchas) above. |
 | `--skip-pricing` | Skip cost/pricing lookups (still returns instance-type/volume catalogs). |
 | `-r` (comma-separated) | Enable multiple regions, e.g. `us-east-1,us-west-2`. |
 
@@ -131,13 +131,13 @@ Beyond the Quick Start example, common `cluster create` additions:
 
 | Need | Flag(s) |
 |------|---------|
-| Multiple disks | repeat `--aws-disk type=gp3,size=100,count=3` |
+| Multiple disks | repeat `--aws.disk type=gp3,size=100,count=3` |
 | Specific subnet | `-U subnet-12345678` |
-| Custom security group | `--secgroup-name aerolab-sg` |
+| Custom security group | `--aws.firewall aerolab-sg` |
 | Public IP (overrides backend default) | `-L` |
-| Spot instances (cheaper) | `--aws-spot-instance` |
+| Spot instances (cheaper) | `--aws.spot` |
 | Tags | repeat `--tags Key=Value` |
-| EFS volume mount | `--aws-efs-create --aws-efs-mount myefs:/mnt/efs` |
+| EFS volume mount | `--aws.efs-create --aws.efs-mount myefs:/mnt/efs` |
 
 ## Resource Expiry Automation
 

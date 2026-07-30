@@ -35,7 +35,7 @@ type ClusterPartitionConfCmd struct {
 	ConfDest           string          `short:"o" long:"configure" description:"what to configure the selections as; options: memory|device|shadow|pi-flash|si-flash" default:""`
 	MountsSizeLimitPct float64         `short:"s" long:"mounts-size-limit-pct" description:"specify %% space to use for configurating partition-tree-sprigs for pi-flash; this also sets mounts-budget accordingly" default:"90"`
 	ConfigPath         string          `short:"c" long:"config-path" description:"path to a custom aerospike config file to use for the configuration" default:"/etc/aerospike/aerospike.conf"`
-	ParallelThreads    int             `long:"parallel-threads" description:"Number of parallel threads to use for the execution" default:"10"`
+	ParallelThreads    int             `long:"threads" description:"Number of parallel threads to use for the execution" default:"10"`
 	MaxRetries         int             `long:"max-retries" description:"Maximum number of retries for transient SSH/SFTP failures" default:"1" simplemode:"false"`
 	RetrySleep         time.Duration   `long:"retry-sleep" description:"Sleep duration between retries" default:"5s" simplemode:"false"`
 	Help               HelpCmd         `command:"help" subcommands-optional:"true" description:"Print help"`

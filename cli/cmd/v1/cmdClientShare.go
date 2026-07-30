@@ -16,7 +16,7 @@ import (
 type ClientShareCmd struct {
 	ClientName      TypeClientName `short:"n" long:"name" description:"Client name" default:"client"`
 	KeyFile         flags.Filename `short:"f" long:"pubkey" description:"Path to a pubkey to import to client nodes"`
-	ParallelThreads int            `short:"p" long:"parallel-threads" description:"Number of parallel threads to use for the execution" default:"10"`
+	ParallelThreads int            `short:"t" long:"threads" description:"Number of parallel threads to use for the execution" default:"10"`
 	Help            HelpCmd        `command:"help" subcommands-optional:"true" description:"Print help"`
 }
 

@@ -14,11 +14,11 @@ import (
 
 type TemplateDestroyCmd struct {
 	Distro           string  `short:"d" long:"distro" description:"Distro to destroy the template for"`
-	DistroVersion    string  `short:"i" long:"distro-version" description:"Version of the distro to destroy the template for"`
+	DistroVersion    string  `short:"v" long:"distro-version" description:"Version of the distro to destroy the template for"`
 	Arch             string  `short:"a" long:"arch" description:"Architecture to destroy the template for"`
-	AerospikeVersion string  `short:"v" long:"aerospike-version" description:"Aerospike version to destroy the template for"`
+	AerospikeVersion string  `short:"A" long:"aerospike-version" description:"Aerospike version to destroy the template for"`
 	Force            bool    `short:"f" long:"force" description:"Force the destruction of the template - do not ask for confirmation"`
-	DryRun           bool    `short:"n" long:"dry-run" description:"Do not actually destroy the template, just run the basic checks"`
+	DryRun           bool    `long:"dry-run" description:"Do not actually destroy the template, just run the basic checks"`
 	Help             HelpCmd `command:"help" subcommands-optional:"true" description:"Print help"`
 }
 

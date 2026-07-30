@@ -97,7 +97,7 @@ aerolab cluster destroy -n mydc --force
 aerolab inventory delete-project-resources -f
 
 # Same, but only resources past their expiry (AWS/GCP)
-aerolab inventory delete-project-resources -f --expiry
+aerolab inventory delete-project-resources -f --with-expiry
 ```
 
 ## See Also

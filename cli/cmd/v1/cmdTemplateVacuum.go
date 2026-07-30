@@ -7,7 +7,7 @@ import (
 )
 
 type TemplateVacuumCmd struct {
-	DryRun bool    `short:"n" long:"dry-run" description:"Do not actually create the template, just run the basic checks"`
+	DryRun bool    `long:"dry-run" description:"Do not actually run the vacuum, just run the basic checks"`
 	Help   HelpCmd `command:"help" subcommands-optional:"true" description:"Print help"`
 }
 

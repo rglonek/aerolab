@@ -35,7 +35,7 @@ aerolab agi template list
 aerolab agi create --timeout 40 --source-local /path/to/logs
 
 # For AWS, try different availability zone
-aerolab agi create --aws-subnet-id us-east-1b --source-local /path/to/logs
+aerolab agi create --aws.placement us-east-1b --source-local /path/to/logs
 ```
 
 ### "No Suitable Instance Type Found"
@@ -45,10 +45,10 @@ aerolab agi create --aws-subnet-id us-east-1b --source-local /path/to/logs
 **Solutions:**
 ```bash
 # Specify instance type explicitly
-aerolab agi create --aws-instance-type t3a.xlarge --source-local /path/to/logs
+aerolab agi create --aws.instance t3a.xlarge --source-local /path/to/logs
 
 # For GCP
-aerolab agi create --gcp-instance e2-highmem-4 --source-local /path/to/logs
+aerolab agi create --gcp.instance e2-highmem-4 --source-local /path/to/logs
 ```
 
 ### "Not Enough Memory"
@@ -58,7 +58,7 @@ aerolab agi create --gcp-instance e2-highmem-4 --source-local /path/to/logs
 **Solutions:**
 ```bash
 # For Docker, increase memory limit
-aerolab agi create --docker-ram-limit 10g --source-local /path/to/logs
+aerolab agi create --docker.ram-limit 10g --source-local /path/to/logs
 
 # Use --no-dim for lower memory requirement
 aerolab agi create --no-dim --source-local /path/to/logs
@@ -180,7 +180,7 @@ aerolab agi run-ingest -n myagi --source-local /path/to/logs
 **Solutions:**
 ```bash
 # Use larger instance type
-aerolab agi create --aws-instance-type m5.xlarge ...
+aerolab agi create --aws.instance m5.xlarge ...
 
 # Use time range filtering
 aerolab agi create \
@@ -411,9 +411,9 @@ aerolab agi attach -n myagi -- mount | grep efs
 **Solutions:**
 ```bash
 # Ensure using persistent volume
-aerolab agi create --aws-with-efs ...
+aerolab agi create --aws.with-efs ...
 # or
-aerolab agi create --gcp-with-vol ...
+aerolab agi create --gcp.with-vol ...
 
 # Check volume tags
 aerolab volumes list
@@ -453,7 +453,7 @@ aerolab config aws create-security-groups -n aerolab-agi -p 80,443
 aerolab config aws list-subnets
 
 # Specify subnet explicitly
-aerolab agi create --aws-subnet-id subnet-12345 ...
+aerolab agi create --aws.placement subnet-12345 ...
 ```
 
 ### GCP
@@ -500,7 +500,7 @@ AGI automatically allocates ports starting at 9443 (HTTPS) or 9080 (HTTP), incre
 lsof -i :9443
 
 # Use specific port
-aerolab agi create --docker-expose-ports 8443:443 ...
+aerolab agi create --docker.expose-ports 8443:443 ...
 ```
 
 **Note:** Multiple AGI instances can run simultaneously - each gets the next available port automatically.
@@ -515,13 +515,13 @@ aerolab agi create --docker-expose-ports 8443:443 ...
 
 ```bash
 # AWS/GCP: Settings are restored from volume tags automatically
-aerolab agi create --name myagi --aws-with-efs
+aerolab agi create --name myagi --aws.with-efs
 
 # Docker: Must specify all settings each time
 aerolab agi create --name myagi \
   --bind-files-dir /path/to/agi-output \
   --source-local bind:/path/to/logs \
-  --agi-label "My AGI Instance" \
+  --label "My AGI Instance" \
   ...
 ```
 

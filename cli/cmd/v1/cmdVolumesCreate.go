@@ -13,11 +13,11 @@ import (
 )
 
 type VolumesCreateCmd struct {
-	Name            string                 `long:"name" description:"Name of the volume"`
-	Description     string                 `long:"description" description:"Description of the volume"`
-	Owner           string                 `long:"owner" description:"Owner of the volume"`
-	Tags            []string               `long:"tag" description:"Tags to add to the volume, format: k=v"`
-	VolumeType      string                 `long:"volume-type" description:"Type of volume to create: attached or shared"`
+	Name            string                 `short:"n" long:"name" description:"Name of the volume"`
+	Description     string                 `short:"d" long:"description" description:"Description of the volume"`
+	Owner           string                 `short:"o" long:"owner" description:"Owner of the volume"`
+	Tags            []string               `short:"t" long:"tag" description:"Tags to add to the volume, format: k=v"`
+	VolumeType      string                 `long:"type" description:"Type of volume to create: attached or shared"`
 	NoInstallExpiry bool                   `long:"no-install-expiry" description:"Do not install the expiry system, even if volume expiry is set"`
 	AWS             VolumesCreateCmdAws    `group:"AWS" description:"backend-aws" namespace:"aws"`
 	GCP             VolumesCreateCmdGcp    `group:"GCP" description:"backend-gcp" namespace:"gcp"`

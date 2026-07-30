@@ -24,9 +24,9 @@ aerolab net block -s source-cluster -d dest-cluster -p 3000
 | Option | Description | Default |
 |--------|-------------|---------|
 | `-s, --source` | Source cluster name | `mydc` |
-| `-l, --source-node-list` | Source nodes, comma separated. Empty=ALL | (all) |
+| `-l, --source-nodes` | Source nodes, comma separated. Empty=ALL | (all) |
 | `-d, --destination` | Destination cluster name | `mydc-xdr` |
-| `-i, --destination-node-list` | Destination nodes, comma separated. Empty=ALL | (all) |
+| `-i, --destination-nodes` | Destination nodes, comma separated. Empty=ALL | (all) |
 | `-t, --type` | Block type (reject\|drop) | `reject` |
 | `-p, --ports` | Ports to block, comma separated | `3000` |
 | `-b, --block-on` | Where to block (input\|output) | `input` |
@@ -182,7 +182,7 @@ aerolab net list -s cluster-name
 | Option | Description |
 |--------|-------------|
 | `-s, --source` | Cluster name to list rules for |
-| `-l, --source-node-list` | Specific nodes (default: all) |
+| `-l, --source-nodes` | Specific nodes (default: all) |
 
 ### Example Output
 
@@ -218,9 +218,9 @@ aerolab net loss-delay -s source -d dest -a set -D 100 -L 10
 | Option | Description | Default |
 |--------|-------------|---------|
 | `-s, --source` | Source cluster name | `mydc` |
-| `-l, --source-node-list` | Source nodes. Empty=ALL | (all) |
+| `-l, --source-nodes` | Source nodes. Empty=ALL | (all) |
 | `-d, --destination` | Destination cluster name | `mydc-xdr` |
-| `-i, --destination-node-list` | Destination nodes. Empty=ALL | (all) |
+| `-i, --destination-nodes` | Destination nodes. Empty=ALL | (all) |
 | `-a, --action` | Action: set\|del\|reset\|show | `show` |
 | `-D, --latency-ms` | Latency in milliseconds | (none) |
 | `-L, --loss-pct` | Packet loss percentage | (none) |

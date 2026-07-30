@@ -15,9 +15,9 @@ import (
 
 type NetBlockCmd struct {
 	SourceClusterName      TypeClusterName      `short:"s" long:"source" description:"Source cluster name" default:"mydc"`
-	SourceNodeList         TypeNodes            `short:"l" long:"source-node-list" description:"List of source nodes. Empty=ALL." default:""`
+	SourceNodeList         TypeNodes            `short:"l" long:"source-nodes" description:"List of source nodes. Empty=ALL." default:""`
 	DestinationClusterName TypeClusterName      `short:"d" long:"destination" description:"Destination cluster name" default:"mydc-xdr"`
-	DestinationNodeList    TypeNodes            `short:"i" long:"destination-node-list" description:"List of destination nodes. Empty=ALL." default:""`
+	DestinationNodeList    TypeNodes            `short:"i" long:"destination-nodes" description:"List of destination nodes. Empty=ALL." default:""`
 	Type                   TypeNetType          `short:"t" long:"type" description:"Block type (reject|drop)." default:"reject" webchoice:"reject,drop"`
 	Ports                  string               `short:"p" long:"ports" description:"Comma separated list of ports to block." default:"3000"`
 	BlockOn                TypeNetBlockOn       `short:"b" long:"block-on" description:"Block where (input|output). Input=on destination, output=on source." default:"input" webchoice:"input,output"`

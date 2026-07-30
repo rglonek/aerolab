@@ -49,13 +49,13 @@ aerolab instances create -n myinstances -c 2 --os ubuntu --version 24.04
 | `--os` | OS distribution (ubuntu, centos, rocky, debian, amazon) | `ubuntu` |
 | `--version` | OS version (e.g., `24.04`, `22.04`) | `24.04` |
 | `--arch` | Architecture override (`amd64`, `arm64`) | |
-| `-p, --parallel-ssh-threads` | Number of parallel SSH threads | `10` |
+| `-p, --threads` | Number of parallel SSH threads | `10` |
 | `-t, --tag` | Tags to add, format `k=v` (can be specified multiple times) | |
 
 **Note:** Backend-specific options below are grouped under a namespace, so each
 flag is prefixed with `aws.`, `gcp.`, or `docker.` (e.g. `--aws.instance`, not
-`--instance-type`). This differs from `cluster create`, whose backend flags are
-flat (`--aws-disk`, not `--aws.disk`).
+`--instance-type`). The same pattern is used by `cluster create` and
+`client create`.
 
 ### Backend-Specific Options
 

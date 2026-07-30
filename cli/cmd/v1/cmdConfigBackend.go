@@ -28,21 +28,21 @@ type ConfigBackendCmd struct {
 	InventoryCache bool           `short:"c" long:"inventory-cache" description:"Enable local inventory cache - use only if not sharing the GCP/AWS project/account with other users"`
 	SkipPricing    bool           `long:"skip-pricing" description:"AWS/GCP: skip all cost/pricing lookups (billing/pricing APIs); instance-type and volume catalogs are still returned, just without prices. Useful under GCP Workload Identity Federation, where the billing API rejects federated tokens, or whenever the caller lacks pricing permissions"`
 
-	AWSProfile     string `short:"P" long:"aws-profile" description:"AWS: provide a profile to use; setting this ignores the AWS_PROFILE env variable"`
-	AWSNoPublicIps bool   `long:"aws-nopublic-ip" description:"AWS: if set, aerolab will not request public IPs, and will operate on private IPs only"`
+	AWSProfile     string `long:"aws.profile" description:"AWS: provide a profile to use; setting this ignores the AWS_PROFILE env variable"`
+	AWSNoPublicIps bool   `long:"aws.no-public-ip" description:"AWS: if set, aerolab will not request public IPs, and will operate on private IPs only"`
 
-	Project               string `short:"o" long:"project" description:"GCP: specify a GCP project to use" default:""`
-	GCPAuthMethod         string `short:"m" long:"gcp-auth-method" description:"GCP: specify the authentication method to use (any|login|service-account)" default:"service-account" webchoice:"any,login,service-account" hidden:"true"`
-	GCPNoBrowser          bool   `short:"b" long:"gcp-no-browser" description:"GCP: if set, aerolab will not open a browser to authenticate with GCP when using login method" hidden:"true"`
-	GCPClientID           string `short:"i" long:"gcp-client-id" description:"GCP: specify a GCP client ID to use" hidden:"true"`
-	GCPClientSecret       string `short:"s" long:"gcp-client-secret" description:"GCP: specify a GCP client secret to use" hidden:"true"`
-	GCPNoPublicIps        bool   `long:"gcp-nopublic-ip" description:"GCP: if set, aerolab will not request public IPs, and will operate on private IPs only"`
-	GCPUseIAP             bool   `long:"gcp-use-iap" description:"GCP: route SSH/SFTP through IAP TCP forwarding instead of dialing the routable instance IP. Independent of --gcp-nopublic-ip; aerolab does NOT auto-enable IAP when public IPs are disabled."`
-	GCPAutoEnableServices bool   `long:"gcp-auto-enable-services" description:"GCP: automatically enable required GCP services (APIs) in the project when missing, without prompting. When unset, aerolab prompts interactively and errors in non-interactive contexts, listing the services to enable manually."`
+	Project               string `long:"gcp.project" description:"GCP: specify a GCP project to use" default:""`
+	GCPAuthMethod         string `long:"gcp.auth-method" description:"GCP: specify the authentication method to use (any|login|service-account)" default:"service-account" webchoice:"any,login,service-account" hidden:"true"`
+	GCPNoBrowser          bool   `long:"gcp.no-browser" description:"GCP: if set, aerolab will not open a browser to authenticate with GCP when using login method" hidden:"true"`
+	GCPClientID           string `long:"gcp.client-id" description:"GCP: specify a GCP client ID to use" hidden:"true"`
+	GCPClientSecret       string `long:"gcp.client-secret" description:"GCP: specify a GCP client secret to use" hidden:"true"`
+	GCPNoPublicIps        bool   `long:"gcp.no-public-ip" description:"GCP: if set, aerolab will not request public IPs, and will operate on private IPs only"`
+	GCPUseIAP             bool   `long:"gcp.use-iap" description:"GCP: route SSH/SFTP through IAP TCP forwarding instead of dialing the routable instance IP. Independent of --gcp.no-public-ip; aerolab does NOT auto-enable IAP when public IPs are disabled."`
+	GCPAutoEnableServices bool   `long:"gcp.auto-enable-services" description:"GCP: automatically enable required GCP services (APIs) in the project when missing, without prompting. When unset, aerolab prompts interactively and errors in non-interactive contexts, listing the services to enable manually."`
 
-	Arch                 string         `short:"a" long:"docker-arch" description:"DOCKER: set to either amd64 or arm64 to force a particular architecture on docker; requires multiarch support"`
-	DockerRegistryRegion string         `long:"docker-registry-region" description:"DOCKER: region for pre-built template image registry; values: na, eu, disabled" default:"na"`
-	DockerRegistryURL    string         `long:"docker-registry-url" description:"DOCKER: URL for pre-built template image registry; set to empty to disable" default:"https://storage.googleapis.com/aerospike-docker-images-na" hidden:"true"`
+	Arch                 string         `long:"docker.arch" description:"DOCKER: set to either amd64 or arm64 to force a particular architecture on docker; requires multiarch support"`
+	DockerRegistryRegion string         `long:"docker.registry-region" description:"DOCKER: region for pre-built template image registry; values: na, eu, disabled" default:"na"`
+	DockerRegistryURL    string         `long:"docker.registry-url" description:"DOCKER: URL for pre-built template image registry; set to empty to disable" default:"https://storage.googleapis.com/aerospike-docker-images-na" hidden:"true"`
 	TmpDir               flags.Filename `short:"d" long:"temp-dir" description:"use a non-default temporary directory, when using aerolab in WSL2" default:"" webtype:"text"`
 	CheckAccess          bool           `long:"check-access" description:"check access to the backend"`
 
@@ -67,34 +67,34 @@ func (c *ConfigBackendCmd) Execute(args []string) error {
 		webParams = strings.Split(webParamsRaw, ",")
 	}
 
-	// Clear aws-nopublic-ip unless explicitly provided
+	// Clear aws.no-public-ip unless explicitly provided
 	if isWebExecMode {
-		if !slices.Contains(webParams, "aws-nopublic-ip") {
+		if !slices.Contains(webParams, "aws.no-public-ip") {
 			c.AWSNoPublicIps = false
 		}
-		if !slices.Contains(webParams, "gcp-nopublic-ip") {
+		if !slices.Contains(webParams, "gcp.no-public-ip") {
 			c.GCPNoPublicIps = false
 		}
-		if !slices.Contains(webParams, "gcp-use-iap") {
+		if !slices.Contains(webParams, "gcp.use-iap") {
 			c.GCPUseIAP = false
 		}
-		if !slices.Contains(webParams, "gcp-auto-enable-services") {
+		if !slices.Contains(webParams, "gcp.auto-enable-services") {
 			c.GCPAutoEnableServices = false
 		}
 		if !slices.Contains(webParams, "skip-pricing") {
 			c.SkipPricing = false
 		}
 	} else {
-		if !inslice.HasString(os.Args[1:], "--aws-nopublic-ip") {
+		if !inslice.HasString(os.Args[1:], "--aws.no-public-ip") {
 			c.AWSNoPublicIps = false
 		}
-		if !inslice.HasString(os.Args[1:], "--gcp-nopublic-ip") {
+		if !inslice.HasString(os.Args[1:], "--gcp.no-public-ip") {
 			c.GCPNoPublicIps = false
 		}
-		if !inslice.HasString(os.Args[1:], "--gcp-use-iap") {
+		if !inslice.HasString(os.Args[1:], "--gcp.use-iap") {
 			c.GCPUseIAP = false
 		}
-		if !inslice.HasString(os.Args[1:], "--gcp-auto-enable-services") {
+		if !inslice.HasString(os.Args[1:], "--gcp.auto-enable-services") {
 			c.GCPAutoEnableServices = false
 		}
 		if !inslice.HasString(os.Args[1:], "--skip-pricing") {
@@ -103,12 +103,12 @@ func (c *ConfigBackendCmd) Execute(args []string) error {
 	}
 
 	if c.Type == "gcp" && c.Project == "" {
-		return Error(errors.New("ERROR: When using GCP backend, project name must be defined. Use: aerolab config backend -t gcp -o project-name-here"), system, []string{"config", "backend"}, c, args)
+		return Error(errors.New("ERROR: When using GCP backend, project name must be defined. Use: aerolab config backend -t gcp --gcp.project project-name-here"), system, []string{"config", "backend"}, c, args)
 	}
 
 	// validate docker-arch
 	if c.Arch != "" && c.Arch != "amd64" && c.Arch != "arm64" && c.Arch != "unset" {
-		return Error(errors.New("docker-arch must be one of: unset, amd64, arm64"), system, []string{"config", "backend"}, c, args)
+		return Error(errors.New("docker.arch must be one of: unset, amd64, arm64"), system, []string{"config", "backend"}, c, args)
 	}
 	if c.Arch == "unset" {
 		c.Arch = ""
@@ -123,7 +123,7 @@ func (c *ConfigBackendCmd) Execute(args []string) error {
 	case "disabled", "":
 		c.DockerRegistryURL = DockerRegistryURLDisabled
 	default:
-		return Error(fmt.Errorf("docker-registry-region must be one of: na, eu, disabled"), system, []string{"config", "backend"}, c, args)
+		return Error(fmt.Errorf("docker.registry-region must be one of: na, eu, disabled"), system, []string{"config", "backend"}, c, args)
 	}
 
 	// check if we are setting the backend type
@@ -221,7 +221,7 @@ func (c *ConfigBackendCmd) ExecTypeSet(system *System, args []string) error {
 	}
 
 	if c.Type == "gcp" && c.Project == "" {
-		return errors.New("ERROR: When using GCP backend, project name must be defined. Use: aerolab config backend -t gcp -o project-name-here")
+		return errors.New("ERROR: When using GCP backend, project name must be defined. Use: aerolab config backend -t gcp --gcp.project project-name-here")
 	}
 	if c.Type == "aws" || c.Type == "gcp" || c.Type == "docker" {
 		if c.SshKeyPath != "" {
@@ -277,19 +277,19 @@ func (c *ConfigBackendCmd) ExecTypeSet(system *System, args []string) error {
 		if !slices.Contains(webParams, "inventory-cache") {
 			c.InventoryCache = false
 		}
-		if !slices.Contains(webParams, "aws-nopublic-ip") {
+		if !slices.Contains(webParams, "aws.no-public-ip") {
 			c.AWSNoPublicIps = false
 		}
-		if !slices.Contains(webParams, "gcp-nopublic-ip") {
+		if !slices.Contains(webParams, "gcp.no-public-ip") {
 			c.GCPNoPublicIps = false
 		}
-		if !slices.Contains(webParams, "gcp-use-iap") {
+		if !slices.Contains(webParams, "gcp.use-iap") {
 			c.GCPUseIAP = false
 		}
-		if !slices.Contains(webParams, "gcp-auto-enable-services") {
+		if !slices.Contains(webParams, "gcp.auto-enable-services") {
 			c.GCPAutoEnableServices = false
 		}
-		if !slices.Contains(webParams, "gcp-no-browser") {
+		if !slices.Contains(webParams, "gcp.no-browser") {
 			c.GCPNoBrowser = false
 		}
 		if !slices.Contains(webParams, "skip-pricing") {
@@ -302,19 +302,19 @@ func (c *ConfigBackendCmd) ExecTypeSet(system *System, args []string) error {
 		if !slices.Contains(os.Args, "--inventory-cache") {
 			c.InventoryCache = false
 		}
-		if !slices.Contains(os.Args, "--aws-nopublic-ip") {
+		if !slices.Contains(os.Args, "--aws.no-public-ip") {
 			c.AWSNoPublicIps = false
 		}
-		if !slices.Contains(os.Args, "--gcp-nopublic-ip") {
+		if !slices.Contains(os.Args, "--gcp.no-public-ip") {
 			c.GCPNoPublicIps = false
 		}
-		if !slices.Contains(os.Args, "--gcp-use-iap") {
+		if !slices.Contains(os.Args, "--gcp.use-iap") {
 			c.GCPUseIAP = false
 		}
-		if !slices.Contains(os.Args, "--gcp-auto-enable-services") {
+		if !slices.Contains(os.Args, "--gcp.auto-enable-services") {
 			c.GCPAutoEnableServices = false
 		}
-		if !slices.Contains(os.Args, "--gcp-no-browser") && !slices.Contains(os.Args, "-b") {
+		if !slices.Contains(os.Args, "--gcp.no-browser") {
 			c.GCPNoBrowser = false
 		}
 		if !slices.Contains(os.Args, "--skip-pricing") {

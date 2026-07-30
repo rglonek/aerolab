@@ -22,14 +22,14 @@ import (
 )
 
 type ClientCreateGraphCmd struct {
-	ClientName         TypeClientName           `short:"n" long:"group-name" description:"Client group name" default:"client"`
+	ClientName         TypeClientName           `short:"n" long:"name" description:"Client group name" default:"client"`
 	ClientCount        int                      `short:"c" long:"count" description:"Number of clients" default:"1"`
 	Owner              string                   `short:"o" long:"owner" description:"Owner of the instances"`
-	AWS                ClientCreateCmdAws       `group:"AWS" description:"backend-aws"`
-	GCP                ClientCreateCmdGcp       `group:"GCP" description:"backend-gcp"`
-	Docker             ClientCreateCmdDocker    `group:"Docker" description:"backend-docker"`
+	AWS                InstancesCreateCmdAws    `group:"AWS" namespace:"aws" description:"backend-aws"`
+	GCP                InstancesCreateCmdGcp    `group:"GCP" namespace:"gcp" description:"backend-gcp"`
+	Docker             InstancesCreateCmdDocker `group:"Docker" namespace:"docker" description:"backend-docker"`
 	Tags               []string                 `short:"t" long:"tag" description:"Tags to add to the instances, format: k=v"`
-	SeedClusterName    TypeClusterName          `short:"C" long:"cluster-name" description:"Cluster name to seed from" default:"mydc"`
+	SeedClusterName    TypeClusterName          `short:"C" long:"seed-cluster" description:"Cluster name to seed from" default:"mydc"`
 	Seed               string                   `long:"seed" description:"Specify a seed IP:PORT instead of providing a ClusterName; if this parameter is provided, ClusterName is ignored"`
 	Namespace          string                   `short:"m" long:"namespace" description:"Namespace name to configure graph to use" default:"test"`
 	ExtraProperties    []string                 `short:"e" long:"extra" description:"Extra properties to add; can be specified multiple times; ex: -e 'aerospike.client.timeout=2000'"`
@@ -42,7 +42,7 @@ type ClientCreateGraphCmd struct {
 	GraphPrivileged    bool                     `long:"graph-privileged" description:"Force graph to run in privileged docker container mode"`
 	JustDoIt           bool                     `long:"confirm" description:"Confirm any warning questions without being asked" webdisable:"true" webset:"true"`
 	TypeOverride       string                   `long:"type-override" description:"Override the client type label"`
-	ParallelSSHThreads int                      `long:"threads" description:"Number of threads to use for the execution" default:"10"`
+	ParallelSSHThreads int                      `short:"p" long:"threads" description:"Number of threads to use for the execution" default:"10"`
 	// Retry configuration
 	MaxRetries         int           `long:"max-retries" description:"Maximum number of retries for transient failures (SSH/SFTP operations)" default:"1" simplemode:"false"`
 	RetrySleep         time.Duration `long:"retry-sleep" description:"Sleep duration between transient retries" default:"30s" simplemode:"false"`
@@ -288,7 +288,7 @@ func (c *ClientCreateGraphCmd) createGraphOnDocker(system *System, inventory *ba
 		OS:                        "ubuntu",
 		Version:                   "24.04",
 		Arch:                      "amd64",
-		Docker:                    c.Docker.toInstances(),
+		Docker:                    c.Docker,
 		ParallelSSHThreads:        c.ParallelSSHThreads,
 		MaxRetries:                c.MaxRetries,
 		RetrySleep:                c.RetrySleep,

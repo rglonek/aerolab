@@ -28,7 +28,7 @@ aerolab xdr connect -S mycluster -D destcluster1,destcluster2 -M test
 | `-T, --restart-source` | Restart source nodes after connecting (y/n) | `y` |
 | `-M, --namespaces` | Comma-separated list of namespaces to replicate | `test` |
 | `-P, --destination-port` | Custom destination port for XDR connection | (empty) |
-| `-p, --parallel-threads` | Number of parallel threads | `10` |
+| `-p, --threads` | Number of parallel threads | `10` |
 
 ### XDR Version Support
 
@@ -165,14 +165,14 @@ aerolab xdr create-clusters -n prod-us -N prod-eu,prod-asia \
 ```bash
 aerolab xdr create-clusters -n source -N dest1,dest2 \
   -c 3 -C 2 -d ubuntu -i 24.04 -v '8.*' \
-  -I t3a.large --aws-disk type=gp3,size=20 --aws-expire=8h
+  -I t3a.large --aws.disk type=gp3,size=20 --aws.expire=8h
 ```
 
 **Create with GCP backend:**
 ```bash
 aerolab xdr create-clusters -n source -N dest1,dest2 \
   -c 3 -C 2 -d ubuntu -i 24.04 -v '8.*' \
-  --instance e2-standard-4 --gcp-disk type=pd-ssd,size=20
+  --instance e2-standard-4 --gcp.disk type=pd-ssd,size=20
 ```
 
 ### How It Works

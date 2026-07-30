@@ -28,11 +28,11 @@ Create a new volume.
 
 ```bash
 # GCP attached volume
-aerolab volumes create --name myvolume --volume-type attached \
+aerolab volumes create --name myvolume --type attached \
   --gcp.size 10 --gcp.zone us-central1-a --gcp.disk-type pd-ssd
 
 # AWS shared volume (EFS)
-aerolab volumes create --name myvolume --volume-type shared \
+aerolab volumes create --name myvolume --type shared \
   --aws.placement us-east-1
 ```
 
@@ -41,7 +41,7 @@ aerolab volumes create --name myvolume --volume-type shared \
 | Option | Description |
 |--------|-------------|
 | `--name` | Volume name (unique identifier) | Required |
-| `--volume-type` | Type: `attached` or `shared` | Required |
+| `--type` | Type: `attached` or `shared` | Required |
 
 **GCP-Specific Options:**
 | Option | Description | Default |
@@ -62,7 +62,7 @@ aerolab volumes create --name myvolume --volume-type shared \
 
 **GCP attached volume with expiry:**
 ```bash
-aerolab volumes create --name data-vol --volume-type attached \
+aerolab volumes create --name data-vol --type attached \
   --gcp.size 100 \
   --gcp.zone us-central1-a \
   --gcp.disk-type pd-ssd \
@@ -71,7 +71,7 @@ aerolab volumes create --name data-vol --volume-type attached \
 
 **AWS shared volume (EFS):**
 ```bash
-aerolab volumes create --name shared-data --volume-type shared \
+aerolab volumes create --name shared-data --type shared \
   --aws.placement us-east-1 \
   --aws.disk-type shared \
   --aws.expire=8h
@@ -280,10 +280,10 @@ aerolab volumes delete --filter.name myvolume --force
 ```bash
 # 1. Create cluster
 aerolab cluster create -n apt -c 2 -d ubuntu -i 24.04 -v '8.*' \
-  --instance e2-standard-4 --gcp-expire=8h
+  --instance e2-standard-4 --gcp.expire=8h
 
 # 2. Create attached volume
-aerolab volumes create --name data-vol --volume-type attached \
+aerolab volumes create --name data-vol --type attached \
   --gcp.size 100 --gcp.zone us-central1-a \
   --gcp.disk-type pd-ssd --gcp.expire=8h
 
@@ -316,10 +316,10 @@ aerolab cluster destroy -n apt --force
 ```bash
 # 1. Create cluster
 aerolab cluster create -n mycluster -c 3 -d ubuntu -i 24.04 -v '8.*' \
-  -I t3a.xlarge --aws-expire=8h
+  -I t3a.xlarge --aws.expire=8h
 
 # 2. Create shared volume (EFS)
-aerolab volumes create --name shared-data --volume-type shared \
+aerolab volumes create --name shared-data --type shared \
   --aws.placement us-east-1 --aws.disk-type shared \
   --aws.expire=8h
 

@@ -153,7 +153,7 @@ func newCloudCLI(t *testing.T) *cli {
 	)
 	c := &cli{t: t, bin: bin, env: env}
 
-	c.run("config", "backend", "-t", "aws", "-r", region, "-P", "eks")
+	c.run("config", "backend", "-t", "aws", "-r", region, "--aws.profile", "eks")
 	if ff := os.Getenv("AEROLAB_FEATURES_FILE"); ff != "" {
 		c.run("config", "defaults", "-k", "*.FeaturesFilePath", "-v", ff)
 	}

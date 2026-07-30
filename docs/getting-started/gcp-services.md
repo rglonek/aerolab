@@ -13,15 +13,15 @@ behaviour depends on how AeroLab is being run:
 
 | Situation | Behaviour |
 | --- | --- |
-| `--gcp-auto-enable-services` set (see below) | AeroLab enables the missing services automatically, without prompting — including in non-interactive contexts (web UI, MCP, CI). |
+| `--gcp.auto-enable-services` set (see below) | AeroLab enables the missing services automatically, without prompting — including in non-interactive contexts (web UI, MCP, CI). |
 | Interactive terminal, flag not set | AeroLab lists the missing services and asks for confirmation (`[y/N]`). Answering no aborts with an error. |
-| Non-interactive, flag not set (default) | AeroLab does **not** enable anything. It errors and tells you which services to enable manually (or to re-run with `--gcp-auto-enable-services`). |
+| Non-interactive, flag not set (default) | AeroLab does **not** enable anything. It errors and tells you which services to enable manually (or to re-run with `--gcp.auto-enable-services`). |
 
 Enable automatic, prompt-free enablement by configuring the backend with the
 flag:
 
 ```bash
-aerolab config backend -t gcp -r us-central1 -o your-project-id --gcp-auto-enable-services
+aerolab config backend -t gcp -r us-central1 -o your-project-id --gcp.auto-enable-services
 ```
 
 The setting is persisted with the rest of the backend configuration, so it
@@ -33,7 +33,7 @@ Enabling APIs requires `roles/serviceusage.serviceUsageAdmin` (or the
 equivalent `serviceusage.services.enable` permission) on the calling principal.
 If your principal cannot enable APIs, ask a project owner to enable the
 services manually (see the `gcloud` commands below), and run AeroLab without
-`--gcp-auto-enable-services`.
+`--gcp.auto-enable-services`.
 
 ## Service reference
 
@@ -53,7 +53,7 @@ Enabled only when the relevant feature is used.
 
 | Service | Auto-enabled by AeroLab? | Used for |
 | --- | --- | --- |
-| `iap.googleapis.com` | Yes, when `--gcp-use-iap` is set | Routing SSH/SFTP through [Identity-Aware Proxy TCP forwarding](https://cloud.google.com/iap/docs/using-tcp-forwarding) instead of dialing instance IPs. Enabled at `config backend` time when the flag is set. |
+| `iap.googleapis.com` | Yes, when `--gcp.use-iap` is set | Routing SSH/SFTP through [Identity-Aware Proxy TCP forwarding](https://cloud.google.com/iap/docs/using-tcp-forwarding) instead of dialing instance IPs. Enabled at `config backend` time when the flag is set. |
 | `cloudbilling.googleapis.com` | Yes, on first pricing lookup | Retrieving instance-type and volume pricing shown in the inventory / `instance-types` listings. Enabled lazily the first time pricing is fetched if it isn't already on. Skipped entirely when the backend is configured with `--skip-pricing` (see below). |
 
 ### Resource expiry automation
@@ -105,7 +105,7 @@ gcloud services enable \
   --project=your-project-id
 ```
 
-Omit `iap.googleapis.com` if you are not using `--gcp-use-iap`, and omit the
+Omit `iap.googleapis.com` if you are not using `--gcp.use-iap`, and omit the
 expiry block if you are not using resource expiry automation.
 
 ## Skipping pricing lookups

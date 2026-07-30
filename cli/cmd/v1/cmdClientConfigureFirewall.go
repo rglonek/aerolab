@@ -9,8 +9,8 @@ import (
 )
 
 type ClientConfigureFirewallCmd struct {
-	ClientName   TypeClientName `short:"n" long:"group-name" description:"Client group name" default:"client"`
-	Machines     TypeMachines   `short:"l" long:"machines" description:"Machine list, comma separated. Empty=ALL" default:""`
+	ClientName   TypeClientName `short:"n" long:"name" description:"Client group name" default:"client"`
+	Machines     TypeMachines   `short:"l" long:"nodes" description:"Node list, comma separated. Empty=ALL" default:""`
 	FirewallName string         `short:"f" long:"firewall" description:"Firewall name to assign to the client machines" required:"true"`
 	Help         HelpCmd        `command:"help" subcommands-optional:"true" description:"Print help"`
 }

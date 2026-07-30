@@ -134,7 +134,7 @@ aerolab agi create -n s3-logs \
   --source-s3-region us-east-1 \
   --source-s3-key-id ENV::AWS_ACCESS_KEY_ID \
   --source-s3-secret-key ENV::AWS_SECRET_ACCESS_KEY \
-  --aws-expire=8h
+  --aws.expire=8h
 ```
 
 **Note:** Use `ENV::VAR_NAME` syntax to read credentials from environment variables securely.
@@ -157,7 +157,7 @@ aerolab agi create -n sftp-logs \
   --source-sftp-user myuser \
   --source-sftp-pass ENV::SFTP_PASSWORD \
   --source-sftp-path /var/log/aerospike \
-  --aws-expire=8h
+  --aws.expire=8h
 ```
 
 With SSH key authentication:
@@ -168,7 +168,7 @@ aerolab agi create -n sftp-logs \
   --source-sftp-user myuser \
   --source-sftp-key ~/.ssh/id_rsa \
   --source-sftp-path /var/log/aerospike \
-  --aws-expire=8h
+  --aws.expire=8h
 ```
 
 ---
@@ -306,9 +306,9 @@ For persistent storage that survives instance restarts:
 ```bash
 aerolab agi create -n persistent-agi \
   --source-local /path/to/logs \
-  --aws-with-efs \
-  --aws-efs-expire=96h \
-  --aws-expire=8h
+  --aws.with-efs \
+  --aws.efs-expire=96h \
+  --aws.expire=8h
 ```
 
 ### GCP with Persistent Volume
@@ -316,9 +316,9 @@ aerolab agi create -n persistent-agi \
 ```bash
 aerolab agi create -n persistent-agi \
   --source-local /path/to/logs \
-  --gcp-with-vol \
-  --gcp-vol-expire=96h \
-  --gcp-expire=8h
+  --gcp.with-vol \
+  --gcp.vol-expire=96h \
+  --gcp.expire=8h
 ```
 
 ### Using Existing Volumes

@@ -10,9 +10,9 @@ import (
 )
 
 type ClientChangeExpiryCmd struct {
-	ClientName TypeClientName `short:"n" long:"group-name" description:"Client group name" default:"client"`
-	Machines   TypeMachines   `short:"l" long:"machines" description:"Machine list, comma separated. Empty=ALL" default:""`
-	ExpireIn   TypeExpiry      `short:"e" long:"expiry" description:"Expiry in duration from now; Y/M/W/D/h/m/s, ex 1D12h 2W 1Y6M (0 to remove expiry)" default:"30h"`
+	ClientName TypeClientName `short:"n" long:"name" description:"Client group name" default:"client"`
+	Machines   TypeMachines   `short:"l" long:"nodes" description:"Node list, comma separated. Empty=ALL" default:""`
+	ExpireIn   TypeExpiry      `short:"e" long:"expire-in" description:"Expiry in duration from now; Y/M/W/D/h/m/s, ex 1D12h 2W 1Y6M (0 to remove expiry)" default:"30h"`
 	Help       HelpCmd        `command:"help" subcommands-optional:"true" description:"Print help"`
 }
 

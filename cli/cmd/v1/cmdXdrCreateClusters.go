@@ -12,7 +12,7 @@ import (
 
 type XdrCreateClustersCmd struct {
 	ClusterCreateCmd
-	DestinationClusterNames TypeClusterName `short:"N" long:"destinations" description:"Comma-separated list of destination cluster names" default:"destdc"`
+	DestinationClusterNames TypeClusterName `short:"D" long:"destinations" description:"Comma-separated list of destination cluster names" default:"destdc"`
 	DestinationNodeCount    int             `short:"C" long:"destination-count" description:"Number of nodes per destination cluster" default:"1"`
 	XdrVersion              TypeXDRVersion  `short:"V" long:"xdr-version" description:"Specify aerospike xdr configuration version (4|5|auto)" default:"auto" webchoice:"auto,5,4"`
 	XdrRestart              TypeYesNo       `short:"T" long:"restart-source" description:"Restart source nodes after connecting (y/n)" default:"y" webchoice:"y,n"`

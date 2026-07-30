@@ -21,7 +21,7 @@ type CloudClustersListCmd struct {
 	TableTheme    string   `short:"t" long:"table-theme" description:"Table theme (default, frame, box)" default:"default"`
 	SortBy        []string `short:"s" long:"sort-by" description:"Can be specified multiple times. Sort by format: FIELDNAME:asc|dsc|ascnum|dscnum"`
 	Pager         bool     `short:"p" long:"pager" description:"Use a pager to display the output"`
-	StatusNe      string   `short:"n" long:"status-ne" description:"Filter clusters to exclude specified statuses (comma-separated)" default:"decommissioned"`
+	StatusNe      string   `long:"status-ne" description:"Filter clusters to exclude specified statuses (comma-separated)" default:"decommissioned"`
 	WithVPCStatus bool     `short:"v" long:"with-vpc-status" description:"Include VPC peering status for each cluster (requires AWS backend)"`
 	Help          HelpCmd  `command:"help" subcommands-optional:"true" description:"Print help"`
 }

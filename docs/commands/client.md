@@ -70,7 +70,7 @@ aerolab client create graph -n graph --os ubuntu --version 24.04 \
   -C mycluster
 ```
 
-`-C, --cluster-name` seeds the graph service from an existing Aerospike
+`-C, --seed-cluster` seeds the graph service from an existing Aerospike
 cluster (default: `mydc`); use `--seed` instead to point at a raw `IP:PORT`.
 
 ### EksCtl
@@ -96,7 +96,7 @@ aerolab client create <type> -n <name> --os <distro> --version <version> [option
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `-n, --group-name` | Client group name | `client` |
+| `-n, --name` | Client group name | `client` |
 | `-c, --count` | Number of client machines | `1` |
 | `--os` | OS distribution (ubuntu, centos, rocky, debian, amazon) | `ubuntu` |
 | `--version` | OS version (e.g., `24.04`, `22.04`) | `24.04` |
@@ -189,8 +189,8 @@ aerolab client configure ams -n ams -s cluster1,cluster2 -S graph1
 ```
 
 **Options:**
-- `-n, --group-name` - Client group name (default: `client`)
-- `-l, --machines` - Specific machines, comma separated (default: all)
+- `-n, --name` - Client group name (default: `client`)
+- `-l, --nodes` - Specific machines, comma separated (default: all)
 - `-s, --clusters` - Clusters to monitor (comma-separated)
 - `-S, --clients` - Graph clients to monitor (comma-separated)
 
@@ -212,8 +212,8 @@ aerolab client configure firewall -n myclient -f firewall-name
 ```
 
 **Options:**
-- `-n, --group-name` - Client group name (default: `client`)
-- `-l, --machines` - Specific machines (default: all)
+- `-n, --name` - Client group name (default: `client`)
+- `-l, --nodes` - Specific machines (default: all)
 - `-f, --firewall` - Firewall name to assign (required)
 
 **Example:**
@@ -234,8 +234,8 @@ aerolab client configure tools -n tools -m ams
 ```
 
 **Options:**
-- `-n, --group-name` - Client group name (default: `client`)
-- `-l, --machines` - Specific machines (default: all)
+- `-n, --name` - Client group name (default: `client`)
+- `-l, --nodes` - Specific machines (default: all)
 - `-m, --ams` - AMS client machine name (default: `ams`)
 - `-t, --threads` - Number of parallel threads (default: `10`)
 
@@ -264,9 +264,9 @@ aerolab client configure expiry -n tools -e 24h
 ```
 
 **Options:**
-- `-n, --group-name` - Client group name (default: `client`)
-- `-l, --machines` - Specific machines (default: all)
-- `-e, --expiry` - Expiry duration from now, e.g. `1D12h`, `2W`, `1Y6M` (default: `30h`; use `0` to remove expiry)
+- `-n, --name` - Client group name (default: `client`)
+- `-l, --nodes` - Specific machines (default: all)
+- `-e, --expire-in` - Expiry duration from now, e.g. `1D12h`, `2W`, `1Y6M` (default: `30h`; use `0` to remove expiry)
 
 ---
 
@@ -314,8 +314,8 @@ aerolab client stop -n tools
 ```
 
 **Options:**
-- `-n, --group-name` - Client group name (default: `client`)
-- `-l, --machines` - Specific machines (default: all)
+- `-n, --name` - Client group name (default: `client`)
+- `-l, --nodes` - Specific machines (default: all)
 
 ---
 
@@ -330,8 +330,8 @@ aerolab client destroy -n tools
 ```
 
 **Options:**
-- `-n, --group-name` - Client group name (default: `client`)
-- `-l, --machines` - Specific machines (default: all)
+- `-n, --name` - Client group name (default: `client`)
+- `-l, --nodes` - Specific machines (default: all)
 - `-f, --force` - Force destruction without confirmation
 
 **Examples:**
@@ -361,10 +361,10 @@ aerolab client share -n tools -f ~/.ssh/id_rsa.pub
 **Options:**
 - `-n, --name` - Client name (default: `client`)
 - `-f, --pubkey` - Path to the SSH public key to import
-- `-p, --parallel-threads` - Number of parallel threads (default: `10`)
+- `-p, --threads` - Number of parallel threads (default: `10`)
 
 **Note:** unlike `configure`/`start`/`stop`/`destroy`, `client share` has no
-`-l, --machines` filter — it applies to every machine in the named group(s).
+`-l, --nodes` filter — it applies to every machine in the named group(s).
 
 **Example:**
 ```bash

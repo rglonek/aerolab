@@ -20,7 +20,7 @@ type TlsCopyCmd struct {
 	DestinationClusterName TypeClusterName `short:"d" long:"destination" description:"Destination cluster name" default:"client"`
 	DestinationNodeList    TypeNodes       `short:"a" long:"destination-nodes" description:"List of destination nodes to copy the TLS certs to, comma separated. Empty=ALL." default:""`
 	TlsName                string          `short:"t" long:"tls-name" description:"Common Name (tlsname)" default:"tls1"`
-	Threads                int             `long:"parallel-threads" description:"Number of parallel threads to use for the execution" default:"10"`
+	Threads                int             `long:"threads" description:"Number of parallel threads to use for the execution" default:"10"`
 	MaxRetries             int             `long:"max-retries" description:"Maximum number of retries for transient SSH/SFTP failures" default:"1" simplemode:"false"`
 	RetrySleep             time.Duration   `long:"retry-sleep" description:"Sleep duration between retries" default:"5s" simplemode:"false"`
 	Help                   HelpCmd         `command:"help" subcommands-optional:"true" description:"Print help"`

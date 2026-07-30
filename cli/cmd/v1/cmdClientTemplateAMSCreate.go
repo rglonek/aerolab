@@ -38,13 +38,13 @@ type ClientTemplateAMSCreateCmd struct {
 	DistroVersion      string        `short:"i" long:"distro-version" description:"Distribution version to use" default:"24.04"`
 	Arch               string        `short:"a" long:"arch" description:"Architecture (amd64 or arm64); auto-detected when empty (docker: backend/runtime arch, cloud: amd64)"`
 	Timeout            int           `short:"t" long:"timeout" description:"Timeout in minutes for template creation" default:"30"`
-	NoVacuum           bool          `short:"n" long:"no-vacuum" description:"Don't cleanup temporary instance on failure"`
+	NoVacuum           bool          `short:"V" long:"no-vacuum" description:"Don't cleanup temporary instance on failure"`
 	DryRun             bool          `long:"dry-run" description:"Validate parameters only, don't create template"`
 	Owner              string        `short:"o" long:"owner" description:"Owner tag value for the template"`
-	DisablePublicIP    bool          `short:"p" long:"disable-public-ip" description:"AWS: Disable public IP assignment"`
-	GCPDisablePublicIP bool          `long:"gcp-disable-public-ip" description:"GCP: Disable public IP assignment"`
-	GCPVPC             string        `long:"gcp-vpc" description:"GCP: VPC network name to use; empty=default VPC"`
-	GCPSubnet          string        `long:"gcp-subnet" description:"GCP: subnet name within the selected VPC; empty=auto-select first subnet in the zone's region"`
+	DisablePublicIP    bool          `long:"aws.no-public-ip" description:"AWS: Disable public IP assignment"`
+	GCPDisablePublicIP bool          `long:"gcp.no-public-ip" description:"GCP: Disable public IP assignment"`
+	GCPVPC             string        `long:"gcp.vpc" description:"GCP: VPC network name to use; empty=default VPC"`
+	GCPSubnet          string        `long:"gcp.subnet" description:"GCP: subnet name within the selected VPC; empty=auto-select first subnet in the zone's region"`
 	MaxRetries         int           `long:"max-retries" description:"Maximum number of retries for transient SSH/SFTP failures" default:"1" simplemode:"false"`
 	RetrySleep         time.Duration `long:"retry-sleep" description:"Sleep duration between retries" default:"5s" simplemode:"false"`
 	Help               HelpCmd       `command:"help" subcommands-optional:"true" description:"Print help"`
@@ -141,7 +141,7 @@ func (c *ClientTemplateAMSCreateCmd) CreateTemplate(system *System, inventory *b
 		c.GCPDisablePublicIP = system.Opts.Config.Backend.GCPNoPublicIps
 	}
 
-	if err := validateGCPSubnetRequiresVPC(c.GCPVPC, c.GCPSubnet, "gcp-"); err != nil {
+	if err := validateGCPSubnetRequiresVPC(c.GCPVPC, c.GCPSubnet, "gcp."); err != nil {
 		return "", err
 	}
 

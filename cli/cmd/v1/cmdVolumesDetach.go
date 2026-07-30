@@ -57,7 +57,7 @@ func (c *VolumesDetachCmd) DetachVolumes(system *System, inventory *backends.Inv
 		return fmt.Errorf("instance not found")
 	}
 	if instances.Count() > 1 {
-		return fmt.Errorf("multiple instances found, specify --instance-name, or --cluster-name and --node-no")
+		return fmt.Errorf("multiple instances found, specify --instance.instance-name, or --instance.cluster-name and --instance.node-no")
 	}
 	instance := instances.Describe()[0]
 	if instance.InstanceState != backends.LifeCycleStateRunning {

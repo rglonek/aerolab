@@ -15,7 +15,7 @@ import (
 )
 
 type InstancesAttachCmd struct {
-	ParallelThreads int                 `short:"p" long:"parallel-threads" description:"Number of parallel threads to use for the execution" default:"10"`
+	ParallelThreads int                 `short:"t" long:"threads" description:"Number of parallel threads to use for the execution" default:"10"`
 	ConnectTimeout  time.Duration       `short:"C" long:"connect-timeout" description:"Connect timeout" default:"10s"`
 	SessionTimeout  time.Duration       `short:"S" long:"session-timeout" description:"Session timeout"`
 	Env             []string            `short:"e" long:"env" description:"Environment variables to set, as k=v"`

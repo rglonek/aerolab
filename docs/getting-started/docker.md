@@ -24,7 +24,7 @@ docker --version   # or: podman --version
 - **Architecture mismatches.** By default Aerolab builds/runs images for your host's native
   architecture. If you need the other one (e.g. running arm64 images on an amd64 host) your
   Docker/Podman install needs multiarch (QEMU) support, and you must force it explicitly:
-  `aerolab config backend -t docker --docker-arch amd64` (or `arm64`).
+  `aerolab config backend -t docker --docker.arch amd64` (or `arm64`).
 - **WSL2**: if you don't pass `--temp-dir`, Aerolab detects WSL2 automatically (via `uname -r`)
   and switches its temp directory to `~/.aerolab.tmp` for you — no action needed.
 - **Permission denied talking to the Docker socket** usually means your user isn't in the
@@ -61,8 +61,8 @@ Optional flags:
 | Flag | Effect |
 |------|--------|
 | `--inventory-cache` | Cache resource state locally for faster operations. Only use this if you're not sharing the Docker host with other users. |
-| `--docker-arch amd64\|arm64` | Force a specific architecture (see [Gotchas](#gotchas)). |
-| `--docker-registry-region na\|eu\|disabled` | Region for the pre-built template image registry. |
+| `--docker.arch amd64\|arm64` | Force a specific architecture (see [Gotchas](#gotchas)). |
+| `--docker.registry-region na\|eu\|disabled` | Region for the pre-built template image registry. |
 | `-d, --temp-dir <path>` | Custom temp directory (see the WSL2 gotcha above). |
 
 Verify what's configured:

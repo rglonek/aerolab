@@ -25,11 +25,11 @@ type VolumesListCmd struct {
 }
 
 type VolumesListFilter struct {
-	Backend string   `short:"B" long:"backend" description:"Filter by backend type"`
+	Backend string   `short:"b" long:"backend" description:"Filter by backend type"`
 	Name    string   `short:"N" long:"name" description:"Filter by name of the volume"`
 	Owner   string   `short:"O" long:"owner" description:"Filter by owner of the volume"`
 	Type    string   `short:"T" long:"type" description:"Filter by type of volume (shared/attached)"`
-	Zone    string   `short:"Z" long:"zone" description:"Filter by zone of the volume (zone name)"`
+	Zone    string   `short:"z" long:"zone" description:"Filter by zone of the volume (zone name)"`
 	State   string   `short:"S" long:"state" description:"Filter by state of the volume (attached/detached); default: all"`
 	Tags    []string `long:"tag" description:"Filter by tag of the volume, as k=v"`
 }

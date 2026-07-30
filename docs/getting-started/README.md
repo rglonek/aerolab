@@ -100,7 +100,7 @@ Deploy Aerospike clusters on AWS EC2 instances. Ideal for production-like testin
 aerolab config backend -t aws -r us-east-1
 ```
 
-**Gotcha:** running in a private-only VPC? `--aws-nopublic-ip` stops Aerolab requesting a
+**Gotcha:** running in a private-only VPC? `--aws.no-public-ip` stops Aerolab requesting a
 public IP, but there's no AWS equivalent of GCP's IAP tunnel — you need your own VPN,
 peering, or bastion access to reach the instances. See [Disable Public IPs](aws.md#optional-disable-public-ips).
 
@@ -116,7 +116,7 @@ aerolab config backend -t gcp -r us-central1 -o your-project-id
 
 **Gotchas:** running in a private-only VPC needs a Cloud NAT (Aerolab checks and aborts
 `cluster create` without one) and, if you also want SSH/SFTP to work without a
-VPN/peering, `--gcp-use-iap` to route through [Identity-Aware Proxy](https://cloud.google.com/iap/docs/using-tcp-forwarding) — it's independent of `--gcp-nopublic-ip`, so you opt into
+VPN/peering, `--gcp.use-iap` to route through [Identity-Aware Proxy](https://cloud.google.com/iap/docs/using-tcp-forwarding) — it's independent of `--gcp.no-public-ip`, so you opt into
 each separately. See [Route SSH/SFTP through IAP](gcp.md#optional-route-sshsftp-through-iap).
 
 → **[GCP Getting Started Guide](gcp.md)**

@@ -23,7 +23,7 @@ import (
 //   - Parallel execution across multiple nodes (if applicable)
 type AgiAttachCmd struct {
 	ClusterName     TypeAgiClusterName     `short:"n" long:"name" description:"AGI name" default:"agi"`
-	Node            TypeNodesPlusAllOption `short:"l" long:"node" description:"Node to attach to (typically 1 for AGI)" default:"1"`
+	Node            TypeNodesPlusAllOption `short:"l" long:"nodes" description:"Node to attach to (typically 1 for AGI)" default:"1"`
 	Detach          bool                   `short:"d" long:"detach" description:"Detach process stdin - will not kill process on CTRL+C"`
 	Parallel        bool                   `short:"p" long:"parallel" description:"Enable parallel execution across all machines"`
 	ParallelThreads int                    `short:"t" long:"threads" description:"Number of parallel threads for execution" default:"10"`

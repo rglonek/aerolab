@@ -25,7 +25,7 @@ type ClusterAddExporterCmd struct {
 	CustomConf          flags.Filename  `short:"o" long:"custom-conf" description:"To deploy a custom ape.toml configuration file, specify it's path here"`
 	ExporterVersion     string          `short:"v" long:"exporter-version" description:"Exporter version to install" default:"latest"`
 	NodeExporterVersion string          `long:"node-exporter-version" description:"Node exporter version to install (e.g., 1.5.0)" default:"latest"`
-	ParallelThreads     int             `short:"p" long:"parallel-threads" description:"Number of parallel threads to use for the execution" default:"10"`
+	ParallelThreads     int             `short:"t" long:"threads" description:"Number of parallel threads to use for the execution" default:"10"`
 	MaxRetries          int             `long:"max-retries" description:"Maximum number of retries for transient SSH/SFTP failures" default:"1" simplemode:"false"`
 	RetrySleep          time.Duration   `long:"retry-sleep" description:"Sleep duration between retries" default:"5s" simplemode:"false"`
 	Help                HelpCmd         `command:"help" subcommands-optional:"true" description:"Print help"`

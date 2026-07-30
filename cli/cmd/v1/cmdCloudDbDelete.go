@@ -15,7 +15,7 @@ import (
 type CloudClustersDeleteCmd struct {
 	Help      HelpCmd `command:"help" subcommands-optional:"true" description:"Print help"`
 	ClusterID string  `short:"c" long:"cluster-id" description:"Cluster ID"`
-	NoWait    bool    `short:"n" long:"no-wait" description:"Do not wait until cluster status is decommissioned"`
+	NoWait    bool    `long:"no-wait" description:"Do not wait until cluster status is decommissioned"`
 	Force     bool    `short:"f" long:"force" description:"Skip confirmation prompt"`
 }
 

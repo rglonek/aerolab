@@ -27,12 +27,12 @@ type TemplateCreateCmd struct {
 	Arch               string        `short:"a" long:"arch" description:"Architecture to create the template for; empty=auto-detect from host/backend" default:""`
 	AerospikeVersion   string        `short:"A" long:"aerospike-version" description:"Aerospike version to create the template for" default:"latest"`
 	Owner              string        `short:"o" long:"owner" description:"Owner of the template"`
-	DisablePublicIP    bool          `short:"p" long:"disable-public-ip" description:"Disable public IP assignment to the instances in AWS"`
-	GCPDisablePublicIP bool          `long:"gcp-disable-public-ip" description:"Disable public IP assignment to the instances in GCP"`
-	GCPVPC             string        `long:"gcp-vpc" description:"GCP VPC network name to use; empty=default VPC"`
-	GCPSubnet          string        `long:"gcp-subnet" description:"GCP subnet name within the selected VPC; empty=auto-select first subnet in the zone's region"`
+	DisablePublicIP    bool          `long:"aws.no-public-ip" description:"Disable public IP assignment to the instances in AWS"`
+	GCPDisablePublicIP bool          `long:"gcp.no-public-ip" description:"Disable public IP assignment to the instances in GCP"`
+	GCPVPC             string        `long:"gcp.vpc" description:"GCP VPC network name to use; empty=default VPC"`
+	GCPSubnet          string        `long:"gcp.subnet" description:"GCP subnet name within the selected VPC; empty=auto-select first subnet in the zone's region"`
 	Timeout            int           `short:"t" long:"timeout" description:"Set timeout in minutes for the template creation" default:"10"`
-	DryRun             bool          `short:"n" long:"dry-run" description:"Do not actually create the template, just run the basic checks"`
+	DryRun             bool          `long:"dry-run" description:"Do not actually create the template, just run the basic checks"`
 	NoVacuum           bool          `short:"V" long:"no-vacuum" description:"Do not vacuum an existing template creation instance on failure"`
 	MaxRetries         int           `long:"max-retries" description:"Maximum number of retries for transient SSH/SFTP failures" default:"1" simplemode:"false"`
 	RetrySleep         time.Duration `long:"retry-sleep" description:"Sleep duration between retries" default:"5s" simplemode:"false"`
@@ -125,7 +125,7 @@ func (c *TemplateCreateCmd) CreateTemplate(system *System, inventory *backends.I
 		c.GCPDisablePublicIP = system.Opts.Config.Backend.GCPNoPublicIps
 	}
 
-	if err := validateGCPSubnetRequiresVPC(c.GCPVPC, c.GCPSubnet, "gcp-"); err != nil {
+	if err := validateGCPSubnetRequiresVPC(c.GCPVPC, c.GCPSubnet, "gcp."); err != nil {
 		return "", err
 	}
 

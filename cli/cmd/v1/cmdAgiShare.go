@@ -23,7 +23,7 @@ type AgiShareCmd struct {
 	Key             string             `short:"k" long:"key" description:"SSH public key content to add (alternative to --pubkey)"`
 	Remove          bool               `short:"r" long:"remove" description:"Remove the specified key instead of adding it"`
 	List            bool               `short:"l" long:"list" description:"List all authorized keys on the AGI instance"`
-	ParallelThreads int                `short:"p" long:"parallel-threads" description:"Number of parallel threads to use" default:"10"`
+	ParallelThreads int                `short:"t" long:"threads" description:"Number of parallel threads to use" default:"10"`
 	ConnectTimeout  time.Duration      `short:"C" long:"connect-timeout" description:"Connect timeout" default:"10s"`
 	MaxRetries      int                `long:"max-retries" description:"Maximum number of retries for transient SSH/SFTP failures" default:"1" simplemode:"false"`
 	RetrySleep      time.Duration      `long:"retry-sleep" description:"Sleep duration between retries" default:"5s" simplemode:"false"`

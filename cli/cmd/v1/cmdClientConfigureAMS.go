@@ -12,8 +12,8 @@ import (
 )
 
 type ClientConfigureAMSCmd struct {
-	ClientName      TypeClientName  `short:"n" long:"group-name" description:"Client group name" default:"client"`
-	Machines        TypeMachines    `short:"l" long:"machines" description:"Machine list, comma separated. Empty=ALL" default:""`
+	ClientName      TypeClientName  `short:"n" long:"name" description:"Client group name" default:"client"`
+	Machines        TypeMachines    `short:"l" long:"nodes" description:"Node list, comma separated. Empty=ALL" default:""`
 	ConnectClusters TypeClusterName `short:"s" long:"clusters" description:"Comma-separated list of clusters to configure as source for this AMS"`
 	ConnectClients  TypeClientName  `short:"S" long:"clients" description:"Comma-separated list of (graph) clients to configure as source for this AMS"`
 	MaxRetries      int             `long:"max-retries" description:"Maximum number of retries for transient SSH/SFTP failures" default:"1" simplemode:"false"`

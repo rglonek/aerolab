@@ -18,23 +18,23 @@ import (
 )
 
 type ClientStartCmd struct {
-	ClientName      TypeClientName `short:"n" long:"group-name" description:"Client names, comma separated OR 'all' to affect all clients" default:"client"`
-	Machines        TypeMachines   `short:"l" long:"machines" description:"Machine list, comma separated. Empty=ALL" default:""`
-	ParallelThreads int            `short:"p" long:"parallel-threads" description:"Number of parallel threads to use for the execution" default:"10"`
+	ClientName      TypeClientName `short:"n" long:"name" description:"Client names, comma separated OR 'all' to affect all clients" default:"client"`
+	Machines        TypeMachines   `short:"l" long:"nodes" description:"Node list, comma separated. Empty=ALL" default:""`
+	ParallelThreads int            `short:"t" long:"threads" description:"Number of parallel threads to use for the execution" default:"10"`
 	MaxRetries      int            `long:"max-retries" description:"Maximum number of retries for transient SSH/SFTP failures" default:"1" simplemode:"false"`
 	RetrySleep      time.Duration  `long:"retry-sleep" description:"Sleep duration between retries" default:"5s" simplemode:"false"`
 	Help            HelpCmd        `command:"help" subcommands-optional:"true" description:"Print help"`
 }
 
 type ClientStopCmd struct {
-	ClientName TypeClientName `short:"n" long:"group-name" description:"Client names, comma separated OR 'all' to affect all clients" default:"client"`
-	Machines   TypeMachines   `short:"l" long:"machines" description:"Machine list, comma separated. Empty=ALL" default:""`
+	ClientName TypeClientName `short:"n" long:"name" description:"Client names, comma separated OR 'all' to affect all clients" default:"client"`
+	Machines   TypeMachines   `short:"l" long:"nodes" description:"Node list, comma separated. Empty=ALL" default:""`
 	Help       HelpCmd        `command:"help" subcommands-optional:"true" description:"Print help"`
 }
 
 type ClientDestroyCmd struct {
-	ClientName TypeClientName `short:"n" long:"group-name" description:"Client names, comma separated OR 'all' to affect all clients" default:"client"`
-	Machines   TypeMachines   `short:"l" long:"machines" description:"Machine list, comma separated. Empty=ALL" default:""`
+	ClientName TypeClientName `short:"n" long:"name" description:"Client names, comma separated OR 'all' to affect all clients" default:"client"`
+	Machines   TypeMachines   `short:"l" long:"nodes" description:"Node list, comma separated. Empty=ALL" default:""`
 	Parallel   bool           `short:"p" long:"parallel" description:"If destroying many clients at once, set this to destroy in parallel"`
 	Force      bool           `short:"f" long:"force" description:"Force destroy without confirmation" webdisable:"true" webset:"true"`
 	Help       HelpCmd        `command:"help" subcommands-optional:"true" description:"Print help"`

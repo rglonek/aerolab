@@ -187,7 +187,7 @@ aerolab inventory expire
 
 | Option | Description |
 |--------|-------------|
-| `--aws-expire-eksctl` | AWS only: also expire associated eksctl (EKS) resources |
+| `--expire-eks` | AWS only: also expire associated eksctl (EKS) resources |
 | `--cleanup-dns` | Also clean up DNS records for expired resources |
 
 ## Inventory Delete-Project-Resources
@@ -205,7 +205,7 @@ aerolab inventory delete-project-resources -f
 | Option | Description |
 |--------|-------------|
 | `-f, --force` | Force deletion without confirmation |
-| `--expiry` | Also delete expiry automation resources |
+| `--with-expiry` | Also delete expiry automation resources |
 
 ### Examples
 
@@ -216,7 +216,7 @@ aerolab inventory delete-project-resources -f
 
 **Delete all resources including expiry:**
 ```bash
-aerolab inventory delete-project-resources -f --expiry
+aerolab inventory delete-project-resources -f --with-expiry
 ```
 
 **Warning**: This deletes ALL clusters, instances, and images in the current project. Use with caution.
@@ -413,7 +413,7 @@ aerolab inventory instance-types -o json
 aerolab inventory delete-project-resources -f
 
 # Delete all resources including expiry
-aerolab inventory delete-project-resources -f --expiry
+aerolab inventory delete-project-resources -f --with-expiry
 ```
 
 ### Refresh Cache

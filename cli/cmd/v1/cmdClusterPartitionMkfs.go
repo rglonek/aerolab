@@ -26,7 +26,7 @@ type ClusterPartitionMkfsCmd struct {
 	MkfsOpts         string          `short:"s" long:"fs-options" description:"filesystem mkfs options" default:""`
 	MountRoot        string          `short:"r" long:"mount-root" description:"path to where all the mounts will be created" default:"/mnt/"`
 	MountOpts        string          `short:"o" long:"mount-options" description:"additional mount options to pass, ex: noatime,noexec" default:""`
-	ParallelThreads  int             `long:"parallel-threads" description:"Number of parallel threads to use for the execution" default:"10"`
+	ParallelThreads  int             `long:"threads" description:"Number of parallel threads to use for the execution" default:"10"`
 	MaxRetries       int             `long:"max-retries" description:"Maximum number of retries for transient SSH/SFTP failures" default:"1" simplemode:"false"`
 	RetrySleep       time.Duration   `long:"retry-sleep" description:"Sleep duration between retries" default:"5s" simplemode:"false"`
 	Help             HelpCmd         `command:"help" subcommands-optional:"true" description:"Print help"`

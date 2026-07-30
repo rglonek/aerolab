@@ -27,8 +27,9 @@ func (c *InventoryCmd) Execute(args []string) error {
 }
 
 type InventoryExpireCmd struct {
-	ExpireEksctl bool `long:"aws-expire-eksctl" description:"enable eksctl expiry; AWS only"`
-	CleanupDNS   bool `long:"cleanup-dns" description:"enable dns cleanup"`
+	ExpireEksctl bool    `long:"expire-eks" description:"enable eksctl expiry; AWS only"`
+	CleanupDNS   bool    `long:"cleanup-dns" description:"enable dns cleanup"`
+	Help         HelpCmd `command:"help" subcommands-optional:"true" description:"Print help"`
 }
 
 func (c *InventoryExpireCmd) Execute(args []string) error {

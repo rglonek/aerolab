@@ -25,8 +25,8 @@ import (
 type AgiDestroyCmd struct {
 	Name   TypeAgiClusterName `short:"n" long:"name" description:"AGI instance name(s), comma-separated" default:"agi"`
 	Force  bool               `short:"f" long:"force" description:"Do not ask for confirmation"`
-	NoWait bool               `short:"w" long:"no-wait" description:"Do not wait for the instance to terminate"`
-	DryRun bool               `short:"d" long:"dry-run" description:"Print what would be done but don't do it"`
+	NoWait bool               `long:"no-wait" description:"Do not wait for the instance to terminate"`
+	DryRun bool               `long:"dry-run" description:"Print what would be done but don't do it"`
 	Help   HelpCmd            `command:"help" subcommands-optional:"true" description:"Print help"`
 }
 

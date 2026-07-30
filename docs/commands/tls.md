@@ -31,7 +31,7 @@ aerolab tls generate -n mycluster -t tls1 -c cacert
 | `-u, --no-upload` | Generate locally but don't upload to nodes | `false` |
 | `-m, --no-mesh` | Don't configure mesh-seed-address-port for TLS | `false` |
 | `-W, --work-dir` | Working directory for generation and downloads | `.` |
-| `--parallel-threads` | Number of parallel threads | `10` |
+| `--threads` | Number of parallel threads | `10` |
 
 ### Generated Files
 
@@ -169,7 +169,7 @@ aerolab tls copy -s source-cluster -l 1 -d dest-cluster -t tls1
 | `-d, --destination` | Destination cluster name | `client` |
 | `-a, --destination-nodes` | Destination nodes, comma separated. Empty=ALL | (all nodes) |
 | `-t, --tls-name` | TLS name (directory name for certificates) | `tls1` |
-| `--parallel-threads` | Number of parallel threads | `10` |
+| `--threads` | Number of parallel threads | `10` |
 
 ### Examples
 

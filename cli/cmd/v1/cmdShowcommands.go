@@ -10,7 +10,7 @@ import (
 
 type ShowcommandsCmd struct {
 	DestDir string  `short:"d" long:"destination" default:"/usr/local/bin/"`
-	DryRun  bool    `short:"n" long:"dry-run" description:"Do not run the command, just print it"`
+	DryRun  bool    `long:"dry-run" description:"Do not run the command, just print it"`
 	Help    HelpCmd `command:"help" subcommands-optional:"true" description:"Print help"`
 }
 

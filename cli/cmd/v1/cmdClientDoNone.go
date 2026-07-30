@@ -14,12 +14,12 @@ import (
 )
 
 type ClientCreateNoneCmd struct {
-	ClientName         TypeClientName           `short:"n" long:"group-name" description:"Client group name" default:"client"`
+	ClientName         TypeClientName           `short:"n" long:"name" description:"Client group name" default:"client"`
 	ClientCount        int                      `short:"c" long:"count" description:"Number of clients" default:"1"`
 	Owner              string                   `short:"o" long:"owner" description:"Owner of the instances"`
-	AWS                ClientCreateCmdAws       `group:"AWS" description:"backend-aws"`
-	GCP                ClientCreateCmdGcp       `group:"GCP" description:"backend-gcp"`
-	Docker             ClientCreateCmdDocker    `group:"Docker" description:"backend-docker"`
+	AWS                InstancesCreateCmdAws    `group:"AWS" namespace:"aws" description:"backend-aws"`
+	GCP                InstancesCreateCmdGcp    `group:"GCP" namespace:"gcp" description:"backend-gcp"`
+	Docker             InstancesCreateCmdDocker `group:"Docker" namespace:"docker" description:"backend-docker"`
 	OS                 string                   `long:"os" description:"OS to use for the instances" default:"ubuntu"`
 	Version            string                   `long:"version" description:"Version of the OS to use for the instances" default:"24.04"`
 	Arch               string                   `long:"arch" description:"Architecture override to use for the instances (amd64, arm64)"`
@@ -28,7 +28,7 @@ type ClientCreateNoneCmd struct {
 	NoSetDNS           bool                     `long:"no-set-dns" description:"Set to prevent aerolab from updating resolved to use 1.1.1.1/8.8.8.8 DNS"`
 	StartScript        flags.Filename           `short:"X" long:"start-script" description:"Optionally specify a script to be installed which will run when the client machine starts"`
 	TypeOverride       string                   `long:"type-override" description:"Override the client type label"`
-	ParallelSSHThreads int                      `long:"threads" description:"Number of threads to use for the execution" default:"10"`
+	ParallelSSHThreads int                      `short:"p" long:"threads" description:"Number of threads to use for the execution" default:"10"`
 	// Retry configuration
 	MaxRetries         int           `long:"max-retries" description:"Maximum number of retries for transient failures (SSH/SFTP operations)" default:"1" simplemode:"false"`
 	RetrySleep         time.Duration `long:"retry-sleep" description:"Sleep duration between transient retries" default:"30s" simplemode:"false"`
@@ -38,8 +38,9 @@ type ClientCreateNoneCmd struct {
 
 	// disablePublicIPOverride, when non-nil, forces the instances-level
 	// DisablePublicIP value instead of deriving it from the backend config and
-	// the --public-ip/--external-ip flags. It is used by internal callers (e.g.
-	// agi monitor create) that need to control public IP assignment directly.
+	// the --aws.no-public-ip/--gcp.no-public-ip flags. It is used by internal
+	// callers (e.g. agi monitor create) that need to control public IP
+	// assignment directly.
 	disablePublicIPOverride *bool
 }
 
@@ -173,20 +174,17 @@ func (c *ClientCreateNoneCmd) createNoneClient(system *System, inventory *backen
 
 	tags = append(tags, c.Tags...)
 
-	// Map the v7-compatible client backend flags onto the instances
-	// representation. Public-IP assignment follows the backend configuration
-	// only, exactly like `cluster create` - --public-ip/--external-ip are v7
-	// compatibility flags and do not override the backend's no-public-ip
-	// policy (cluster create rejects that combination outright; here we just
-	// leave the flags without effect on instance-level IP assignment).
-	awsInst := c.AWS.toInstances()
-	gcpInst := c.GCP.toInstances()
+	// Public-IP assignment follows the backend configuration policy unless the
+	// user explicitly disables it with --aws.no-public-ip/--gcp.no-public-ip;
+	// internal callers (e.g. agi monitor create) can force the value directly.
+	awsInst := c.AWS
+	gcpInst := c.GCP
 	if c.disablePublicIPOverride != nil {
 		awsInst.DisablePublicIP = *c.disablePublicIPOverride
 		gcpInst.DisablePublicIP = *c.disablePublicIPOverride
 	} else {
-		awsInst.DisablePublicIP = system.Opts.Config.Backend.AWSNoPublicIps
-		gcpInst.DisablePublicIP = system.Opts.Config.Backend.GCPNoPublicIps
+		awsInst.DisablePublicIP = c.AWS.DisablePublicIP || system.Opts.Config.Backend.AWSNoPublicIps
+		gcpInst.DisablePublicIP = c.GCP.DisablePublicIP || system.Opts.Config.Backend.GCPNoPublicIps
 	}
 
 	// Create instances using base command by properly mapping all fields
@@ -201,7 +199,7 @@ func (c *ClientCreateNoneCmd) createNoneClient(system *System, inventory *backen
 		Arch:                      c.Arch,
 		AWS:                       awsInst,
 		GCP:                       gcpInst,
-		Docker:                    c.Docker.toInstances(),
+		Docker:                    c.Docker,
 		ParallelSSHThreads:        c.ParallelSSHThreads,
 		MaxRetries:                c.MaxRetries,
 		RetrySleep:                c.RetrySleep,

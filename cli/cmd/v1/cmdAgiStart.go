@@ -26,8 +26,8 @@ import (
 //	aerolab agi start -n myagi
 type AgiStartCmd struct {
 	Name       TypeAgiClusterName `short:"n" long:"name" description:"AGI instance name" default:"agi"`
-	NoWait     bool               `short:"w" long:"no-wait" description:"Do not wait for the instance to start"`
-	DryRun     bool               `short:"d" long:"dry-run" description:"Print what would be done but don't do it"`
+	NoWait     bool               `long:"no-wait" description:"Do not wait for the instance to start"`
+	DryRun     bool               `long:"dry-run" description:"Print what would be done but don't do it"`
 	Threads    int                `short:"t" long:"threads" description:"Threads to use for service start" default:"1"`
 	MaxRetries int                `long:"max-retries" description:"Maximum number of retries for transient SSH/SFTP failures" default:"1" simplemode:"false"`
 	RetrySleep time.Duration      `long:"retry-sleep" description:"Sleep duration between retries" default:"5s" simplemode:"false"`
@@ -45,7 +45,7 @@ type AgiStartCmd struct {
 
 type Reattach struct {
 	// Override options for reattach (used by monitor for sizing/capacity)
-	InstanceTypeOverride string `long:"instance-type" description:"Override instance type when reattaching"`
+	InstanceTypeOverride string `long:"instance" description:"Override instance type when reattaching"`
 	NoDIMOverride        *bool  `long:"nodim" description:"Override data-in-memory setting when reattaching" no-default:"true"`
 	SpotOverride         *bool  `long:"spot" description:"Override spot instance setting when reattaching" no-default:"true"`
 	OwnerOverride        string `long:"owner" description:"Override owner tag when reattaching"`
@@ -286,7 +286,7 @@ func (c *AgiStartCmd) reattachFromEFS(system *System, inventory *backends.Invent
 	// Check if EFS volume exists
 	volumes := inventory.Volumes.WithType(backends.VolumeTypeSharedDisk).WithName(volumeName)
 	if volumes.Count() == 0 {
-		return nil, fmt.Errorf("AGI instance %s not found and no EFS volume %q exists; create a new AGI with: aerolab agi create -n %s --aws-with-efs",
+		return nil, fmt.Errorf("AGI instance %s not found and no EFS volume %q exists; create a new AGI with: aerolab agi create -n %s --aws.with-efs",
 			c.Name, volumeName, c.Name)
 	}
 
@@ -482,7 +482,7 @@ func (c *AgiStartCmd) reattachFromGCPVolume(system *System, inventory *backends.
 	// Check if GCP volume exists
 	volumes := inventory.Volumes.WithType(backends.VolumeTypeAttachedDisk).WithName(volumeName)
 	if volumes.Count() == 0 {
-		return nil, fmt.Errorf("AGI instance %s not found and no GCP volume %q exists; create a new AGI with: aerolab agi create -n %s --gcp-with-vol",
+		return nil, fmt.Errorf("AGI instance %s not found and no GCP volume %q exists; create a new AGI with: aerolab agi create -n %s --gcp.with-vol",
 			c.Name, volumeName, c.Name)
 	}
 

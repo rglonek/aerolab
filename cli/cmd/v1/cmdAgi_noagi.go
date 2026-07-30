@@ -177,12 +177,12 @@ func (c *AgiMonitorCreateCmd) Execute(args []string) error { return errNoAGI }
 
 type AgiMonitorCreateCmdAws struct {
 	InstanceType      guiInstanceType `long:"instance" description:"Instance type to use" default:"t3a.medium" webchoice:"method::List"`
-	SecurityGroupID   string          `short:"S" long:"secgroup-id" description:"Security group IDs to use, comma-separated; default: empty: create and auto-manage"`
-	SubnetID          string          `short:"U" long:"subnet-id" description:"Subnet-id, availability-zone name, or empty; default: empty: first found in default VPC"`
-	NamePrefix        []string        `long:"secgroup-name" description:"Name prefix to use for the security groups, can be specified multiple times" default:"AeroLab"`
+	SecurityGroupID   string          `long:"firewall" description:"Security group IDs to use, comma-separated; default: empty: create and auto-manage"`
+	SubnetID          string          `long:"placement" description:"Subnet-id, availability-zone name, or empty; default: empty: first found in default VPC"`
+	NamePrefix        []string        `long:"firewall-name" description:"Name prefix to use for the security groups, can be specified multiple times" default:"AeroLab"`
 	InstanceRole      string          `long:"role" description:"Instance role to assign to the instance; the role must allow at least EC2 and EFS access; and must be manually precreated" default:"agimonitor"`
 	ElasticIP         string          `long:"elastic-ip" description:"Pre-allocated Elastic IP to associate with the monitor instance; can be the allocation ID (eipalloc-xxx) or the IP address itself; useful when DNS is already configured to point to this IP for autocert"`
-	Route53ZoneId     string          `long:"route53-zoneid" description:"If set, will automatically update a route53 DNS domain with the monitor URL; expiry system will also be updated accordingly"`
+	Route53ZoneId     string          `long:"route53-zone-id" description:"If set, will automatically update a route53 DNS domain with the monitor URL; expiry system will also be updated accordingly"`
 	Route53DomainName string          `long:"route53-fqdn" description:"The route domain the zone refers to; eg monitor.eu-west-1.myagi.org"`
 	Expires           TypeExpiry      `long:"expire" description:"Instance expiry (0 for never)" default:"0"`
 	AWSKeyId          string          `long:"key-id" description:"AWS Access Key ID; alternative to using --role instance profile; use ENV::VARNAME to read from environment variable"`
@@ -192,13 +192,13 @@ type AgiMonitorCreateCmdAws struct {
 type AgiMonitorCreateCmdGcp struct {
 	InstanceType guiInstanceType `long:"instance" description:"Instance type to use" default:"e2-medium" webchoice:"method::List"`
 	Zone         guiZone         `long:"zone" description:"Zone name to deploy to" webrequired:"true" webchoice:"method::List"`
-	NamePrefix   []string        `long:"firewall" description:"Name to use for the firewall, can be specified multiple times" default:"aerolab-managed-external"`
+	NamePrefix   []string        `long:"firewall-name" description:"Name to use for the firewall, can be specified multiple times" default:"aerolab-managed-external"`
 	InstanceRole string          `long:"role" description:"Instance role to assign to the instance; the role must allow at least compute access; and must be manually precreated" default:"agimonitor"`
 	Expires      TypeExpiry      `long:"expire" description:"Instance expiry (0 for never)" default:"0"`
 }
 
 type Reattach struct {
-	InstanceTypeOverride string `long:"instance-type" description:"Override instance type when reattaching"`
+	InstanceTypeOverride string `long:"instance" description:"Override instance type when reattaching"`
 	NoDIMOverride        *bool  `long:"nodim" description:"Override data-in-memory setting when reattaching" no-default:"true"`
 	SpotOverride         *bool  `long:"spot" description:"Override spot instance setting when reattaching" no-default:"true"`
 	OwnerOverride        string `long:"owner" description:"Override owner tag when reattaching"`

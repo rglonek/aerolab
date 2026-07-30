@@ -322,7 +322,7 @@ func extractFlags(val reflect.Value, namespacePrefix string, preferShort bool, i
 			newPrefix := namespacePrefix
 			if namespace != "" {
 				if newPrefix != "" {
-					newPrefix = newPrefix + "-" + namespace
+					newPrefix = newPrefix + "." + namespace
 				} else {
 					newPrefix = namespace
 				}
@@ -349,9 +349,9 @@ func extractFlags(val reflect.Value, namespacePrefix string, preferShort bool, i
 			continue
 		}
 
-		// Apply namespace prefix to long name
+		// Apply namespace prefix to long name (go-flags uses "." as the namespace delimiter)
 		if namespacePrefix != "" && longName != "" {
-			longName = namespacePrefix + "-" + longName
+			longName = namespacePrefix + "." + longName
 		}
 
 		// Get the current value as string and check if it differs from default
@@ -645,7 +645,7 @@ func buildSliceFlags(shortName, longName string, fieldVal reflect.Value, preferS
 // pairing --subnet with --vpc.
 //
 // flagPrefix is the per-command long-flag prefix used in the resulting error
-// (e.g. "" for "--vpc"/"--subnet", or "gcp-" for "--gcp-vpc"/"--gcp-subnet").
+// (e.g. "gcp." for "--gcp.vpc"/"--gcp.subnet").
 func validateGCPSubnetRequiresVPC(vpc, subnet, flagPrefix string) error {
 	if subnet == "" || vpc != "" {
 		return nil

@@ -37,7 +37,7 @@ aerolab agi create [options]
 | Option | Description | Default |
 |--------|-------------|---------|
 | `-n, --name` | AGI instance name (use `~auto~` for auto-generated) | `agi` |
-| `--agi-label` | Friendly display label | |
+| `--label` | Friendly display label | |
 
 ### Source Options
 
@@ -234,56 +234,56 @@ When running an unofficial aerolab build and no existing AGI template is found:
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `--aws-instance-type, -I` | Instance type (min 12GB RAM) | auto-select |
-| `--aws-instance-arch-arm` | Prefer ARM instance types | |
-| `--aws-ebs, -E` | EBS volume size in GB | `40` |
-| `--aws-secgroup-id, -S` | Security group IDs (comma-separated) | |
-| `--aws-subnet-id, -U` | Subnet ID or availability zone | |
-| `--aws-tags` | Custom tags (key=value) | |
-| `--aws-with-efs` | Use EFS for persistent storage | |
-| `--aws-efs-name` | EFS volume name | `{AGI_NAME}` |
-| `--aws-efs-path` | EFS mount path | `/` |
-| `--aws-efs-multizone` | Enable multi-AZ EFS | |
-| `--aws-efs-expire` | EFS expiry after last use | `96h` |
-| `--aws-terminate-on-poweroff` | Terminate on poweroff | |
-| `--aws-spot-instance` | Request spot instance | |
+| `--aws.instance, -I` | Instance type (min 12GB RAM) | auto-select |
+| `--aws.instance-arch-arm` | Prefer ARM instance types | |
+| `--aws.ebs, -E` | EBS volume size in GB | `40` |
+| `--aws.firewall, -S` | Security group IDs (comma-separated) | |
+| `--aws.placement, -U` | Subnet ID or availability zone | |
+| `--aws.tag` | Custom tags (key=value) | |
+| `--aws.with-efs` | Use EFS for persistent storage | |
+| `--aws.efs-name` | EFS volume name | `{AGI_NAME}` |
+| `--aws.efs-path` | EFS mount path | `/` |
+| `--aws.efs-multi-zone` | Enable multi-AZ EFS | |
+| `--aws.efs-expire` | EFS expiry after last use | `96h` |
+| `--aws.terminate-on-poweroff` | Terminate on poweroff | |
+| `--aws.spot` | Request spot instance | |
 | `--aws-spot-fallback` | Fall back to on-demand | |
-| `--aws-expire` | Instance expiry time | `30h` |
-| `--aws-route53-zoneid` | Route53 zone ID | |
-| `--aws-route53-domain` | Route53 domain name | |
-| `--aws-disable-public-ip` | Disable public IP | |
+| `--aws.expire` | Instance expiry time | `30h` |
+| `--aws.route53-zone-id` | Route53 zone ID | |
+| `--aws.route53-domain` | Route53 domain name | |
+| `--aws.no-public-ip` | Disable public IP | |
 
 ### GCP-Specific Options
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `--gcp-instance` | Instance type | `c2d-highmem-4` |
-| `--gcp-disk` | Disk configuration (type:sizeGB) | `pd-ssd:40` |
-| `--gcp-zone` | GCP zone | |
-| `--gcp-tag` | Network tags | |
-| `--gcp-label` | Labels (key=value) | |
-| `--gcp-spot-instance` | Request spot instance | |
-| `--gcp-expire` | Instance expiry time | `30h` |
-| `--gcp-with-vol` | Use persistent volume | |
-| `--gcp-vol-name` | Volume name | `{AGI_NAME}` |
-| `--gcp-vol-expire` | Volume expiry | `96h` |
-| `--gcp-terminate-on-poweroff` | Terminate on poweroff | |
+| `--gcp.instance` | Instance type | `c2d-highmem-4` |
+| `--gcp.disk` | Disk configuration (type:sizeGB) | `pd-ssd:40` |
+| `--gcp.zone` | GCP zone | |
+| `--gcp.network-tag` | Network tags | |
+| `--gcp.tag` | Labels (key=value) | |
+| `--gcp.spot` | Request spot instance | |
+| `--gcp.expire` | Instance expiry time | `30h` |
+| `--gcp.with-vol` | Use persistent volume | |
+| `--gcp.vol-name` | Volume name | `{AGI_NAME}` |
+| `--gcp.vol-expire` | Volume expiry | `96h` |
+| `--gcp.terminate-on-poweroff` | Terminate on poweroff | |
 
 ### Docker-Specific Options
 
 | Option | Description |
 |--------|-------------|
-| `--docker-expose-ports, -e` | Port forwarding (HOST_PORT:CONTAINER_PORT); auto-allocated if not specified |
-| `--docker-cpu-limit, -l` | CPU limit (e.g., 1, 0.5) |
-| `--docker-ram-limit, -r` | RAM limit (e.g., 8g) |
-| `--docker-swap-limit, -w` | Total memory limit (RAM+swap) |
+| `--docker.expose-ports, -e` | Port forwarding (HOST_PORT:CONTAINER_PORT); auto-allocated if not specified |
+| `--docker.cpu-limit, -l` | CPU limit (e.g., 1, 0.5) |
+| `--docker.ram-limit, -r` | RAM limit (e.g., 8g) |
+| `--docker.swap-limit, -w` | Total memory limit (RAM+swap) |
 | `--docker-privileged, -B` | Run in privileged mode |
 | `--docker-network` | Docker network name |
 | `--bind-files-dir` | Bind mount host directory to `/opt/agi/files` for persistent output |
 
 **Port Allocation:**
 
-When `--docker-expose-ports` is not specified, AGI automatically allocates ports:
+When `--docker.expose-ports` is not specified, AGI automatically allocates ports:
 - HTTPS (default): Starting at 9443, incrementing if in use (9444, 9445, ...)
 - HTTP (with `--proxy-ssl-disable`): Starting at 9080, incrementing if in use
 
@@ -299,12 +299,12 @@ aerolab agi create --source-local /var/log/aerospike
 **S3 source with custom name:**
 ```bash
 aerolab agi create -n prod-logs \
-  --agi-label "Production Logs Analysis" \
+  --label "Production Logs Analysis" \
   --source-s3-enable \
   --source-s3-bucket my-logs \
   --source-s3-path prod/ \
   --source-s3-region us-east-1 \
-  --aws-expire=24h
+  --aws.expire=24h
 ```
 
 **SFTP source with time filtering:**
@@ -324,9 +324,9 @@ aerolab agi create -n filtered-logs \
 ```bash
 aerolab agi create -n cluster-analysis \
   --source-cluster mydc \
-  --aws-with-efs \
-  --aws-efs-expire=168h \
-  --aws-expire=24h
+  --aws.with-efs \
+  --aws.efs-expire=168h \
+  --aws.expire=24h
 ```
 
 ---
@@ -854,19 +854,19 @@ aerolab agi monitor create [options]
 **AWS Options:**
 | Option | Description |
 |--------|-------------|
-| `--aws-instance` | Instance type |
-| `--aws-secgroup-id` | Security group ID |
-| `--aws-secgroup-name` | Security group name |
-| `--aws-subnet-id` | Subnet ID |
+| `--aws.instance` | Instance type |
+| `--aws.firewall` | Security group ID |
+| `--aws.firewall-name` | Security group name |
+| `--aws.placement` | Subnet ID |
 | `--aws-role` | IAM role name |
-| `--aws-route53-zoneid` | Route53 zone ID |
-| `--aws-route53-fqdn` | Route53 FQDN |
+| `--aws.route53-zone-id` | Route53 zone ID |
+| `--aws.route53-fqdn` | Route53 FQDN |
 
 **GCP Options:**
 | Option | Description |
 |--------|-------------|
-| `--gcp-instance` | Instance type |
-| `--gcp-zone` | Zone |
+| `--gcp.instance` | Instance type |
+| `--gcp.zone` | Zone |
 | `--gcp-firewall` | Firewall name |
 | `--gcp-role` | Service account role |
 
@@ -886,8 +886,8 @@ aerolab agi monitor listen [options]
 | `--autocert-email` | Let's Encrypt email | |
 | `--cert-file` | TLS certificate file | |
 | `--key-file` | TLS key file | |
-| `--gcp-disk-thres-pct` | Disk threshold % | `80` |
-| `--gcp-disk-grow-gb` | Disk growth GB | `20` |
+| `--gcp.disk-thres-pct` | Disk threshold % | `80` |
+| `--gcp.disk-grow-gb` | Disk growth GB | `20` |
 | `--ram-thres-used-pct` | RAM used threshold % | `90` |
 | `--ram-thres-minfree-gb` | Min free RAM GB | `2` |
 | `--sizing-disable` | Disable auto-sizing | |

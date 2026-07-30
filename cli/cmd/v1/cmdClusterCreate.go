@@ -25,11 +25,11 @@ import (
 type ClusterCreateCmd struct {
 	ClusterName             TypeClusterName `short:"n" long:"name" description:"Cluster name" default:"mydc"`
 	NodeCount               int             `short:"c" long:"count" description:"Number of nodes" default:"1"`
-	CustomConfigFilePath    flags.Filename  `short:"o" long:"customconf" description:"Custom aerospike config file path to install"`
-	CustomToolsFilePath     flags.Filename  `short:"z" long:"toolsconf" description:"Custom astools config file path to install"`
-	FeaturesFilePath        flags.Filename  `short:"f" long:"featurefile" description:"Features file to install, or directory containing feature files"`
-	FeaturesFilePrintDetail bool            `long:"featurefile-printdetail" description:"Print details of discovered features files" hidden:"true"`
-	HeartbeatMode           TypeHBMode      `short:"m" long:"mode" description:"Heartbeat mode, one of: mcast|mesh|default" default:"mesh" webchoice:"mesh,mcast,default" simplemode:"false"`
+	CustomConfigFilePath    flags.Filename  `short:"o" long:"custom-conf" description:"Custom aerospike config file path to install"`
+	CustomToolsFilePath     flags.Filename  `short:"z" long:"tools-conf" description:"Custom astools config file path to install"`
+	FeaturesFilePath        flags.Filename  `short:"f" long:"feature-file" description:"Features file to install, or directory containing feature files"`
+	FeaturesFilePrintDetail bool            `long:"feature-file-print-detail" description:"Print details of discovered features files" hidden:"true"`
+	HeartbeatMode           TypeHBMode      `short:"m" long:"heartbeat-mode" description:"Heartbeat mode, one of: mcast|mesh|default" default:"mesh" webchoice:"mesh,mcast,default" simplemode:"false"`
 	MulticastAddress        string          `long:"mcast-address" description:"Multicast address to change to in config file" simplemode:"false"`
 	MulticastPort           string          `long:"mcast-port" description:"Multicast port to change to in config file" simplemode:"false"`
 	aerospikeVersionSelectorCmd
@@ -38,13 +38,14 @@ type ClusterCreateCmd struct {
 	NoSetDNS              bool                   `long:"no-set-dns" description:"set to prevent aerolab from updating resolved to use 1.1.1.1/8.8.8.8 DNS"`
 	ScriptEarly           flags.Filename         `short:"X" long:"early-script" description:"optionally specify a script to be installed which will run before every aerospike start" simplemode:"false"`
 	ScriptLate            flags.Filename         `short:"Z" long:"late-script" description:"optionally specify a script to be installed which will run after every aerospike stop" simplemode:"false"`
-	ParallelThreads       int                    `short:"p" long:"parallel-threads" description:"number of threads to use for parallel operations" default:"10" simplemode:"false"`
+	ParallelThreads       int                    `short:"p" long:"threads" description:"number of threads to use for parallel operations" default:"10" simplemode:"false"`
 	NoVacuumOnFail        bool                   `long:"no-vacuum" description:"if set, will not remove the template instance/container should it fail installation" simplemode:"false"`
 	Owner                 string                 `long:"owner" description:"AWS/GCP only: create owner tag with this value" simplemode:"false"`
+	Tags                  []string               `short:"t" long:"tag" description:"Tags to apply to the instances, format: key=value; this parameter can be specified multiple times"`
 	PriceOnly             bool                   `long:"price" description:"Only display price of ownership; do not actually create the cluster" simplemode:"false"`
-	Aws                   ClusterCreateCmdAws    `group:"AWS" description:"backend-aws"`
-	Gcp                   ClusterCreateCmdGcp    `group:"GCP" description:"backend-gcp"`
-	Docker                ClusterCreateCmdDocker `group:"Docker" description:"backend-docker"`
+	Aws                   ClusterCreateCmdAws    `group:"AWS" namespace:"aws" description:"backend-aws"`
+	Gcp                   ClusterCreateCmdGcp    `group:"GCP" namespace:"gcp" description:"backend-gcp"`
+	Docker                ClusterCreateCmdDocker `group:"Docker" namespace:"docker" description:"backend-docker"`
 	// Retry configuration
 	MaxRetries         int           `long:"max-retries" description:"Maximum number of retries for transient failures (SSH/SFTP operations)" default:"1" simplemode:"false"`
 	RetrySleep         time.Duration `long:"retry-sleep" description:"Sleep duration between transient retries" default:"30s" simplemode:"false"`
@@ -59,67 +60,64 @@ type ClusterCreateCmd struct {
 }
 
 type ClusterCreateCmdAws struct {
-	AMI                 string          `short:"A" long:"ami" description:"custom AMI to use (default debian, ubuntu, centos, rocky and amazon are supported in eu-west-1,us-west-1,us-east-1,ap-south-1)" simplemode:"false"`
-	InstanceType        guiInstanceType `short:"I" long:"instance-type" description:"instance type to use" default:"" webrequired:"true" webchoice:"method::List"`
-	Disk                []string        `long:"aws-disk" description:"EBS disks, format: type={gp3|gp2|io2|io1},size={GB}[,iops={cnt}][,throughput={mb/s}][,count=5] ex: --disk type=gp3,size=20 --disk type=gp3,size=100,iops=5000,throughput=200,count=2 ; first one is root volume ; this parameter can be specified multiple times" default:"type=gp3,size=20"`
-	SubnetID            string          `short:"U" long:"subnet-id" description:"subnet-id, availability-zone name, or empty; default: empty: first found in default VPC" simplemode:"false"`
-	PublicIP            bool            `short:"L" long:"public-ip" description:"if set, will install systemd script which will set access-address to internal IP and alternate-access-address to allow public IP connections"`
+	AMI                 string          `long:"image" description:"custom AMI to use (default debian, ubuntu, centos, rocky and amazon are supported in eu-west-1,us-west-1,us-east-1,ap-south-1)" simplemode:"false"`
+	InstanceType        guiInstanceType `long:"instance" description:"instance type to use" default:"" webrequired:"true" webchoice:"method::List"`
+	Disk                []string        `long:"disk" description:"EBS disks, format: type={gp3|gp2|io2|io1},size={GB}[,iops={cnt}][,throughput={mb/s}][,count=5] ex: --aws.disk type=gp3,size=20 --aws.disk type=gp3,size=100,iops=5000,throughput=200,count=2 ; first one is root volume ; this parameter can be specified multiple times" default:"type=gp3,size=20"`
+	SubnetID            string          `long:"placement" description:"network placement: subnet-id, availability-zone name, or empty; default: empty: first found in default VPC" simplemode:"false"`
+	PublicIP            bool            `long:"public-ip" description:"if set, will install systemd script which will set access-address to internal IP and alternate-access-address to allow public IP connections"`
 	NoBestPractices     bool            `long:"no-best-practices" description:"set to stop best practices from being executed in setup" simplemode:"false"`
-	Tags                []string        `long:"tags" description:"apply custom tags to instances; format: key=value; this parameter can be specified multiple times"`
-	SecGroupName        []string        `long:"secgroup-name" description:"Name to use for extra security groups, can be specified multiple times" simplemode:"false"`
-	EFSMount            string          `long:"aws-efs-mount" description:"mount EFS volume; format: NAME:MountPath to mount the EFS root" simplemode:"false"`
-	EFSCreate           bool            `long:"aws-efs-create" description:"set to create the EFS volume if it doesn't exist" simplemode:"false"`
-	EFSOneZone          bool            `long:"aws-efs-onezone" description:"set to force the volume to be in one AZ only; half the price for reduced flexibility with multi-AZ deployments" simplemode:"false"`
-	EFSFips             bool            `long:"aws-efs-fips" description:"enable FIPS mode for the EFS mount" simplemode:"false"`
-	TerminateOnPoweroff bool            `long:"aws-terminate-on-poweroff" description:"if set, when shutdown or poweroff is executed from the instance itself, it will be stopped AND terminated" simplemode:"false"`
-	SpotInstance        bool            `long:"aws-spot-instance" description:"set to request a spot instance in place of on-demand"`
-	Expires             TypeExpiry      `long:"aws-expire" description:"length of life of nodes prior to expiry; Y/M/W/D/h/m/s, ex 1D12h 2W 1Y6M; 0: no expiry; grow default: match existing cluster" default:"30h"`
-	EFSExpires          TypeExpiry      `long:"aws-efs-expire" description:"if EFS is not remounted using aerolab for this amount of time, it will be expired" simplemode:"false"`
-	IAMInstanceProfile  string          `long:"aws-instance-profile" description:"IAM instance profile to use for the instances"`
-	InstanceDNS         InstanceDNS     `group:"Automated AWS Route53 DNS" namespace:"aws" description:"backend-aws"`
+	SecGroupName        []string        `long:"firewall" description:"extra security group names to assign to the instances; can be specified multiple times" simplemode:"false"`
+	EFSMount            string          `long:"efs-mount" description:"mount EFS volume; format: NAME:MountPath to mount the EFS root" simplemode:"false"`
+	EFSCreate           bool            `long:"efs-create" description:"set to create the EFS volume if it doesn't exist" simplemode:"false"`
+	EFSOneZone          bool            `long:"efs-one-zone" description:"set to force the volume to be in one AZ only; half the price for reduced flexibility with multi-AZ deployments" simplemode:"false"`
+	EFSFips             bool            `long:"efs-fips" description:"enable FIPS mode for the EFS mount" simplemode:"false"`
+	TerminateOnPoweroff bool            `long:"terminate-on-poweroff" description:"if set, when shutdown or poweroff is executed from the instance itself, it will be stopped AND terminated" simplemode:"false"`
+	SpotInstance        bool            `long:"spot" description:"set to request a spot instance in place of on-demand"`
+	Expires             TypeExpiry      `long:"expire" description:"length of life of nodes prior to expiry; Y/M/W/D/h/m/s, ex 1D12h 2W 1Y6M; 0: no expiry; grow default: match existing cluster" default:"30h"`
+	EFSExpires          TypeExpiry      `long:"efs-expire" description:"if EFS is not remounted using aerolab for this amount of time, it will be expired" simplemode:"false"`
+	IAMInstanceProfile  string          `long:"instance-profile" description:"IAM instance profile to use for the instances"`
+	InstanceDNS         InstanceDNS     `group:"Automated AWS Route53 DNS" namespace:"dns" description:"backend-aws"`
 }
 
 type ClusterCreateCmdGcp struct {
 	Image               string          `long:"image" description:"custom source image to use; format: full https selfLink from GCP; see: gcloud compute images list --uri"`
 	InstanceType        guiInstanceType `long:"instance" description:"instance type to use" default:"" webrequired:"true" webchoice:"method::List"`
-	Disk                []string        `long:"gcp-disk" description:"disks, format: type={pd-*,hyperdisk-*,local-ssd}[,size={GB}][,iops={cnt}][,throughput={mb/s}][,count=5] ex: --disk type=pd-ssd,size=20 --disk type=hyperdisk-balanced,size=20,iops=3060,throughput=155,count=2 ; first in list is root volume, cannot be local-ssd ; this parameter can be specified multiple times" default:"type=pd-ssd,size=20"`
-	PublicIP            bool            `long:"external-ip" description:"if set, will install systemd script which will set access-address to internal IP and alternate-access-address to allow public IP connections"`
+	Disk                []string        `long:"disk" description:"disks, format: type={pd-*,hyperdisk-*,local-ssd}[,size={GB}][,iops={cnt}][,throughput={mb/s}][,count=5] ex: --gcp.disk type=pd-ssd,size=20 --gcp.disk type=hyperdisk-balanced,size=20,iops=3060,throughput=155,count=2 ; first in list is root volume, cannot be local-ssd ; this parameter can be specified multiple times" default:"type=pd-ssd,size=20"`
+	PublicIP            bool            `long:"public-ip" description:"if set, will install systemd script which will set access-address to internal IP and alternate-access-address to allow public IP connections"`
 	Zone                guiZone         `long:"zone" description:"zone name to deploy to" webrequired:"true" webchoice:"method::List"`
 	VPC                 guiVpc          `long:"vpc" description:"VPC network name to use; empty=default VPC" webchoice:"method::List"`
 	Subnet              string          `long:"subnet" description:"GCP subnet name within the selected VPC; empty=auto-select first subnet in the zone's region" simplemode:"false"`
-	NoBestPractices     bool            `long:"ignore-best-practices" description:"set to stop best practices from being executed in setup" simplemode:"false"`
-	Labels              []string        `long:"label" description:"apply custom labels to instances; format: key=value; this parameter can be specified multiple times"`
-	FirewallName        []string        `long:"firewall" description:"Name to use for an extra firewall, can be specified multiple times" simplemode:"false"`
-	SpotInstance        bool            `long:"gcp-spot-instance" description:"set to request a spot instance in place of on-demand"`
-	Expires             TypeExpiry      `long:"gcp-expire" description:"length of life of nodes prior to expiry; Y/M/W/D/h/m/s, ex 1D12h 2W 1Y6M; 0: no expiry; grow default: match existing cluster" default:"30h"`
-	VolMount            string          `long:"gcp-vol-mount" description:"mount an extra volume; format: NAME:MountPath" simplemode:"false"`
-	VolCreate           bool            `long:"gcp-vol-create" description:"set to create the volume if it doesn't exist" simplemode:"false"`
-	VolFips             bool            `long:"gcp-vol-fips" description:"enable FIPS mode for the volume mount" simplemode:"false"`
-	VolExpires          TypeExpiry      `long:"gcp-vol-expire" description:"if the volume is not remounted using aerolab for this amount of time, it will be expired" simplemode:"false"`
-	VolDescription      string          `long:"gcp-vol-desc" description:"set volume description field value" simplemode:"false"`
-	VolLabels           []string        `long:"gcp-vol-label" description:"apply custom labels to volume; format: key=value; this parameter can be specified multiple times" simplemode:"false"`
-	VolSize             int             `long:"gcp-vol-size" description:"set volume size in GB" simplemode:"false"`
-	TerminateOnPoweroff bool            `long:"gcp-terminate-on-poweroff" description:"if set, when shutdown or poweroff is executed from the instance itself, it will be stopped AND terminated" simplemode:"false"`
-	OnHostMaintenance   string          `long:"on-host-maintenance-policy" description:"on-host maintenance policy: MIGRATE or TERMINATE; defaults to MIGRATE (or TERMINATE for spot and GPU instance types, e.g. A2/A3/A4/G2)" simplemode:"false"`
-	MinCPUPlatform      string          `long:"gcp-min-cpu-platform" description:"set the minimum CPU platform; see https://cloud.google.com/compute/docs/instances/specify-min-cpu-platform"`
-	GVNIC               bool            `long:"gcp-gvnic" description:"use Google Virtual NIC (gVNIC) instead of the default VirtIO NIC; required for highest network performance and for some newer instance types"`
-	IAMInstanceProfile  string          `long:"gcp-instance-profile" description:"IAM instance profile to use for the instances"`
-	InstanceDNS         InstanceDNS     `group:"Automated GCP DNS" namespace:"gcp" description:"backend-gcp"`
+	NoBestPractices     bool            `long:"no-best-practices" description:"set to stop best practices from being executed in setup" simplemode:"false"`
+	FirewallName        []string        `long:"firewall" description:"extra firewall names to assign to the instances; can be specified multiple times" simplemode:"false"`
+	SpotInstance        bool            `long:"spot" description:"set to request a spot instance in place of on-demand"`
+	Expires             TypeExpiry      `long:"expire" description:"length of life of nodes prior to expiry; Y/M/W/D/h/m/s, ex 1D12h 2W 1Y6M; 0: no expiry; grow default: match existing cluster" default:"30h"`
+	VolMount            string          `long:"vol-mount" description:"mount an extra volume; format: NAME:MountPath" simplemode:"false"`
+	VolCreate           bool            `long:"vol-create" description:"set to create the volume if it doesn't exist" simplemode:"false"`
+	VolFips             bool            `long:"vol-fips" description:"enable FIPS mode for the volume mount" simplemode:"false"`
+	VolExpires          TypeExpiry      `long:"vol-expire" description:"if the volume is not remounted using aerolab for this amount of time, it will be expired" simplemode:"false"`
+	VolDescription      string          `long:"vol-description" description:"set volume description field value" simplemode:"false"`
+	VolLabels           []string        `long:"vol-tag" description:"apply custom tags (labels) to volume; format: key=value; this parameter can be specified multiple times" simplemode:"false"`
+	VolSize             int             `long:"vol-size" description:"set volume size in GB" simplemode:"false"`
+	TerminateOnPoweroff bool            `long:"terminate-on-poweroff" description:"if set, when shutdown or poweroff is executed from the instance itself, it will be stopped AND terminated" simplemode:"false"`
+	OnHostMaintenance   string          `long:"on-host-maintenance" description:"on-host maintenance policy: MIGRATE or TERMINATE; defaults to MIGRATE (or TERMINATE for spot and GPU instance types, e.g. A2/A3/A4/G2)" simplemode:"false"`
+	MinCPUPlatform      string          `long:"min-cpu-platform" description:"set the minimum CPU platform; see https://cloud.google.com/compute/docs/instances/specify-min-cpu-platform"`
+	GVNIC               bool            `long:"gvnic" description:"use Google Virtual NIC (gVNIC) instead of the default VirtIO NIC; required for highest network performance and for some newer instance types"`
+	IAMInstanceProfile  string          `long:"instance-profile" description:"IAM instance profile to use for the instances"`
+	InstanceDNS         InstanceDNS     `group:"Automated GCP DNS" namespace:"dns" description:"backend-gcp"`
 }
 
 type ClusterCreateCmdDocker struct {
-	ExposePortsToHost string   `short:"e" long:"expose-ports" description:"If a single machine is being deployed, port forward. Format: HOST_PORT:NODE_PORT,HOST_PORT:NODE_PORT" default:""`
-	NoAutoExpose      bool     `long:"no-autoexpose" description:"The easiest way to create multi-node clusters on docker desktop is to expose custom ports; this switch disables the functionality and leaves the listen/advertised IP:PORT in aerospike.conf untouched"`
-	CpuLimit          string   `short:"l" long:"cpu-limit" description:"Impose CPU speed limit. Values acceptable could be '1' or '2' or '0.5' etc." default:"" simplemode:"false"`
-	RamLimit          string   `short:"t" long:"ram-limit" description:"Limit RAM available to each node, e.g. 500m, or 1g." default:"" simplemode:"false"`
-	SwapLimit         string   `short:"w" long:"swap-limit" description:"Limit the amount of total memory (ram+swap) each node can use, e.g. 600m. If ram-limit==swap-limit, no swap is available." default:"" simplemode:"false"`
+	ExposePortsToHost string   `long:"expose-ports" description:"If a single machine is being deployed, port forward. Format: HOST_PORT:NODE_PORT,HOST_PORT:NODE_PORT" default:""`
+	NoAutoExpose      bool     `long:"no-auto-expose" description:"The easiest way to create multi-node clusters on docker desktop is to expose custom ports; this switch disables the functionality and leaves the listen/advertised IP:PORT in aerospike.conf untouched"`
+	CpuLimit          string   `long:"cpu-limit" description:"Impose CPU speed limit. Values acceptable could be '1' or '2' or '0.5' etc." default:"" simplemode:"false"`
+	RamLimit          string   `long:"ram-limit" description:"Limit RAM available to each node, e.g. 500m, or 1g." default:"" simplemode:"false"`
+	SwapLimit         string   `long:"swap-limit" description:"Limit the amount of total memory (ram+swap) each node can use, e.g. 600m. If ram-limit==swap-limit, no swap is available." default:"" simplemode:"false"`
 	NoFILELimit       int      `long:"nofile-limit" description:"for clusters, default will attempt to set to proto-fd-max+5000; you can set this manually or set to -1 to disable the parameter" default:"0" simplemode:"false"`
-	NoPatchV7Config   bool     `long:"nopatch-v7-config" description:"for clusters, if a custom aerospike.conf is not provided, by default the config file will be patched to remove bar namespace and set test to file backing; set to disable this" simplemode:"false"`
-	Privileged        bool     `short:"B" long:"privileged" description:"Docker only: run container in privileged mode"`
+	NoPatchV7Config   bool     `long:"no-patch-v7-config" description:"for clusters, if a custom aerospike.conf is not provided, by default the config file will be patched to remove bar namespace and set test to file backing; set to disable this" simplemode:"false"`
+	Privileged        bool     `long:"privileged" description:"Docker only: run container in privileged mode"`
 	NetworkName       string   `long:"network" description:"specify a network name to use for non-default docker network; for more info see: aerolab config docker help" default:"" simplemode:"false"`
 	ClientType        string   `hidden:"true" description:"specify client type on a cluster, valid for AGI" default:""`
-	Labels            []string `long:"docker-label" description:"apply custom labels to instances; format: key=value; this parameter can be specified multiple times"`
-	Disks             []string `long:"docker-disk" description:"Mount a host path or named volume into each container; format: {volumeName|/hostPath}:{mountTargetDirectory}[:ro|:rw]; example: /host/data:/mnt/data or myvol:/data:ro; can be specified multiple times" simplemode:"false"`
+	Disks             []string `long:"disk" description:"Mount a host path or named volume into each container; format: {volumeName|/hostPath}:{mountTargetDirectory}[:ro|:rw]; example: /host/data:/mnt/data or myvol:/data:ro; can be specified multiple times" simplemode:"false"`
 	TemplateSource    string   `long:"template-source" description:"Template acquisition strategy: best-option (try registry then build), only-registry (registry only, fail if unavailable), only-build (local build only)" default:"best-option" webchoice:"best-option,only-registry,only-build"`
 }
 
@@ -291,7 +289,7 @@ func (c *ClusterCreateCmd) CreateCluster(system *System, inventory *backends.Inv
 			flavor = "federal"
 		}
 		if registryURL == "" {
-			return nil, fmt.Errorf("template-source is only-registry but no registry URL configured; set it with: aerolab config backend --docker-registry-region na")
+			return nil, fmt.Errorf("template-source is only-registry but no registry URL configured; set it with: aerolab config backend --docker.registry-region na")
 		}
 		var err error
 		registryEntries, err = fetchRegistryMetadata(registryURL)
@@ -388,7 +386,7 @@ func (c *ClusterCreateCmd) CreateCluster(system *System, inventory *backends.Inv
 		useRegistry := registryURL != "" && templateSource != "only-build"
 
 		if templateSource == "only-registry" && registryURL == "" {
-			return nil, fmt.Errorf("template-source is only-registry but no registry URL configured; set it with: aerolab config backend --docker-registry-region na")
+			return nil, fmt.Errorf("template-source is only-registry but no registry URL configured; set it with: aerolab config backend --docker.registry-region na")
 		}
 
 		registryLoaded := false
@@ -472,19 +470,17 @@ func (c *ClusterCreateCmd) CreateCluster(system *System, inventory *backends.Inv
 	c.DistroVersion = TypeDistroVersion(resolvedVersion)
 
 	// run instances create
-	var tags []string
+	tags := c.Tags
 	var terminateOnStop bool
 	stopTimeout := 60
 	switch system.Opts.Config.Backend.Type {
 	case "aws":
-		tags = c.Aws.Tags
 		terminateOnStop = c.Aws.TerminateOnPoweroff
 		if !c.Aws.PublicIP {
 			logger.Warn("Public IP access address is not enabled for this cluster, you will be unable to connect to the instances from outside AWS.")
 			logger.Warn("To enable public IP access address, run: aerolab cluster add public-ip -n %s", c.ClusterName.String())
 		}
 	case "gcp":
-		tags = c.Gcp.Labels
 		terminateOnStop = c.Gcp.TerminateOnPoweroff
 		if !c.Gcp.PublicIP {
 			logger.Warn("Public IP access address is not enabled for this cluster, you will be unable to connect to the instances from outside GCP.")
@@ -1161,12 +1157,12 @@ func (c *ClusterCreateCmd) SanityChecks(system *System, inventory *backends.Inve
 		}
 	}
 	if system.Opts.Config.Backend.Type == "aws" && c.Aws.PublicIP && system.Opts.Config.Backend.AWSNoPublicIps {
-		return errors.New("cannot use --public-ip together with the aws-nopublic-ip backend setting: instances will not have a public IP")
+		return errors.New("cannot use --aws.public-ip together with the aws.no-public-ip backend setting: instances will not have a public IP")
 	}
 	if system.Opts.Config.Backend.Type == "gcp" && c.Gcp.PublicIP && system.Opts.Config.Backend.GCPNoPublicIps {
-		return errors.New("cannot use --external-ip together with the gcp-nopublic-ip backend setting: instances will not have a public IP")
+		return errors.New("cannot use --gcp.public-ip together with the gcp.no-public-ip backend setting: instances will not have a public IP")
 	}
-	if err := validateGCPSubnetRequiresVPC(string(c.Gcp.VPC), c.Gcp.Subnet, ""); err != nil {
+	if err := validateGCPSubnetRequiresVPC(string(c.Gcp.VPC), c.Gcp.Subnet, "gcp."); err != nil {
 		return err
 	}
 	return nil

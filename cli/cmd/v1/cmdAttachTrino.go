@@ -12,8 +12,8 @@ import (
 
 type AttachTrinoCmd struct {
 	ClusterName    TypeClientName         `short:"n" long:"name" description:"Trino name" default:"trino"`
-	Node           TypeNodesPlusAllOption `short:"l" long:"node" description:"Node to attach to (or comma-separated list, when using '-- ...'). Example: 'attach shell --node=all -- /some/command' will execute command on all nodes" default:"1"`
-	Namespace      string                 `short:"N" long:"namespace" description:"Namespace to use" default:"test"`
+	Node           TypeNodesPlusAllOption `short:"l" long:"nodes" description:"Node to attach to (or comma-separated list, when using '-- ...'). Example: 'attach shell --nodes=all -- /some/command' will execute command on all nodes" default:"1"`
+	Namespace      string                 `short:"m" long:"namespace" description:"Namespace to use" default:"test"`
 	Env            []string               `short:"e" long:"env" description:"Environment variables to set, as k=v"`
 	ConnectTimeout time.Duration          `short:"C" long:"connect-timeout" description:"Connect timeout" default:"10s"`
 	SessionTimeout time.Duration          `short:"S" long:"session-timeout" description:"Session timeout"`

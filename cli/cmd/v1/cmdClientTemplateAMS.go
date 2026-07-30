@@ -144,7 +144,7 @@ type ClientTemplateAMSDestroyCmd struct {
 	PrometheusVersion string  `short:"P" long:"prometheus-version" description:"Prometheus version to destroy the template for"`
 	GrafanaVersion    string  `short:"g" long:"grafana-version" description:"Grafana version to destroy the template for"`
 	Force             bool    `short:"f" long:"force" description:"Force the destruction of the template - do not ask for confirmation"`
-	DryRun            bool    `short:"n" long:"dry-run" description:"Do not actually destroy the template, just run the basic checks"`
+	DryRun            bool    `long:"dry-run" description:"Do not actually destroy the template, just run the basic checks"`
 	Help              HelpCmd `command:"help" subcommands-optional:"true" description:"Print help"`
 }
 
@@ -252,7 +252,7 @@ func (c *ClientTemplateAMSDestroyCmd) DestroyAMSTemplates(system *System, invent
 //	aerolab client template ams cleanup
 //	aerolab client template ams cleanup --dry-run
 type ClientTemplateAMSCleanupCmd struct {
-	DryRun bool    `short:"n" long:"dry-run" description:"Do not actually destroy templates/instances, just show what would be removed"`
+	DryRun bool    `long:"dry-run" description:"Do not actually destroy templates/instances, just show what would be removed"`
 	Help   HelpCmd `command:"help" subcommands-optional:"true" description:"Print help"`
 }
 

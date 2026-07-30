@@ -40,10 +40,10 @@ aerolab config backend -t docker
 ```
 
 **Docker Options:**
-- `-a, --docker-arch` - Force architecture (`amd64` or `arm64`); requires multiarch support
+- `-a, --docker.arch` - Force architecture (`amd64` or `arm64`); requires multiarch support
 - `-d, --temp-dir` - Custom temporary directory (useful for WSL2)
-- `--docker-registry-region` - Region for the pre-built template image registry (`na`, `eu`, or `disabled`)
-- `--docker-registry-url` - URL for the pre-built template image registry (set to empty to disable)
+- `--docker.registry-region` - Region for the pre-built template image registry (`na`, `eu`, or `disabled`)
+- `--docker.registry-url` - URL for the pre-built template image registry (set to empty to disable)
 
 **Examples:**
 ```bash
@@ -54,7 +54,7 @@ aerolab config backend -t docker
 aerolab config backend -t docker --inventory-cache
 
 # Force architecture
-aerolab config backend -t docker --docker-arch amd64
+aerolab config backend -t docker --docker.arch amd64
 ```
 
 ### AWS Backend
@@ -64,8 +64,8 @@ aerolab config backend -t aws -r us-east-1
 ```
 
 **AWS Options:**
-- `-P, --aws-profile` - AWS profile name
-- `--aws-nopublic-ip` - Don't request public IPs
+- `-P, --aws.profile` - AWS profile name
+- `--aws.no-public-ip` - Don't request public IPs
 
 **Examples:**
 ```bash
@@ -85,7 +85,7 @@ aerolab config backend -t aws -r us-east-1,us-west-2
 aerolab config backend -t aws -r us-east-1 -P eks
 
 # No public IPs
-aerolab config backend -t aws -r us-east-1 --aws-nopublic-ip
+aerolab config backend -t aws -r us-east-1 --aws.no-public-ip
 ```
 
 ### GCP Backend
@@ -102,13 +102,13 @@ aerolab config backend -t gcp -r us-central1 -o project-id
 
 **GCP Options:**
 - `-o, --project` - GCP project ID (required)
-- `-m, --gcp-auth-method` - Authentication method: `any`, `login`, or `service-account`
-- `-b, --gcp-no-browser` - Don't open a browser when authenticating with the `login` method
-- `-i, --gcp-client-id` - GCP client ID to use
-- `-s, --gcp-client-secret` - GCP client secret to use
-- `--gcp-nopublic-ip` - Don't request public IPs; operate on private IPs only
-- `--gcp-use-iap` - Route SSH/SFTP through IAP TCP forwarding instead of dialing the instance IP (see the [GCP getting started guide](../getting-started/gcp.md))
-- `--gcp-auto-enable-services` - Automatically enable required GCP APIs when missing, without prompting (see [GCP Services](../getting-started/gcp-services.md))
+- `-m, --gcp.auth-method` - Authentication method: `any`, `login`, or `service-account`
+- `-b, --gcp.no-browser` - Don't open a browser when authenticating with the `login` method
+- `-i, --gcp.client-id` - GCP client ID to use
+- `-s, --gcp.client-secret` - GCP client secret to use
+- `--gcp.no-public-ip` - Don't request public IPs; operate on private IPs only
+- `--gcp.use-iap` - Route SSH/SFTP through IAP TCP forwarding instead of dialing the instance IP (see the [GCP getting started guide](../getting-started/gcp.md))
+- `--gcp.auto-enable-services` - Automatically enable required GCP APIs when missing, without prompting (see [GCP Services](../getting-started/gcp-services.md))
 
 **Examples:**
 ```bash

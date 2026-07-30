@@ -59,7 +59,7 @@ Docker Container Labels:
   - "aerolab.client.type"  = client type (e.g., "graph", "tools", "ams", "vscode", etc.)
   - "owner"                = owner name
   - "agiLabel"             = AGI label for the container
-  - Custom labels via --docker-label flag (key=value format)
+  - Custom labels via the --tag flag (key=value format)
 
 Docker Template Image Naming:
   - New format: "aerolab-{distro}_{version}_{arch}:{aerospikeVersion}"

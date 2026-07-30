@@ -29,7 +29,7 @@ type TlsGenerateCmd struct {
 	NoUpload       bool            `short:"u" long:"no-upload" description:"If set, will generate certificates on the local machine but not ship them to the cluster nodes"`
 	NoMesh         bool            `short:"m" long:"no-mesh" description:"If set, will not configure mesh-seed-address-port to use TLS"`
 	ChDir          string          `short:"W" long:"work-dir" description:"Specify working directory. This is where all installers will download and CA certs will initially generate to." default:"."`
-	Threads        int             `long:"parallel-threads" description:"Number of parallel threads to use for the execution" default:"10"`
+	Threads        int             `long:"threads" description:"Number of parallel threads to use for the execution" default:"10"`
 	MaxRetries     int             `long:"max-retries" description:"Maximum number of retries for transient SSH/SFTP failures" default:"1" simplemode:"false"`
 	RetrySleep     time.Duration   `long:"retry-sleep" description:"Sleep duration between retries" default:"5s" simplemode:"false"`
 	Help           HelpCmd         `command:"help" subcommands-optional:"true" description:"Print help"`

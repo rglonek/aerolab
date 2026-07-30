@@ -921,8 +921,8 @@ func waitForSSHReady(s *b, instances backends.InstanceList, budget time.Duration
 }
 
 // useIAP returns true iff the operator has explicitly enabled IAP via
-// `aerolab config backend --gcp-use-iap`. It is the SOLE trigger for IAP
-// usage. Disabling public IPs (--gcp-nopublic-ip) does not implicitly enable
+// `aerolab config backend --gcp.use-iap`. It is the SOLE trigger for IAP
+// usage. Disabling public IPs (--gcp.no-public-ip) does not implicitly enable
 // IAP -- if the operator wants no-public-IP machines without IAP, aerolab
 // will simply attempt the private IP directly and fail unless the operator
 // has VPN/peering / Cloud Interconnect into the VPC.
@@ -1502,7 +1502,7 @@ func (s *b) CreateInstances(input *backends.CreateInstanceInput, waitDur time.Du
 
 	log.Detail("Selected network placement: zone=%s az=%s vpc=%s subnet=%s", zone, az, vpc.NetworkId, subnet.SubnetId)
 
-	// When the operator opted out of public IPs (--gcp-nopublic-ip), VMs have
+	// When the operator opted out of public IPs (--gcp.no-public-ip), VMs have
 	// no outbound internet by default; apt/pip/download.aerospike.com will
 	// hang for minutes before timing out unless Cloud NAT is configured for
 	// the target subnet. Fail fast (synchronous, cached, soft-fails on its

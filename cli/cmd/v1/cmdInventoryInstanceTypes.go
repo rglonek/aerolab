@@ -19,7 +19,7 @@ type InventoryInstanceTypesCmd struct {
 	Output       string   `short:"o" long:"output" description:"Output format (text, table, json, json-indent, jq, csv, tsv, html, markdown)" default:"table"`
 	TableTheme   string   `short:"t" long:"table-theme" description:"Table theme (default, frame, box)" default:"default"`
 	SortBy       []string `short:"s" long:"sort-by" description:"Can be specified multiple times. Sort by format: FIELDNAME:asc|dsc|ascnum|dscnum\n; Fields: Region, Name, Arch, CPUs, MemoryGiB, NVMEs, NvmeTotalSizeGiB, Price, SpotPrice"`
-	Nodes        int      `short:"N" long:"nodes" description:"Number of nodes (essentially a price multiplier for the result)" default:"1"`
+	Nodes        int      `short:"N" long:"node-count" description:"Number of nodes (essentially a price multiplier for the result)" default:"1"`
 	Zone         []string `short:"z" long:"zone" description:"Filter by region/zone (can be specified multiple times)"`
 	Arch         string   `short:"a" long:"arch" description:"Filter by architecture (amd64, arm64)"`
 	FilterName   string   `short:"n" long:"name" description:"Filter by full or partial name"`

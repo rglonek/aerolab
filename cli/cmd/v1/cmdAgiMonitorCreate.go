@@ -96,11 +96,11 @@ func (c *AgiMonitorCreateCmd) CreateMonitor(system *System, inventory *backends.
 		}
 		// Validate that both or neither AWS credential fields are set
 		if (c.AWS.AWSKeyId != "" && c.AWS.AWSSecretKey == "") || (c.AWS.AWSKeyId == "" && c.AWS.AWSSecretKey != "") {
-			return nil, errors.New("both --aws-key-id and --aws-secret-key must be specified together, or neither")
+			return nil, errors.New("both --aws.key-id and --aws.secret-key must be specified together, or neither")
 		}
 		// Validate that either instance profile or credentials are specified
 		if c.AWS.InstanceRole == "" && c.AWS.AWSKeyId == "" {
-			return nil, errors.New("AWS requires either --aws-role (instance profile) or both --aws-key-id and --aws-secret-key")
+			return nil, errors.New("AWS requires either --aws.role (instance profile) or both --aws.key-id and --aws.secret-key")
 		}
 	}
 
@@ -108,7 +108,7 @@ func (c *AgiMonitorCreateCmd) CreateMonitor(system *System, inventory *backends.
 	if backendType == "aws" {
 		if (c.AWS.Route53DomainName == "" && c.AWS.Route53ZoneId != "") ||
 			(c.AWS.Route53DomainName != "" && c.AWS.Route53ZoneId == "") {
-			return nil, errors.New("either both route53-zoneid and route53-domain must be filled or both must be empty")
+			return nil, errors.New("either both --aws.route53-zone-id and --aws.route53-fqdn must be filled or both must be empty")
 		}
 	}
 
@@ -325,7 +325,7 @@ func (c *AgiMonitorCreateCmd) createBaseInstance(system *System, inventory *back
 		if c.AWS.AWSKeyId != "" && c.AWS.AWSSecretKey != "" {
 			instanceRole = ""
 		}
-		createCmd.AWS = ClientCreateCmdAws{
+		createCmd.AWS = InstancesCreateCmdAws{
 			InstanceType:       c.AWS.InstanceType,
 			Firewalls:          firewalls,
 			IAMInstanceProfile: instanceRole,
@@ -344,7 +344,7 @@ func (c *AgiMonitorCreateCmd) createBaseInstance(system *System, inventory *back
 		}
 		// Use the VPC-specific AGI firewall name
 		firewalls := []string{agiFirewallName}
-		createCmd.GCP = ClientCreateCmdGcp{
+		createCmd.GCP = InstancesCreateCmdGcp{
 			InstanceType:       c.GCP.InstanceType,
 			Zone:               c.GCP.Zone,
 			VPC:                c.GCP.VPC,

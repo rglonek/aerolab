@@ -38,7 +38,7 @@ type InstancesCreateCmd struct {
 	Tags               []string                 `short:"t" long:"tag" description:"Tags to add to the instances, format: k=v"`
 	Description        string                   `short:"d" long:"description" description:"Description of the instances"`
 	TerminateOnStop    bool                     `short:"T" long:"terminate-on-stop" description:"Terminate the instances when they are stopped"`
-	ParallelSSHThreads int                      `short:"p" long:"parallel-ssh-threads" description:"Number of parallel SSH threads to use for the instances" default:"10"`
+	ParallelSSHThreads int                      `short:"p" long:"threads" description:"Number of parallel SSH threads to use for the instances" default:"10"`
 	SSHKeyName         string                   `short:"k" long:"ssh-key-name" description:"Name of a custom SSH key to use for the instances"`
 	OS                 string                   `long:"os" description:"OS to use for the instances" default:"ubuntu"`
 	Version            string                   `long:"version" description:"Version of the OS to use for the instances" default:"24.04"`
@@ -196,7 +196,7 @@ func (c *InstancesCreateCmd) CreateInstances(system *System, inventory *backends
 		return nil, errors.New("name cannot be specified when count is greater than 1")
 	}
 
-	if err := validateGCPSubnetRequiresVPC(string(c.GCP.VPC), c.GCP.Subnet, ""); err != nil {
+	if err := validateGCPSubnetRequiresVPC(string(c.GCP.VPC), c.GCP.Subnet, "gcp."); err != nil {
 		return nil, err
 	}
 
@@ -325,7 +325,7 @@ func (c *InstancesCreateCmd) CreateInstances(system *System, inventory *backends
 	}
 
 	if c.ParallelSSHThreads < 1 {
-		return nil, errors.New("parallel-ssh-threads must be at least 1")
+		return nil, errors.New("threads must be at least 1")
 	}
 	if c.GCP.Expire < 0 {
 		return nil, errors.New("GCP expire must be at least 0")
@@ -758,15 +758,15 @@ func (c *InstancesCreateCmd) CreateInstances(system *System, inventory *backends
 	var parseErr error
 	cpuNano, parseErr = parseCpuString(c.Docker.CpuLimit)
 	if parseErr != nil {
-		return nil, fmt.Errorf("invalid --docker-cpu-limit: %w", parseErr)
+		return nil, fmt.Errorf("invalid --docker.cpu-limit: %w", parseErr)
 	}
 	ramBytes, parseErr = parseMemoryString(c.Docker.RamLimit)
 	if parseErr != nil {
-		return nil, fmt.Errorf("invalid --docker-ram-limit: %w", parseErr)
+		return nil, fmt.Errorf("invalid --docker.ram-limit: %w", parseErr)
 	}
 	swapBytes, parseErr = parseMemoryString(c.Docker.SwapLimit)
 	if parseErr != nil {
-		return nil, fmt.Errorf("invalid --docker-swap-limit: %w", parseErr)
+		return nil, fmt.Errorf("invalid --docker.swap-limit: %w", parseErr)
 	}
 	dockerNetworkPlacement := ""
 	if c.Docker.NetworkName != "" {

@@ -108,7 +108,7 @@ type AgiTemplateDestroyCmd struct {
 	AgiVersion     int     `short:"i" long:"agi-version" description:"AGI version number to destroy"`
 	GrafanaVersion string  `short:"g" long:"grafana-version" description:"Grafana version to destroy the template for"`
 	Force          bool    `short:"f" long:"force" description:"Force the destruction of the template - do not ask for confirmation"`
-	DryRun         bool    `short:"n" long:"dry-run" description:"Do not actually destroy the template, just run the basic checks"`
+	DryRun         bool    `long:"dry-run" description:"Do not actually destroy the template, just run the basic checks"`
 	Help           HelpCmd `command:"help" subcommands-optional:"true" description:"Print help"`
 }
 
@@ -231,7 +231,7 @@ func (c *AgiTemplateDestroyCmd) DestroyAgiTemplate(system *System, inventory *ba
 //	aerolab agi template vacuum
 //	aerolab agi template vacuum --dry-run
 type AgiTemplateVacuumCmd struct {
-	DryRun bool    `short:"n" long:"dry-run" description:"Do not actually destroy templates/instances, just show what would be removed"`
+	DryRun bool    `long:"dry-run" description:"Do not actually destroy templates/instances, just show what would be removed"`
 	Help   HelpCmd `command:"help" subcommands-optional:"true" description:"Print help"`
 }
 

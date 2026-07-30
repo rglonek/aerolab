@@ -37,11 +37,11 @@ aerolab cluster create -c 2 -d ubuntu -i 24.04 -v '8.*'
 | `-i, --distro-version` | Distribution version (e.g., 24.04, 22.04) | Required |
 | `-v, --aerospike-version` | Aerospike version (supports wildcards like `'8.*'`) | Required |
 | `-s, --start` | Auto-start Aerospike after creation (y/n) | `y` |
-| `-f, --featurefile` | Features file or directory containing feature files | |
-| `-o, --customconf` | Custom aerospike config file path | |
-| `-z, --toolsconf` | Custom astools config file path | |
-| `-m, --mode` | Heartbeat mode (mcast/mesh/default) | `mesh` |
-| `-p, --parallel-threads` | Number of parallel threads | `10` |
+| `-f, --feature-file` | Features file or directory containing feature files | |
+| `-o, --custom-conf` | Custom aerospike config file path | |
+| `-z, --tools-conf` | Custom astools config file path | |
+| `-m, --heartbeat-mode` | Heartbeat mode (mcast/mesh/default) | `mesh` |
+| `-p, --threads` | Number of parallel threads | `10` |
 
 ### Docker Backend
 
@@ -50,64 +50,64 @@ aerolab cluster create -c 2 -d ubuntu -i 24.04 -v '8.*'
 ```
 
 **Docker Options:**
-- `--network` - Name of a non-default Docker network to attach the nodes to. Manage networks with `aerolab config docker list-networks` / `prune-networks`.
+- `--docker.network` - Name of a non-default Docker network to attach the nodes to. Manage networks with `aerolab config docker list-networks` / `prune-networks`.
 
 **Example (custom network):**
 ```bash
-aerolab cluster create -c 2 -d ubuntu -i 24.04 -v '8.*' --network my-aerolab-net
+aerolab cluster create -c 2 -d ubuntu -i 24.04 -v '8.*' --docker.network my-aerolab-net
 ```
 
 ### AWS Backend
 
 ```bash
 aerolab cluster create -c 2 -d ubuntu -i 24.04 -v '8.*' \
-  -I t3a.xlarge \
-  --aws-disk type=gp3,size=20 \
-  --aws-disk type=gp3,size=100,count=3 \
-  --aws-expire=8h
+  --aws.instance t3a.xlarge \
+  --aws.disk type=gp3,size=20 \
+  --aws.disk type=gp3,size=100,count=3 \
+  --aws.expire=8h
 ```
 
 **AWS Options:**
-- `-I, --instance-type` - Instance type (e.g., `t3a.xlarge`)
-- `--aws-disk` - Disk specification: `type={gp3|gp2|io2|io1},size={GB}[,iops={cnt}][,throughput={mb/s}][,count=5]`
-- `--aws-expire` - Expiry time (e.g., `8h`, `30m`, `2h30m`)
-- `-U, --subnet-id` - Subnet ID or availability zone
-- `-L, --public-ip` - Enable public IP
-- `--aws-spot-instance` - Use spot instances
-- `--secgroup-name` - Security group names (can specify multiple)
-- `--tags` - Custom tags (format: `key=value`, can specify multiple)
-- `--aws-efs-create` - Create EFS volume
-- `--aws-efs-mount` - Mount EFS volume (format: `NAME:MountPath`)
+- `--aws.instance` - Instance type (e.g., `t3a.xlarge`)
+- `--aws.disk` - Disk specification: `type={gp3|gp2|io2|io1},size={GB}[,iops={cnt}][,throughput={mb/s}][,count=5]`
+- `--aws.expire` - Expiry time (e.g., `8h`, `30m`, `2h30m`)
+- `--aws.placement` - Subnet ID or availability zone
+- `--aws.public-ip` - Enable public IP access address
+- `--aws.spot` - Use spot instances
+- `--aws.firewall` - Security group names (can specify multiple)
+- `-t, --tag` - Custom tags (format: `key=value`, can specify multiple)
+- `--aws.efs-create` - Create EFS volume
+- `--aws.efs-mount` - Mount EFS volume (format: `NAME:MountPath`)
 
 ### GCP Backend
 
 ```bash
 aerolab cluster create -c 2 -d ubuntu -i 24.04 -v '8.*' \
-  --instance e2-standard-4 \
-  --gcp-disk type=pd-ssd,size=20 \
-  --gcp-disk type=pd-ssd,size=100,count=3 \
-  --gcp-expire=8h
+  --gcp.instance e2-standard-4 \
+  --gcp.disk type=pd-ssd,size=20 \
+  --gcp.disk type=pd-ssd,size=100,count=3 \
+  --gcp.expire=8h
 ```
 
 **GCP Options:**
-- `--instance` - Instance type (e.g., `e2-standard-4`)
-- `--zone` - Zone name (e.g., `us-central1-a`)
-- `--gcp-disk` - Disk specification: `type={pd-*|hyperdisk-*|local-ssd}[,size={GB}][,iops={cnt}][,throughput={mb/s}][,count=5]`
-- `--gcp-expire` - Expiry time
-- `--external-ip` - Enable public IP
-- `--gcp-spot-instance` - Use spot instances
-- `--firewall` - Firewall rule names (can specify multiple)
-- `--label` - Custom labels (format: `key=value`, can specify multiple)
-- `--tag` - Network tags (can specify multiple)
+- `--gcp.instance` - Instance type (e.g., `e2-standard-4`)
+- `--gcp.zone` - Zone name (e.g., `us-central1-a`)
+- `--gcp.disk` - Disk specification: `type={pd-*|hyperdisk-*|local-ssd}[,size={GB}][,iops={cnt}][,throughput={mb/s}][,count=5]`
+- `--gcp.expire` - Expiry time
+- `--gcp.public-ip` - Enable public IP
+- `--gcp.spot` - Use spot instances
+- `--gcp.firewall` - Firewall rule names (can specify multiple)
+- `-t, --tag` - Custom tags/labels (format: `key=value`, can specify multiple)
+
 
 ### Examples
 
 **Create a 3-node cluster with custom name:**
 ```bash
 aerolab cluster create -n production -c 3 -d ubuntu -i 24.04 -v '8.*' \
-  -I t3a.xlarge \
-  --aws-disk type=gp3,size=20 \
-  --aws-expire=24h
+  --aws.instance t3a.xlarge \
+  --aws.disk type=gp3,size=20 \
+  --aws.expire=24h
 ```
 
 **Create cluster without auto-start:**
@@ -148,9 +148,9 @@ All options from `cluster create` are available, but the cluster must already ex
 **Add 2 nodes to a specific cluster:**
 ```bash
 aerolab cluster grow -n mydc -c 2 -d ubuntu -i 24.04 -v '8.*' \
-  -I t3a.xlarge \
-  --aws-disk type=gp3,size=20 \
-  --aws-expire=8h
+  --aws.instance t3a.xlarge \
+  --aws.disk type=gp3,size=20 \
+  --aws.expire=8h
 ```
 
 **Note**: When growing, expiry defaults match the existing cluster.
@@ -181,17 +181,17 @@ This will:
 **Grow cluster to 5 nodes:**
 ```bash
 aerolab cluster apply -c 5 -d ubuntu -i 24.04 -v '8.*' \
-  -I t3a.xlarge \
-  --aws-disk type=gp3,size=20 \
-  --aws-expire=8h
+  --aws.instance t3a.xlarge \
+  --aws.disk type=gp3,size=20 \
+  --aws.expire=8h
 ```
 
 **Shrink cluster to 3 nodes:**
 ```bash
 aerolab cluster apply -c 3 -d ubuntu -i 24.04 -v '8.*' --force \
-  -I t3a.xlarge \
-  --aws-disk type=gp3,size=20 \
-  --aws-expire=8h
+  --aws.instance t3a.xlarge \
+  --aws.disk type=gp3,size=20 \
+  --aws.expire=8h
 ```
 
 ## Cluster List
@@ -436,7 +436,7 @@ aerolab cluster attach -n mydc -l 1
 | Option | Description |
 |--------|-------------|
 | `-n, --name` | Cluster name |
-| `-l, --node` | Node list (`all` for all nodes) |
+| `-l, --nodes` | Node list (`all` for all nodes) |
 | `-p, --parallel` | Execute in parallel on all nodes |
 
 ### Examples
@@ -475,7 +475,7 @@ This imports the SSH public key to allow access to cluster nodes.
 | `-n, --name` | Cluster name |
 | `-l, --nodes` | Node list, comma separated (default: all) |
 | `-f, --pubkey` | Path to SSH public key file |
-| `-p, --parallel-threads` | Number of parallel threads (default: `10`) |
+| `-p, --threads` | Number of parallel threads (default: `10`) |
 
 ## Common Workflows
 
@@ -484,10 +484,10 @@ This imports the SSH public key to allow access to cluster nodes.
 ```bash
 # 1. Create cluster
 aerolab cluster create -n production -c 5 -d ubuntu -i 24.04 -v '8.*' \
-  -I t3a.xlarge \
-  --aws-disk type=gp3,size=20 \
-  --aws-disk type=gp3,size=100,count=3 \
-  --aws-expire=24h
+  --aws.instance t3a.xlarge \
+  --aws.disk type=gp3,size=20 \
+  --aws.disk type=gp3,size=100,count=3 \
+  --aws.expire=24h
 
 # 2. Create partitions
 aerolab cluster partition create -n production -p 16,16,16,16,16,16
@@ -516,15 +516,15 @@ aerolab aerospike is-stable -n production -w
 ```bash
 # Scale up to 10 nodes
 aerolab cluster apply -n mydc -c 10 -d ubuntu -i 24.04 -v '8.*' \
-  -I t3a.xlarge \
-  --aws-disk type=gp3,size=20 \
-  --aws-expire=8h
+  --aws.instance t3a.xlarge \
+  --aws.disk type=gp3,size=20 \
+  --aws.expire=8h
 
 # Scale down to 5 nodes
 aerolab cluster apply -n mydc -c 5 -d ubuntu -i 24.04 -v '8.*' --force \
-  -I t3a.xlarge \
-  --aws-disk type=gp3,size=20 \
-  --aws-expire=8h
+  --aws.instance t3a.xlarge \
+  --aws.disk type=gp3,size=20 \
+  --aws.expire=8h
 ```
 
 ### Add Features to Existing Cluster

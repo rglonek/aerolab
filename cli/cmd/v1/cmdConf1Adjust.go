@@ -22,7 +22,7 @@ type ConfAdjustCmd struct {
 	Command         string            `short:"c" long:"command" description:"command to run, get|set|create|delete" webchoice:"create,set,delete,get"`
 	Key             string            `short:"k" long:"key" description:"the key to work on; eg 'namespace bar.storage-engine device.write-block-size'" webrequired:"true"`
 	Values          []string          `short:"v" long:"value" description:"value to set a key to when using set option; can be specified multiple times"`
-	ParallelThreads int               `long:"parallel-threads" description:"Number of parallel threads to use for the execution" default:"10"`
+	ParallelThreads int               `short:"t" long:"threads" description:"Number of parallel threads to use for the execution" default:"10"`
 	MaxRetries      int               `long:"max-retries" description:"Maximum number of retries for transient SSH/SFTP failures" default:"1" simplemode:"false"`
 	RetrySleep      time.Duration     `long:"retry-sleep" description:"Sleep duration between retries" default:"5s" simplemode:"false"`
 	Help            ConfAdjustHelpCmd `command:"help" subcommands-optional:"true" description:"Print help"`

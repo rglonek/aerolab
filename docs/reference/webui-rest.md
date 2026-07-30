@@ -404,7 +404,7 @@ curl -X POST http://localhost:8080/api/generate-cli \
 **Features:**
 - **Shell escaping**: Values with special characters are properly quoted (e.g., `'value with spaces'`)
 - **Default omission**: Parameters matching their default values are omitted
-- **Namespace handling**: Nested parameter groups include proper prefixes (e.g., `--aws-instance`)
+- **Namespace handling**: Nested parameter groups include proper prefixes (e.g., `--aws.instance`)
 - **Reflection-based**: Uses the actual command struct definitions for accuracy
 
 ### File Operations

@@ -14,8 +14,8 @@ import (
 )
 
 type ClientConfigureToolsCmd struct {
-	ClientName TypeClientName `short:"n" long:"group-name" description:"Client group name" default:"client"`
-	Machines   TypeMachines   `short:"l" long:"machines" description:"Machine list, comma separated. Empty=ALL" default:""`
+	ClientName TypeClientName `short:"n" long:"name" description:"Client group name" default:"client"`
+	Machines   TypeMachines   `short:"l" long:"nodes" description:"Node list, comma separated. Empty=ALL" default:""`
 	ConnectAMS TypeClientName `short:"m" long:"ams" default:"ams" description:"AMS client machine name"`
 	Threads    int            `short:"t" long:"threads" description:"Number of parallel threads" default:"10"`
 	MaxRetries int            `long:"max-retries" description:"Maximum number of retries for transient SSH/SFTP failures" default:"1" simplemode:"false"`

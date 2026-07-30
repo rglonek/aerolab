@@ -10,7 +10,7 @@ import (
 )
 
 type InventoryDeleteProjectResourcesCmd struct {
-	Expiry bool    `long:"expiry" description:"Also remove the expiry system; WARN: expiry system is NOT project-bound but global"`
+	Expiry bool    `long:"with-expiry" description:"Also remove the expiry system; WARN: expiry system is NOT project-bound but global"`
 	Force  bool    `short:"f" long:"force" description:"Force deletion without confirmation"`
 	Help   HelpCmd `command:"help" subcommands-optional:"true" description:"Print help"`
 }

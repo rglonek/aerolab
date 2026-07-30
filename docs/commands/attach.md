@@ -19,7 +19,7 @@ All attach commands support these common options:
 | Option | Description |
 |--------|-------------|
 | `-n, --name` | Cluster name (comma-separated for multiple) |
-| `-l, --node` | Node list (`all` for all nodes, ranges like `1-3`) |
+| `-l, --nodes` | Node list (`all` for all nodes, ranges like `1-3`) |
 | `-p, --parallel` | Execute in parallel on all nodes |
 
 ## Attach Shell

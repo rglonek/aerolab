@@ -28,7 +28,7 @@ type ClusterPartitionListCmd struct {
 	FilterDisks      TypeFilterRange `short:"d" long:"filter-disks" description:"Select disks by number, ex: 1,2,4-8" default:"ALL"`
 	FilterPartitions TypeFilterRange `short:"p" long:"filter-partitions" description:"Select partitions on each disk by number, empty or 0 = don't show partitions, ex: 1,2,4-8" default:"ALL"`
 	FilterType       string          `short:"t" long:"filter-type" description:"what disk types to select, options: nvme/local or ebs/persistent" default:"ALL"`
-	ParallelThreads  int             `long:"parallel-threads" description:"Number of parallel threads to use for the execution" default:"10"`
+	ParallelThreads  int             `long:"threads" description:"Number of parallel threads to use for the execution" default:"10"`
 	Output           string          `long:"output" description:"Output format (text, table, json, json-indent, jq, csv, tsv, html, markdown)" default:"table"`
 	TableTheme       string          `long:"table-theme" description:"Table theme (default, frame, box)" default:"default"`
 	SortBy           []string        `long:"sort-by" description:"Can be specified multiple times. Sort by format: FIELDNAME:asc|dsc|ascnum|dscnum"`

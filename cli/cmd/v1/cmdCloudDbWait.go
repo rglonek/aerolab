@@ -11,7 +11,7 @@ import (
 type CloudClustersWaitCmd struct {
 	ClusterID   string   `short:"c" long:"cluster-id" description:"Cluster ID"`
 	Status      []string `short:"s" long:"status" description:"Wait for health.status to match any of these values (can be specified multiple times)"`
-	StatusNe    []string `short:"n" long:"status-ne" description:"Wait for health.status to NOT match any of these values (can be specified multiple times)"`
+	StatusNe    []string `long:"status-ne" description:"Wait for health.status to NOT match any of these values (can be specified multiple times)"`
 	WaitTimeout int      `short:"t" long:"wait-timeout" description:"Timeout in seconds (0 = no timeout)" default:"3600"`
 	Help        HelpCmd  `command:"help" subcommands-optional:"true" description:"Print help"`
 }

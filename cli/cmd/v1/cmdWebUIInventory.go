@@ -442,18 +442,17 @@ func (c *WebUICmd) buildInventoryActionParams(itemType, action, clusterName, nod
 		case "aerospikeStatus":
 			return "aerospike/status", baseParams
 		case "extendExpiry":
+			// the frontend sends the duration under the "expiry" key; the
+			// CLI flag is --expire-in
+			delete(baseParams, "expiry")
 			if exp, ok := params["expiry"]; ok && exp != "" {
-				baseParams["expiry"] = exp
+				baseParams["expire-in"] = exp
 			} else {
-				baseParams["expiry"] = "30h"
+				baseParams["expire-in"] = "30h"
 			}
 			return "cluster/add/expiry", baseParams
 		}
 	case "client":
-		baseParams["group-name"] = clusterName
-		baseParams["machines"] = nodesStr
-		delete(baseParams, "name")
-		delete(baseParams, "nodes")
 		switch action {
 		case "start":
 			return "client/start", baseParams
@@ -462,10 +461,13 @@ func (c *WebUICmd) buildInventoryActionParams(itemType, action, clusterName, nod
 		case "destroy":
 			return "client/destroy", baseParams
 		case "extendExpiry":
+			// the frontend sends the duration under the "expiry" key; the
+			// CLI flag is --expire-in
+			delete(baseParams, "expiry")
 			if exp, ok := params["expiry"]; ok && exp != "" {
-				baseParams["expiry"] = exp
+				baseParams["expire-in"] = exp
 			} else {
-				baseParams["expiry"] = "30h"
+				baseParams["expire-in"] = "30h"
 			}
 			return "client/configure/expiry", baseParams
 		}

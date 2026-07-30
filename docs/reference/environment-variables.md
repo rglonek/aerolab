@@ -20,7 +20,7 @@ Aerolab supports several environment variables for configuration and behavior co
 | `AEROLAB_DEBUG` | 1 | If set to 1, aerolab will print more detailed output and not terminate instances on certain errors |
 | `AEROLAB_SIMPLE_MODE` | FILEPATH | Path to a simple mode config file that overrides which commands/parameters are visible in simple mode |
 | `AEROLAB_FORCE_SIMPLE_MODE` | true | Enforce simple mode: blocked commands cannot be run, blocked parameters cannot be changed from defaults |
-| `AEROLAB_SKIP_NAT_CHECK` | 1 | GCP only. Bypass the Cloud NAT pre-check that blocks `--gcp-nopublic-ip` creates when no Cloud NAT covers the target subnet. Set when egress is provided through VPN, VPC peering, an internal proxy, or another mechanism aerolab cannot detect via `compute.routers.list` |
+| `AEROLAB_SKIP_NAT_CHECK` | 1 | GCP only. Bypass the Cloud NAT pre-check that blocks `--gcp.no-public-ip` creates when no Cloud NAT covers the target subnet. Set when egress is provided through VPN, VPC peering, an internal proxy, or another mechanism aerolab cannot detect via `compute.routers.list` |
 | `AEROLAB_ARTIFACTS_URL` | URL | Alternative source for Aerospike server install artifacts. Set to a JFrog Artifactory base URL (e.g. `https://<org>.jfrog.io`) to fetch pre-release/dev builds via the JFrog API, or to a plain HTTP mirror of `download.aerospike.com` |
 | `AEROLAB_ARTIFACTS_AUTH` | CREDENTIALS | Credentials for `AEROLAB_ARTIFACTS_URL` when it points at JFrog. Accepts a bearer token, a `Bearer ...`/`Basic ...` header value, a JFrog API key, or `user:pass` |
 
@@ -303,7 +303,7 @@ aerolab attach shell    # ERROR: command 'attach.shell' is not available in simp
 
 ## AEROLAB_SKIP_NAT_CHECK
 
-GCP only. When the operator opts out of public IPs (`config backend --gcp-nopublic-ip` or `--gcp-disable-public-ip` on a create), aerolab queries Cloud Routers in the target region and aborts the create if no Cloud NAT covers the chosen subnet. Without egress, the install script would hang for minutes on `apt-get` / `curl` from `download.aerospike.com` before timing out.
+GCP only. When the operator opts out of public IPs (`config backend --gcp.no-public-ip` or `--gcp.no-public-ip` on a create), aerolab queries Cloud Routers in the target region and aborts the create if no Cloud NAT covers the chosen subnet. Without egress, the install script would hang for minutes on `apt-get` / `curl` from `download.aerospike.com` before timing out.
 
 Set this variable to bypass the check. The create proceeds regardless of NAT state.
 
@@ -316,7 +316,7 @@ Set this variable to bypass the check. The create proceeds regardless of NAT sta
 
 ```bash
 export AEROLAB_SKIP_NAT_CHECK=1
-aerolab cluster create -n iaptest -c 2 --gcp-disable-public-ip ...
+aerolab cluster create -n iaptest -c 2 --gcp.no-public-ip ...
 ```
 
 ### Use Cases

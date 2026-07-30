@@ -81,7 +81,7 @@ aerolab agi create -n myagi \
   --source-s3-bucket my-log-bucket \
   --source-s3-path logs/ \
   --source-s3-region us-east-1 \
-  --aws-expire=8h
+  --aws.expire=8h
 
 # List AGI instances
 aerolab agi list
@@ -100,7 +100,7 @@ aerolab agi create -n myagi \
   --source-sftp-user myuser \
   --source-sftp-pass ENV::SFTP_PASSWORD \
   --source-sftp-path /logs \
-  --gcp-expire=8h
+  --gcp.expire=8h
 
 # List AGI instances
 aerolab agi list
@@ -209,12 +209,12 @@ aerolab agi add-auth-token -n myagi --size 128
 
 ### AWS EFS
 ```bash
-aerolab agi create -n myagi --aws-with-efs --aws-efs-expire=96h ...
+aerolab agi create -n myagi --aws.with-efs --aws.efs-expire=96h ...
 ```
 
 ### GCP Persistent Volume
 ```bash
-aerolab agi create -n myagi --gcp-with-vol --gcp-vol-expire=96h ...
+aerolab agi create -n myagi --gcp.with-vol --gcp.vol-expire=96h ...
 ```
 
 ### Starting an Instance from an Existing Volume

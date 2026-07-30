@@ -19,17 +19,17 @@ gcloud auth application-default login --project=your-project-id
 4. **Required GCP APIs**: Aerolab needs Compute Engine, Service Usage, Cloud Billing, IAP,
    and (for expiry automation) the Cloud Functions stack. Aerolab can enable what's missing
    for you — see [GCP Services (APIs) Required by AeroLab](gcp-services.md) for the full
-   list and the `--gcp-auto-enable-services` flag.
+   list and the `--gcp.auto-enable-services` flag.
 
 ## Gotchas
 
-### `--gcp-nopublic-ip` and `--gcp-use-iap` are independent
+### `--gcp.no-public-ip` and `--gcp.use-iap` are independent
 
-`--gcp-use-iap` is the **sole** trigger for routing SSH/SFTP through IAP. Aerolab does
+`--gcp.use-iap` is the **sole** trigger for routing SSH/SFTP through IAP. Aerolab does
 **not** auto-route through IAP just because public IPs are disabled — you must opt into
 each independently:
 
-| `--gcp-nopublic-ip` | `--gcp-use-iap` | Behaviour |
+| `--gcp.no-public-ip` | `--gcp.use-iap` | Behaviour |
 | --- | --- | --- |
 | no | no | Default: instances get public IPs; SSH dials the public IP. |
 | yes | no | No public IP; SSH attempts the private IP and fails unless you have VPN/peering. |
@@ -43,14 +43,14 @@ VPN/peering), route SSH/SFTP through Google [Identity-Aware Proxy TCP forwarding
 
 ```bash
 aerolab config backend -t gcp -r us-central1 -o your-project-id \
-  --gcp-nopublic-ip --gcp-use-iap
+  --gcp.no-public-ip --gcp.use-iap
 ```
 
 **One-time prerequisites per project**, none of which Aerolab does for you except the first:
 
 1. **Enable the IAP API.** Aerolab enables `iap.googleapis.com` automatically the first time
-   you run `config backend ... --gcp-use-iap` (prompting first if interactive, silently if
-   `--gcp-auto-enable-services` is set). If your principal can't enable APIs, ask an owner to
+   you run `config backend ... --gcp.use-iap` (prompting first if interactive, silently if
+   `--gcp.auto-enable-services` is set). If your principal can't enable APIs, ask an owner to
    run `gcloud services enable iap.googleapis.com --project=your-project-id`.
 2. **Grant the IAM role.** You must do this yourself — Aerolab does not:
    ```bash
@@ -67,7 +67,7 @@ If `attach shell` reports a 403 from `tunnel.cloudproxy.app`, recheck step 2. If
 `config backend` itself fails to enable the API, recheck that your principal has
 `roles/serviceusage.serviceUsageAdmin` (step 1).
 
-### Cloud NAT is required for `--gcp-nopublic-ip`
+### Cloud NAT is required for `--gcp.no-public-ip`
 
 Instances without a public IP have no outbound internet by default, but the install script
 needs to reach `download.aerospike.com` and distro package mirrors. To catch this early,
@@ -97,7 +97,7 @@ Two caveats worth knowing:
 
 ### Flags don't persist across `config backend` runs
 
-`--gcp-nopublic-ip`, `--gcp-use-iap`, `--gcp-auto-enable-services`, and `--skip-pricing` are
+`--gcp.no-public-ip`, `--gcp.use-iap`, `--gcp.auto-enable-services`, and `--skip-pricing` are
 **not** merged with your last saved config — omitting a previously-set flag on a later
 `config backend` call silently turns it back off. If you reconfigure the backend for any
 reason (e.g. to add a region), repeat every flag you want to keep.
@@ -114,8 +114,8 @@ aerolab config backend -t gcp -r us-central1 -o your-project-id
 # 3. Create a 2-node cluster
 aerolab cluster create -c 2 -d ubuntu -i 24.04 -v '8.*' \
   --instance e2-standard-4 \
-  --gcp-disk type=pd-ssd,size=20 \
-  --gcp-expire=8h
+  --gcp.disk type=pd-ssd,size=20 \
+  --gcp.expire=8h
 
 # 4. Wait for it to come up, then use it
 aerolab aerospike is-stable -w
@@ -125,8 +125,8 @@ aerolab attach aql -n mydc -- -c "show namespaces"
 aerolab cluster destroy -n mydc --force
 ```
 
-`--instance e2-standard-4` picks the instance type, `--gcp-disk type=pd-ssd,size=20` sets a
-20GB root disk, and `--gcp-expire=8h` auto-destroys the cluster after 8 hours so you don't
+`--instance e2-standard-4` picks the instance type, `--gcp.disk type=pd-ssd,size=20` sets a
+20GB root disk, and `--gcp.expire=8h` auto-destroys the cluster after 8 hours so you don't
 forget it.
 
 ## Configure the Backend
@@ -140,8 +140,8 @@ Optional flags:
 | Flag | Effect |
 |------|--------|
 | `--inventory-cache` | Cache resource state locally — only if you're the sole user of the project. |
-| `--gcp-auto-enable-services` | Enable missing GCP APIs automatically, without prompting (required for CI/non-interactive use). |
-| `--gcp-nopublic-ip`, `--gcp-use-iap` | See [Gotchas](#gotchas) above. |
+| `--gcp.auto-enable-services` | Enable missing GCP APIs automatically, without prompting (required for CI/non-interactive use). |
+| `--gcp.no-public-ip`, `--gcp.use-iap` | See [Gotchas](#gotchas) above. |
 | `--skip-pricing` | Skip cost/pricing lookups; needed under Workload Identity Federation, where the billing API rejects federated tokens. |
 | `-r` (comma-separated) | Enable multiple regions, e.g. `us-central1,us-east1,us-west1`. |
 
@@ -170,13 +170,13 @@ Beyond the Quick Start example, common `cluster create` additions:
 | Need | Flag(s) |
 |------|---------|
 | Specific zone | `--zone us-central1-a` |
-| Multiple disks | repeat `--gcp-disk type=pd-ssd,size=100,count=3` |
-| Different disk type | `--gcp-disk type=hyperdisk-balanced,size=100,iops=3060,throughput=155` |
+| Multiple disks | repeat `--gcp.disk type=pd-ssd,size=100,count=3` |
+| Different disk type | `--gcp.disk type=hyperdisk-balanced,size=100,iops=3060,throughput=155` |
 | Custom firewall rule | `--firewall aerolab-fw` |
-| Public IP (overrides backend default) | `--external-ip` |
-| Spot instances (cheaper) | `--gcp-spot-instance` |
+| Public IP (overrides backend default) | `--gcp.public-ip` |
+| Spot instances (cheaper) | `--gcp.spot` |
 | Labels / tags | repeat `--label Key=Value` / `--tag name` |
-| Volume mount | `--gcp-vol-create --gcp-vol-mount myvolume:/mnt/data --gcp-vol-size 100` |
+| Volume mount | `--gcp.vol-create --gcp.vol-mount myvolume:/mnt/data --gcp.vol-size 100` |
 
 ## Resource Expiry Automation
 

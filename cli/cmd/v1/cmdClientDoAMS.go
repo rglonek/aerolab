@@ -1088,7 +1088,7 @@ func (c *ClientCreateAMSCmd) resolveAMSTemplate(system *System, inventory *backe
 			case "aws":
 				updated, changed, err := ensureRootDiskMinSizeGiB(c.AWS.Disks, templateSizeGiB)
 				if err != nil {
-					return fmt.Errorf("could not adjust --aws-disk for AMS template: %w", err)
+					return fmt.Errorf("could not adjust --aws.disk for AMS template: %w", err)
 				}
 				if changed {
 					logger.Info("Resizing AWS root volume to %dGiB to match AMS template snapshot", templateSizeGiB)
@@ -1097,7 +1097,7 @@ func (c *ClientCreateAMSCmd) resolveAMSTemplate(system *System, inventory *backe
 			case "gcp":
 				updated, changed, err := ensureRootDiskMinSizeGiB(c.GCP.Disks, templateSizeGiB)
 				if err != nil {
-					return fmt.Errorf("could not adjust --gcp-disk for AMS template: %w", err)
+					return fmt.Errorf("could not adjust --gcp.disk for AMS template: %w", err)
 				}
 				if changed {
 					logger.Info("Resizing GCP root volume to %dGiB to match AMS template snapshot", templateSizeGiB)

@@ -21,8 +21,8 @@ import (
 type AgiStopCmd struct {
 	Name       TypeAgiClusterName `short:"n" long:"name" description:"AGI instance name" default:"agi"`
 	Force      bool               `short:"f" long:"force" description:"Force stop without waiting for services"`
-	NoWait     bool               `short:"w" long:"no-wait" description:"Do not wait for the instance to stop"`
-	DryRun     bool               `short:"d" long:"dry-run" description:"Print what would be done but don't do it"`
+	NoWait     bool               `long:"no-wait" description:"Do not wait for the instance to stop"`
+	DryRun     bool               `long:"dry-run" description:"Print what would be done but don't do it"`
 	Threads    int                `short:"t" long:"threads" description:"Threads to use for service stop" default:"1"`
 	MaxRetries int                `long:"max-retries" description:"Maximum number of retries for transient SSH/SFTP failures" default:"1" simplemode:"false"`
 	RetrySleep time.Duration      `long:"retry-sleep" description:"Sleep duration between retries" default:"5s" simplemode:"false"`

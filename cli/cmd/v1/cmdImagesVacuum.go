@@ -8,7 +8,7 @@ import (
 )
 
 type ImagesVacuumCmd struct {
-	DryRun bool    `short:"d" long:"dry-run" description:"Do not actually delete the templates, just list them"`
+	DryRun bool    `long:"dry-run" description:"Do not actually delete the templates, just list them"`
 	Help   HelpCmd `command:"help" subcommands-optional:"true" description:"Print help"`
 }
 

@@ -22,7 +22,7 @@ type InstancesApplyCmd struct {
 	Tags               []string                 `short:"t" long:"tag" description:"Tags to add to the instances, format: k=v"`
 	Description        string                   `short:"d" long:"description" description:"Description of the instances"`
 	TerminateOnStop    bool                     `short:"T" long:"terminate-on-stop" description:"Terminate the instances when they are stopped"`
-	ParallelSSHThreads int                      `short:"p" long:"parallel-ssh-threads" description:"Number of parallel SSH threads to use for the instances" default:"10"`
+	ParallelSSHThreads int                      `short:"p" long:"threads" description:"Number of parallel SSH threads to use for the instances" default:"10"`
 	SSHKeyName         string                   `short:"k" long:"ssh-key-name" description:"Name of a custom SSH key to use for the instances"`
 	Hooks              InstancesApplyCmdHooks   `group:"Hooks" description:"hooks" namespace:"hooks"`
 	AWS                InstancesCreateCmdAws    `group:"AWS" description:"backend-aws" namespace:"aws"`

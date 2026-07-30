@@ -17,28 +17,29 @@ import (
 type ClusterApplyCmd struct {
 	ClusterName             TypeClusterName `short:"n" long:"name" description:"Cluster names, comma separated" default:"mydc"`
 	Count                   int             `short:"c" long:"count" description:"Desired number of nodes in the cluster" default:"1"`
-	CustomConfigFilePath    flags.Filename  `short:"o" long:"customconf" description:"Custom aerospike config file path to install"`
-	CustomToolsFilePath     flags.Filename  `short:"z" long:"toolsconf" description:"Custom astools config file path to install"`
-	FeaturesFilePath        flags.Filename  `short:"f" long:"featurefile" description:"Features file to install, or directory containing feature files"`
-	FeaturesFilePrintDetail bool            `long:"featurefile-printdetail" description:"Print details of discovered features files" hidden:"true"`
-	HeartbeatMode           TypeHBMode      `short:"m" long:"mode" description:"Heartbeat mode, one of: mcast|mesh|default" default:"mesh" webchoice:"mesh,mcast,default" simplemode:"false"`
-	MulticastAddress        string          `short:"a" long:"mcast-address" description:"Multicast address to change to in config file" simplemode:"false"`
-	MulticastPort           string          `short:"p" long:"mcast-port" description:"Multicast port to change to in config file" simplemode:"false"`
+	CustomConfigFilePath    flags.Filename  `short:"o" long:"custom-conf" description:"Custom aerospike config file path to install"`
+	CustomToolsFilePath     flags.Filename  `short:"z" long:"tools-conf" description:"Custom astools config file path to install"`
+	FeaturesFilePath        flags.Filename  `short:"f" long:"feature-file" description:"Features file to install, or directory containing feature files"`
+	FeaturesFilePrintDetail bool            `long:"feature-file-print-detail" description:"Print details of discovered features files" hidden:"true"`
+	HeartbeatMode           TypeHBMode      `short:"m" long:"heartbeat-mode" description:"Heartbeat mode, one of: mcast|mesh|default" default:"mesh" webchoice:"mesh,mcast,default" simplemode:"false"`
+	MulticastAddress        string          `long:"mcast-address" description:"Multicast address to change to in config file" simplemode:"false"`
+	MulticastPort           string          `long:"mcast-port" description:"Multicast port to change to in config file" simplemode:"false"`
 	aerospikeVersionSelectorCmd
 	AutoStartAerospike    TypeYesNo              `short:"s" long:"start" description:"Auto-start aerospike after creation of cluster (y/n)" default:"y" webchoice:"y,n"`
 	NoOverrideClusterName bool                   `short:"O" long:"no-override-cluster-name" description:"Aerolab sets cluster-name by default, use this parameter to not set cluster-name" simplemode:"false"`
 	NoSetDNS              bool                   `long:"no-set-dns" description:"set to prevent aerolab from updating resolved to use 1.1.1.1/8.8.8.8 DNS"`
 	ScriptEarly           flags.Filename         `short:"X" long:"early-script" description:"optionally specify a script to be installed which will run before every aerospike start" simplemode:"false"`
 	ScriptLate            flags.Filename         `short:"Z" long:"late-script" description:"optionally specify a script to be installed which will run after every aerospike stop" simplemode:"false"`
-	ParallelThreads       int                    `short:"P" long:"parallel-threads" description:"number of threads to use for parallel operations" default:"10" simplemode:"false"`
+	ParallelThreads       int                    `short:"p" long:"threads" description:"number of threads to use for parallel operations" default:"10" simplemode:"false"`
 	NoVacuumOnFail        bool                   `long:"no-vacuum" description:"if set, will not remove the template instance/container should it fail installation" simplemode:"false"`
 	Owner                 string                 `long:"owner" description:"AWS/GCP only: create owner tag with this value" simplemode:"false"`
+	Tags                  []string               `short:"t" long:"tag" description:"Tags to apply to the instances, format: key=value; this parameter can be specified multiple times"`
 	PriceOnly             bool                   `long:"price" description:"Only display price of ownership; do not actually create the cluster" simplemode:"false"`
 	Force                 bool                   `short:"F" long:"force" description:"Force destroy when shrinking"`
 	DryRun                bool                   `long:"dry-run" description:"Dry run, print what would be done but don't do it"`
-	Aws                   ClusterCreateCmdAws    `group:"AWS" description:"backend-aws"`
-	Gcp                   ClusterCreateCmdGcp    `group:"GCP" description:"backend-gcp"`
-	Docker                ClusterCreateCmdDocker `group:"Docker" description:"backend-docker"`
+	Aws                   ClusterCreateCmdAws    `group:"AWS" namespace:"aws" description:"backend-aws"`
+	Gcp                   ClusterCreateCmdGcp    `group:"GCP" namespace:"gcp" description:"backend-gcp"`
+	Docker                ClusterCreateCmdDocker `group:"Docker" namespace:"docker" description:"backend-docker"`
 	// Retry configuration
 	MaxRetries         int           `long:"max-retries" description:"Maximum number of retries for transient failures (SSH/SFTP operations)" default:"1" simplemode:"false"`
 	RetrySleep         time.Duration `long:"retry-sleep" description:"Sleep duration between transient retries" default:"30s" simplemode:"false"`
@@ -228,6 +229,7 @@ func (c *ClusterApplyCmd) createCluster(system *System, inventory *backends.Inve
 		ParallelThreads:             c.ParallelThreads,
 		NoVacuumOnFail:              c.NoVacuumOnFail,
 		Owner:                       c.Owner,
+		Tags:                        c.Tags,
 		PriceOnly:                   c.PriceOnly,
 		Aws:                         c.Aws,
 		Gcp:                         c.Gcp,
@@ -268,6 +270,7 @@ func (c *ClusterApplyCmd) growCluster(system *System, inventory *backends.Invent
 			ParallelThreads:             c.ParallelThreads,
 			NoVacuumOnFail:              c.NoVacuumOnFail,
 			Owner:                       c.Owner,
+			Tags:                        c.Tags,
 			PriceOnly:                   c.PriceOnly,
 			Aws:                         c.Aws,
 			Gcp:                         c.Gcp,

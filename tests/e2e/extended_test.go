@@ -32,7 +32,7 @@ func TestDockerTLSXDRData(t *testing.T) {
 	c.run("tls", "copy", "-s", dc1, "-d", dc2)
 
 	// XDR.
-	c.run("xdr", "connect", "-S", dc1, "-D", dc2)
+	c.run("xdr", "connect", "-s", dc1, "-D", dc2)
 
 	// Data insert/delete and connectivity.
 	c.run("data", "insert", "-n", dc1, "-a", "1", "-z", "3000")
