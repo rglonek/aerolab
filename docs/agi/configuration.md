@@ -93,6 +93,12 @@ This creates:
 | `--source-sftp-threads` | Concurrent download threads | `1` |
 | `--source-sftp-skipcheck` | Skip SFTP accessibility check | |
 
+The accessibility check also records the SFTP server's SSH host key
+fingerprint, which the AGI instance then pins for every download — an
+intercepting host cannot collect `--source-sftp-pass`. `--source-sftp-skipcheck`
+skips the capture too, and the AGI instance falls back to connecting without
+verifying the server, logging a warning as it does so.
+
 #### S3 Source
 
 | Option | Description | Default |
@@ -621,11 +627,15 @@ aerolab agi add-auth-token [options]
 |--------|-------------|---------|
 | `-n, --name` | AGI instance name | `agi` |
 | `--token` | Token value (or read from stdin) | auto-generated |
-| `--token-name` | Token file name | timestamp |
+| `--token-name` | Token file name | random |
 | `--size` | Generated token size | `64` |
 | `--list` | List all tokens | |
 | `--remove` | Remove a token | |
 | `--url` | Generate access URL with token | |
+
+Generated tokens use a cryptographically secure random source, and token file
+names are random rather than timestamps so the mint time cannot be used to
+narrow a guess at the token itself.
 
 ### Examples
 
@@ -642,6 +652,19 @@ aerolab agi add-auth-token -n myagi --list
 # Remove token
 aerolab agi add-auth-token -n myagi --remove token-name
 ```
+
+### Access URL format
+
+`--url` prints the token in the URL fragment:
+
+```
+https://1.2.3.4/agi/menu#AGI_TOKEN=<token>
+```
+
+Browsers do not transmit fragments, so the token cannot appear in server access
+logs, `Referer` headers or proxy history. The AGI auth page lifts it out of the
+fragment, clears the address bar and posts it to establish the session cookie.
+Links minted by earlier AeroLab versions using `?AGI_TOKEN=` still work.
 
 ---
 

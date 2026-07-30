@@ -4,8 +4,6 @@ package cmd
 
 import (
 	"fmt"
-	"math/rand"
-	"strings"
 	"time"
 
 	flags "github.com/rglonek/go-flags"
@@ -18,34 +16,6 @@ func GetSSHAuthorizedKeysGzB64() string { return "" }
 func PutSSHAuthorizedKeys(_ string) {}
 
 var errNoAGI = fmt.Errorf("AGI is not available in this build")
-
-// generateRandomToken is defined in cmdAgiAddToken.go for full builds; duplicated here for noagi
-// because cmdWebUIAgiTokens.go calls it.
-func generateRandomToken(n int, src rand.Source) string {
-	const letterBytes = "abcdefghijklmnopqrstuvwxyz1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-	const (
-		letterIdxBits = 6
-		letterIdxMask = 1<<letterIdxBits - 1
-		letterIdxMax  = 63 / letterIdxBits
-	)
-
-	sb := strings.Builder{}
-	sb.Grow(n)
-
-	for i, cache, remain := n-1, src.Int63(), letterIdxMax; i >= 0; {
-		if remain == 0 {
-			cache, remain = src.Int63(), letterIdxMax
-		}
-		if idx := int(cache & letterIdxMask); idx < len(letterBytes) {
-			sb.WriteByte(letterBytes[idx])
-			i--
-		}
-		cache >>= letterIdxBits
-		remain--
-	}
-
-	return sb.String()
-}
 
 // --- Root AGI command (tags from cmdAgi.go) ---
 
@@ -140,7 +110,7 @@ type AgiMonitorConfigCmd struct {
 
 	NotifyURL    string `long:"notify-url" description:"Optional: specify a notification URL to send action notifications to"`
 	NotifyHeader string `long:"notify-header" description:"Optional: set a header in the notification; format: key=value"`
-	SlackToken   string `long:"notify-slack-token" description:"Set to enable slack notifications for events"`
+	SlackToken   string `long:"notify-slack-token" description:"Set to enable slack notifications for events" telemetry:"redact"`
 	SlackChannel string `long:"notify-slack-channel" description:"Set to the channel to notify to"`
 
 	invLock  any `yaml:"-" json:"-"`
@@ -185,8 +155,8 @@ type AgiMonitorCreateCmdAws struct {
 	Route53ZoneId     string          `long:"route53-zone-id" description:"If set, will automatically update a route53 DNS domain with the monitor URL; expiry system will also be updated accordingly"`
 	Route53DomainName string          `long:"route53-fqdn" description:"The route domain the zone refers to; eg monitor.eu-west-1.myagi.org"`
 	Expires           TypeExpiry      `long:"expire" description:"Instance expiry (0 for never)" default:"0"`
-	AWSKeyId          string          `long:"key-id" description:"AWS Access Key ID; alternative to using --role instance profile; use ENV::VARNAME to read from environment variable"`
-	AWSSecretKey      string          `long:"secret-key" description:"AWS Secret Access Key; alternative to using --role instance profile; use ENV::VARNAME to read from environment variable"`
+	AWSKeyId          string          `long:"key-id" description:"AWS Access Key ID; alternative to using --role instance profile; use ENV::VARNAME to read from environment variable" telemetry:"redact"`
+	AWSSecretKey      string          `long:"secret-key" description:"AWS Secret Access Key; alternative to using --role instance profile; use ENV::VARNAME to read from environment variable" telemetry:"redact"`
 }
 
 type AgiMonitorCreateCmdGcp struct {

@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -71,7 +72,7 @@ type AgiCreateCmd struct {
 	SftpHost      string         `long:"source-sftp-host" description:"SFTP host"`
 	SftpPort      int            `long:"source-sftp-port" description:"SFTP port" default:"22"`
 	SftpUser      string         `long:"source-sftp-user" description:"SFTP user"`
-	SftpPass      string         `long:"source-sftp-pass" description:"SFTP password (supports ENV::VAR_NAME)" webtype:"password"`
+	SftpPass      string         `long:"source-sftp-pass" description:"SFTP password (supports ENV::VAR_NAME)" webtype:"password" telemetry:"redact"`
 	SftpKey       flags.Filename `long:"source-sftp-key" description:"Key file for SFTP login"`
 	SftpPath      string         `long:"source-sftp-path" description:"Path on SFTP to download logs from"`
 	SftpRegex     string         `long:"source-sftp-regex" description:"Regex to filter files to download"`
@@ -82,8 +83,8 @@ type AgiCreateCmd struct {
 	S3Threads   int    `long:"source-s3-threads" description:"Number of concurrent downloader threads" default:"4"`
 	S3Region    string `long:"source-s3-region" description:"AWS region where S3 bucket is located; ignored if --source-s3-bucket uses the 'region:name' form"`
 	S3Bucket    string `long:"source-s3-bucket" description:"S3 bucket name; may also be given as 'region:name' to embed the region (overrides --source-s3-region)"`
-	S3KeyID     string `long:"source-s3-key-id" description:"AWS access key ID (supports ENV::VAR_NAME)"`
-	S3Secret    string `long:"source-s3-secret-key" description:"AWS secret key (supports ENV::VAR_NAME)" webtype:"password"`
+	S3KeyID     string `long:"source-s3-key-id" description:"AWS access key ID (supports ENV::VAR_NAME)" telemetry:"redact"`
+	S3Secret    string `long:"source-s3-secret-key" description:"AWS secret key (supports ENV::VAR_NAME)" webtype:"password" telemetry:"redact"`
 	S3Path      string `long:"source-s3-path" description:"Path prefix in S3 bucket"`
 	S3Regex     string `long:"source-s3-regex" description:"Regex to filter files to download"`
 	S3SkipCheck bool   `long:"source-s3-skipcheck" description:"Skip S3 accessibility check"`
@@ -123,7 +124,7 @@ type AgiCreateCmd struct {
 	PluginLogLevel   int            `long:"plugin-log-level" description:"Plugin log level" default:"4"`
 
 	// Notification options
-	SlackToken   string `long:"notify-slack-token" description:"Slack token for notifications (supports ENV::VAR_NAME)"`
+	SlackToken   string `long:"notify-slack-token" description:"Slack token for notifications (supports ENV::VAR_NAME)" telemetry:"redact"`
 	SlackChannel string `long:"notify-slack-channel" description:"Slack channel for notifications"`
 
 	// Monitor options
@@ -174,6 +175,11 @@ type AgiCreateCmd struct {
 	RetrySleep time.Duration `long:"retry-sleep" description:"Sleep duration between retries" default:"5s" simplemode:"false"`
 
 	Help HelpCmd `command:"help" subcommands-optional:"true" description:"Print help"`
+
+	// sftpHostKeyFingerprint is the SFTP server's SHA256 host key fingerprint
+	// as observed during validateSFTPAccess. It is written into the ingest
+	// config so the AGI instance pins the same server.
+	sftpHostKeyFingerprint string
 }
 
 // AgiCreateCmdAws contains AWS-specific options for AGI instance creation.
@@ -877,11 +883,17 @@ func (c *AgiCreateCmd) validateSFTPAccess() error {
 		return fmt.Errorf("no authentication method provided (password or key file required)")
 	}
 
+	// Record the host key presented during this check. Ingest pins it later,
+	// so the SFTP password cannot be captured by a host that inserts itself
+	// between the AGI instance and the real server.
 	sshConfig := &ssh.ClientConfig{
-		User:            c.SftpUser,
-		Auth:            authMethods,
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-		Timeout:         30 * time.Second,
+		User: c.SftpUser,
+		Auth: authMethods,
+		HostKeyCallback: func(hostname string, remote net.Addr, key ssh.PublicKey) error {
+			c.sftpHostKeyFingerprint = ssh.FingerprintSHA256(key)
+			return nil
+		},
+		Timeout: 30 * time.Second,
 	}
 
 	// Connect to SSH
@@ -2448,14 +2460,15 @@ func (c *AgiCreateCmd) generateIngestConfig(backendType string, pcfg pebbleConfi
 	// SFTP source
 	if c.SftpEnable {
 		config.Downloader.SftpSource = &ingest.SftpSource{
-			Enabled:     true,
-			Threads:     c.SftpThreads,
-			Host:        c.SftpHost,
-			Port:        c.SftpPort,
-			Username:    c.SftpUser,
-			Password:    c.SftpPass,
-			PathPrefix:  c.SftpPath,
-			SearchRegex: c.SftpRegex,
+			Enabled:            true,
+			Threads:            c.SftpThreads,
+			Host:               c.SftpHost,
+			Port:               c.SftpPort,
+			Username:           c.SftpUser,
+			Password:           c.SftpPass,
+			PathPrefix:         c.SftpPath,
+			SearchRegex:        c.SftpRegex,
+			HostKeyFingerprint: c.sftpHostKeyFingerprint,
 		}
 		if c.SftpKey != "" {
 			config.Downloader.SftpSource.KeyFile = "/opt/agi/sftp.key"

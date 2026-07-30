@@ -28,6 +28,8 @@ type ConfigBackendCmd struct {
 	InventoryCache bool           `short:"c" long:"inventory-cache" description:"Enable local inventory cache - use only if not sharing the GCP/AWS project/account with other users"`
 	SkipPricing    bool           `long:"skip-pricing" description:"AWS/GCP: skip all cost/pricing lookups (billing/pricing APIs); instance-type and volume catalogs are still returned, just without prices. Useful under GCP Workload Identity Federation, where the billing API rejects federated tokens, or whenever the caller lacks pricing permissions"`
 
+	SSHStrictHostKey bool `long:"ssh-strict-host-key" description:"Refuse SSH connections when an instance presents a host key different to the one AeroLab remembers for it. When unset, a changed key is only logged as a warning and then relearned. See 'aerolab config host-keys'"`
+
 	AWSProfile     string `long:"aws.profile" description:"AWS: provide a profile to use; setting this ignores the AWS_PROFILE env variable"`
 	AWSNoPublicIps bool   `long:"aws.no-public-ip" description:"AWS: if set, aerolab will not request public IPs, and will operate on private IPs only"`
 
@@ -35,7 +37,7 @@ type ConfigBackendCmd struct {
 	GCPAuthMethod         string `long:"gcp.auth-method" description:"GCP: specify the authentication method to use (any|login|service-account)" default:"service-account" webchoice:"any,login,service-account" hidden:"true"`
 	GCPNoBrowser          bool   `long:"gcp.no-browser" description:"GCP: if set, aerolab will not open a browser to authenticate with GCP when using login method" hidden:"true"`
 	GCPClientID           string `long:"gcp.client-id" description:"GCP: specify a GCP client ID to use" hidden:"true"`
-	GCPClientSecret       string `long:"gcp.client-secret" description:"GCP: specify a GCP client secret to use" hidden:"true"`
+	GCPClientSecret       string `long:"gcp.client-secret" description:"GCP: specify a GCP client secret to use" hidden:"true" telemetry:"redact"`
 	GCPNoPublicIps        bool   `long:"gcp.no-public-ip" description:"GCP: if set, aerolab will not request public IPs, and will operate on private IPs only"`
 	GCPUseIAP             bool   `long:"gcp.use-iap" description:"GCP: route SSH/SFTP through IAP TCP forwarding instead of dialing the routable instance IP. Independent of --gcp.no-public-ip; aerolab does NOT auto-enable IAP when public IPs are disabled."`
 	GCPAutoEnableServices bool   `long:"gcp.auto-enable-services" description:"GCP: automatically enable required GCP services (APIs) in the project when missing, without prompting. When unset, aerolab prompts interactively and errors in non-interactive contexts, listing the services to enable manually."`
@@ -295,6 +297,9 @@ func (c *ConfigBackendCmd) ExecTypeSet(system *System, args []string) error {
 		if !slices.Contains(webParams, "skip-pricing") {
 			c.SkipPricing = false
 		}
+		if !slices.Contains(webParams, "ssh-strict-host-key") {
+			c.SSHStrictHostKey = false
+		}
 	} else {
 		if !slices.Contains(os.Args, "--check-access") {
 			c.CheckAccess = false
@@ -319,6 +324,9 @@ func (c *ConfigBackendCmd) ExecTypeSet(system *System, args []string) error {
 		}
 		if !slices.Contains(os.Args, "--skip-pricing") {
 			c.SkipPricing = false
+		}
+		if !slices.Contains(os.Args, "--ssh-strict-host-key") {
+			c.SSHStrictHostKey = false
 		}
 	}
 

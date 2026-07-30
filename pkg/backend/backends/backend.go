@@ -11,6 +11,7 @@ import (
 
 	"github.com/aerospike/aerolab/pkg/backend/cache"
 	"github.com/aerospike/aerolab/pkg/backend/clouds"
+	"github.com/aerospike/aerolab/pkg/sshexec"
 )
 
 type Config struct {
@@ -23,6 +24,10 @@ type Config struct {
 	ListAllProjects  bool                `yaml:"listAllProjects" json:"listAllProjects"`
 	CustomSSHKeyPath string              `yaml:"customSSHKeyPath" json:"customSSHKeyPath"`
 	PollInterval     time.Duration       `yaml:"pollInterval" json:"pollInterval"` // interval for periodic inventory refresh; 0 or unset defaults to time.Hour
+	// SSHStrictHostKey refuses an SSH connection when an instance presents a
+	// host key that differs from the remembered one. When false, the mismatch
+	// is logged as a warning and the new key is learned.
+	SSHStrictHostKey bool `yaml:"sshStrictHostKey" json:"sshStrictHostKey"`
 }
 
 type cacheMetadata struct {
@@ -165,6 +170,9 @@ func InternalNew(project string, c *Config, pollInventoryHourly bool, enabledBac
 	b.log.SetPrefix("BACKEND ")
 	b.log.MillisecondLogging(c.LogMillisecond)
 	b.enabledBackends = make(map[BackendType]Cloud)
+	// One host key store per project, shared by every enabled backend; entries
+	// are namespaced by backend type inside it.
+	hostKeys := sshexec.NewHostKeyStore(path.Join(c.RootDir, project, "known-hosts.json"))
 	for _, cname := range enabledBackends {
 		cloud, ok := cloudList[cname]
 		if !ok {
@@ -179,6 +187,7 @@ func InternalNew(project string, c *Config, pollInventoryHourly bool, enabledBac
 		if err != nil {
 			return nil, err
 		}
+		cloud.SetHostKeyPolicy(hostKeys, c.SSHStrictHostKey)
 	}
 	b.cache = &cache.Cache{
 		Enabled: b.config.Cache,

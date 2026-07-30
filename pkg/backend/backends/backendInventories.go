@@ -69,6 +69,7 @@ var CacheInvalidateAll = []string{CacheInvalidateVolume, CacheInvalidateInstance
 type Cloud interface {
 	// basics
 	SetConfig(configDir string, credentials *clouds.Credentials, project string, sshKeyDir string, log *logger.Logger, aerolabVersion string, workDir string, invalidateCacheFunc func(names ...string) error, listAllProjects bool) error
+	SetHostKeyPolicy(store *sshexec.HostKeyStore, strict bool)
 	SetInventory(networks NetworkList, firewalls FirewallList, instances InstanceList, volumes VolumeList, images ImageList)
 	ListEnabledZones() ([]string, error)
 	ListAvailableZones() ([]string, error)

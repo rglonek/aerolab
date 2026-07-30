@@ -360,6 +360,37 @@ func (c *WebUICmd) handleFileUpload(w http.ResponseWriter, r *http.Request, cmdP
 	json.NewEncoder(w).Encode(response) //nolint:errcheck
 }
 
+// safeJoinRemote resolves a tar entry name against the upload destination and
+// guarantees the result stays inside it.
+//
+// Archive entries are attacker-controlled and these paths are written over
+// SFTP as root, so an entry such as "../../etc/cron.d/evil" would otherwise be
+// remote code execution on every node.
+func safeJoinRemote(destDir string, entryName string) (string, error) {
+	name := strings.TrimSpace(entryName)
+	if name == "" {
+		return "", fmt.Errorf("archive entry has an empty name")
+	}
+	// Tar always uses forward slashes; normalise Windows-style separators so
+	// they cannot smuggle a traversal past the checks below.
+	name = strings.ReplaceAll(name, "\\", "/")
+	if path.IsAbs(name) {
+		return "", fmt.Errorf("archive entry %q uses an absolute path", entryName)
+	}
+	for _, elem := range strings.Split(name, "/") {
+		if elem == ".." {
+			return "", fmt.Errorf("archive entry %q escapes the destination directory", entryName)
+		}
+	}
+
+	cleanDest := path.Clean(destDir)
+	target := path.Join(cleanDest, path.Clean("/"+name))
+	if target != cleanDest && !strings.HasPrefix(target, cleanDest+"/") {
+		return "", fmt.Errorf("archive entry %q escapes the destination directory", entryName)
+	}
+	return target, nil
+}
+
 // streamTarToRemote extracts a tar.gz stream directly to remote SFTP
 func (c *WebUICmd) streamTarToRemote(sftp *sshexec.Sftp, reader io.Reader, destPath string) error {
 	gzReader, err := gzip.NewReader(reader)
@@ -379,7 +410,10 @@ func (c *WebUICmd) streamTarToRemote(sftp *sshexec.Sftp, reader io.Reader, destP
 			return fmt.Errorf("failed to read tar entry: %w", err)
 		}
 
-		targetPath := path.Join(destPath, header.Name)
+		targetPath, err := safeJoinRemote(destPath, header.Name)
+		if err != nil {
+			return err
+		}
 
 		switch header.Typeflag {
 		case tar.TypeDir:
@@ -389,15 +423,22 @@ func (c *WebUICmd) streamTarToRemote(sftp *sshexec.Sftp, reader io.Reader, destP
 				c.logDebug("mkdir %s: %s", targetPath, err)
 			}
 		case tar.TypeReg:
-			// Stream file content directly to SFTP
+			// Stream file content directly to SFTP. Only the permission bits
+			// are carried over, so an archive cannot plant a setuid binary.
 			err = sftp.WriteFile(true, &sshexec.FileWriter{
 				DestPath:    targetPath,
 				Source:      tarReader,
-				Permissions: header.FileInfo().Mode(),
+				Permissions: header.FileInfo().Mode().Perm(),
 			})
 			if err != nil {
 				return fmt.Errorf("failed to write file %s: %w", targetPath, err)
 			}
+		case tar.TypeSymlink, tar.TypeLink:
+			// A link can point outside the destination, turning a later
+			// well-formed entry into a write anywhere on the filesystem.
+			return fmt.Errorf("archive entry %q is a link, which is not supported for uploads", header.Name)
+		case tar.TypeChar, tar.TypeBlock, tar.TypeFifo:
+			return fmt.Errorf("archive entry %q is a device or FIFO, which is not supported for uploads", header.Name)
 		}
 	}
 

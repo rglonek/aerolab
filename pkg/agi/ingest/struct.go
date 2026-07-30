@@ -460,6 +460,13 @@ type SftpSource struct {
 	KeyFile     string `yaml:"keyFile" envconfig:"LOGINGEST_SFTPSOURCE_KEYFILE"`
 	PathPrefix  string `yaml:"pathPrefix" envconfig:"LOGINGEST_SFTPSOURCE_PATH"`
 	SearchRegex string `yaml:"searchRegex" envconfig:"LOGINGEST_SFTPSOURCE_REGEX"`
+	// HostKeyFingerprint is the server's SHA256 host key fingerprint, captured
+	// by 'aerolab agi create' when it validated the SFTP credentials. Ingest
+	// refuses to connect if the server later presents a different key, so the
+	// SFTP password cannot be harvested by an intercepting host. Empty means
+	// the source predates this check and the key is not verified.
+	HostKeyFingerprint string `yaml:"hostKeyFingerprint" envconfig:"LOGINGEST_SFTPSOURCE_HOSTKEY"`
+
 	searchRegex *regexp.Regexp
 }
 

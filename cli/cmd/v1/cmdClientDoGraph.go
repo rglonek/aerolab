@@ -37,7 +37,7 @@ type ClientCreateGraphCmd struct {
 	RAMMb              int                      `long:"ram-mb" description:"Manually specify amount of RAM MiB to use"`
 	GraphImage         string                   `long:"graph-image" description:"Docker image to use for graph installation" default:"aerospike/aerospike-graph-service"`
 	DockerLoginUser    string                   `long:"docker-user" description:"Login to docker registry for graph installation"`
-	DockerLoginPass    string                   `long:"docker-pass" description:"Login to docker registry for graph installation" webtype:"password"`
+	DockerLoginPass    string                   `long:"docker-pass" description:"Login to docker registry for graph installation" webtype:"password" telemetry:"redact"`
 	DockerLoginURL     string                   `long:"docker-url" description:"Login to docker registry for graph installation"`
 	GraphPrivileged    bool                     `long:"graph-privileged" description:"Force graph to run in privileged docker container mode"`
 	JustDoIt           bool                     `long:"confirm" description:"Confirm any warning questions without being asked" webdisable:"true" webset:"true"`

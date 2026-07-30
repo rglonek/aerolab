@@ -43,8 +43,11 @@ type WebUICmd struct {
 	KeyFile       string `long:"key" description:"Path to TLS key file (required if --https)"`
 	AuthType      string `long:"auth" default:"none" description:"Authentication type: none|basic|token"`
 	BasicAuthUser string `long:"basic-user" default:"admin" description:"Basic auth username"`
-	BasicAuthPass string `long:"basic-pass" default:"" description:"Basic auth password"`
+	BasicAuthPass string `long:"basic-pass" default:"" description:"Basic auth password" telemetry:"redact"`
 	TokenAuthPath string `long:"token-path" default:"" description:"Path to file containing valid tokens (one per line)"`
+
+	InsecureAllowRemoteNoAuth bool `long:"insecure-allow-remote-noauth" description:"DANGEROUS: allow --auth=none on a non-loopback listen address, exposing full command execution and root shells to anyone who can reach the port"`
+
 	CORSOrigins   string `long:"cors-origins" default:"*" description:"Comma-separated list of allowed CORS origins"`
 	ReadTimeout   int    `long:"read-timeout" default:"300" description:"HTTP read timeout in seconds"`
 	WriteTimeout  int    `long:"write-timeout" default:"300" description:"HTTP write timeout in seconds"`
@@ -193,6 +196,25 @@ func (c *WebUICmd) Execute(args []string) error {
 		}
 	default:
 		return Error(fmt.Errorf("invalid auth type: %s (must be none|basic|token)", c.AuthType), system, cmd, c, args)
+	}
+
+	// The Web UI runs arbitrary AeroLab commands, opens root SSH shells and
+	// browses the filesystem. With auth disabled, the loopback bind is the only
+	// thing keeping that off the network, so refuse the combination outright.
+	loopbackBind := isLoopbackListenAddr(c.ListenAddr)
+	if !loopbackBind && !c.isBasicAuth && !c.isTokenAuth {
+		if !c.InsecureAllowRemoteNoAuth {
+			return Error(fmt.Errorf("refusing to listen on %s with --auth=none: the Web UI grants full command execution and root shell access to anyone who can reach it. Use --auth=basic (with --basic-pass) or --auth=token (with --token-path), bind to a loopback address such as 127.0.0.1:3333, or pass --insecure-allow-remote-noauth if you genuinely intend to expose it", c.ListenAddr), system, cmd, c, args)
+		}
+		system.Logger.Warn("SECURITY: listening on %s with authentication disabled; anyone who can reach this port has full command execution and root shell access", c.ListenAddr)
+	}
+	if !loopbackBind {
+		if !c.HTTPS && (c.isBasicAuth || c.isTokenAuth) {
+			system.Logger.Warn("SECURITY: listening on %s without --https; credentials and tokens will cross the network in cleartext", c.ListenAddr)
+		}
+		if strings.TrimSpace(c.CORSOrigins) == "*" {
+			system.Logger.Warn("SECURITY: --cors-origins is '*' on a non-loopback listener; any website a user visits can drive this API. Set --cors-origins to your own origin")
+		}
 	}
 
 	// Build command tree via reflection
@@ -617,6 +639,41 @@ func (c *WebUICmd) loadTokens() error {
 		}
 	}
 	return nil
+}
+
+// isLoopbackListenAddr reports whether a "host:port" listen address reaches
+// only the local machine.
+//
+// It is deliberately conservative: anything it cannot positively prove to be
+// loopback (an empty or wildcard host, an unresolvable name, a name that
+// resolves to any non-loopback address) is treated as network-reachable.
+func isLoopbackListenAddr(addr string) bool {
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		// No port given; treat the whole string as the host.
+		host = addr
+	}
+	host = strings.Trim(strings.TrimSpace(host), "[]")
+
+	// An empty or wildcard host binds every interface.
+	if host == "" || host == "*" || host == "0.0.0.0" || host == "::" {
+		return false
+	}
+
+	if ip := net.ParseIP(host); ip != nil {
+		return ip.IsLoopback()
+	}
+
+	ips, err := net.LookupIP(host)
+	if err != nil || len(ips) == 0 {
+		return false
+	}
+	for _, ip := range ips {
+		if !ip.IsLoopback() {
+			return false
+		}
+	}
+	return true
 }
 
 // allowServerBrowse checks whether the current request is allowed to browse

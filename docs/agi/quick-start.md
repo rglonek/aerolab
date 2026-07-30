@@ -281,9 +281,15 @@ By default, AGI has no authentication (open access). For production use:
 # Generate and add a token
 aerolab agi add-auth-token -n agi --url
 
-# Output shows access URL with token
-# https://1.2.3.4/?token=abc123...
+# Output shows access URL with the token in the URL fragment
+# https://1.2.3.4/agi/menu#AGI_TOKEN=abc123...
 ```
+
+The token is carried in the fragment (after `#`) rather than the query string.
+Browsers never send fragments to the server, so the token stays out of access
+logs, `Referer` headers and proxy history. The AGI auth page reads it from the
+fragment, clears it from the address bar and posts it to set the session
+cookie. Older `?AGI_TOKEN=` links still work.
 
 ### List/Remove Tokens
 

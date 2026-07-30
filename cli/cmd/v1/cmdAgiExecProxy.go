@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"crypto/sha256"
 	"crypto/subtle"
 	"crypto/tls"
 	"encoding/base64"
@@ -67,7 +68,7 @@ type AgiExecProxyCmd struct {
 	ShutdownCommand      string        `short:"c" long:"shutdown-command" default:"/usr/bin/sync; /sbin/poweroff -p || /sbin/poweroff" description:"Command to execute on max uptime or max inactivity being breached" yaml:"shutdownCommand"`
 	AuthType             string        `short:"a" long:"auth-type" default:"none" description:"Authentication type; supported: none|basic|token" yaml:"authType"`
 	BasicAuthUser        string        `short:"u" long:"basic-auth-user" default:"admin" description:"Basic authentication username" yaml:"basicAuthUser"`
-	BasicAuthPass        string        `short:"p" long:"basic-auth-pass" default:"secure" description:"Basic authentication password" yaml:"basicAuthPass"`
+	BasicAuthPass        string        `short:"p" long:"basic-auth-pass" default:"secure" description:"Basic authentication password" yaml:"basicAuthPass" telemetry:"redact"`
 	TokenAuthLocation    string        `short:"t" long:"token-path" default:"/opt/agi/tokens" description:"Directory where tokens are stored for access" yaml:"tokenPath"`
 	TokenName            string        `short:"T" long:"token-name" default:"AGI_TOKEN" description:"Name of the token variable and cookie to use" yaml:"tokenName"`
 	DebugActivityMonitor bool          `short:"D" long:"debug-mode" description:"Set to log activity monitor for debugging" yaml:"debugMode"`
@@ -101,10 +102,28 @@ type AgiExecProxyCmd struct {
 	prettySource       string
 }
 
-// tokens is a thread-safe container for authentication tokens
+// tokens is a thread-safe container for authentication tokens.
+//
+// Only the SHA-256 digests are retained: auth compares fixed-length digests in
+// constant time, so a remote attacker cannot recover a token byte by byte from
+// response timing.
 type tokens struct {
 	sync.RWMutex
-	tokens []string
+	hashes [][sha256.Size]byte
+}
+
+// has reports whether tok is a known token. It compares against every entry
+// without short-circuiting so the runtime does not depend on how many leading
+// bytes matched.
+func (t *tokens) has(tok string) bool {
+	sum := sha256.Sum256([]byte(tok))
+	match := 0
+	t.RLock()
+	for i := range t.hashes {
+		match |= subtle.ConstantTimeCompare(sum[:], t.hashes[i][:])
+	}
+	t.RUnlock()
+	return match == 1
 }
 
 // counter is a thread-safe string counter for tracking connections
@@ -465,7 +484,7 @@ func (c *AgiExecProxyCmd) loadTokensDo(lockEarly bool) {
 		c.tokens.Lock()
 		defer c.tokens.Unlock()
 	}
-	tokens := []string{}
+	hashes := [][sha256.Size]byte{}
 	err := filepath.Walk(c.TokenAuthLocation, func(fpath string, info fs.FileInfo, err error) error {
 		if err != nil {
 			log.Printf("ERROR: error on walk %s: %s", fpath, err)
@@ -483,7 +502,7 @@ func (c *AgiExecProxyCmd) loadTokensDo(lockEarly bool) {
 			log.Printf("ERROR: Token file %s contents too short, minimum token length is 64 characters", fpath)
 			return nil
 		}
-		tokens = append(tokens, string(token))
+		hashes = append(hashes, sha256.Sum256(token))
 		return nil
 	})
 	if err != nil {
@@ -493,7 +512,7 @@ func (c *AgiExecProxyCmd) loadTokensDo(lockEarly bool) {
 	if !lockEarly {
 		c.tokens.Lock()
 	}
-	c.tokens.tokens = tokens
+	c.tokens.hashes = hashes
 	if !lockEarly {
 		c.tokens.Unlock()
 	}
@@ -1286,6 +1305,8 @@ func (c *AgiExecProxyCmd) handleInactivity(w http.ResponseWriter, r *http.Reques
 // checkAuthOnly checks authentication without updating activity timestamp
 func (c *AgiExecProxyCmd) checkAuthOnly(w http.ResponseWriter, r *http.Request) bool {
 	w.Header().Add("Strict-Transport-Security", "max-age=31536000")
+	// Keep the token out of Referer headers on any outbound link or asset.
+	w.Header().Set("Referrer-Policy", "no-referrer")
 	if c.isBasicAuth {
 		user, pass, ok := r.BasicAuth()
 		if !ok {
@@ -1302,17 +1323,24 @@ func (c *AgiExecProxyCmd) checkAuthOnly(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 	if c.isTokenAuth {
-		// if token is provided as form value, set cookie with token value and redirect to self
+		// The token normally arrives as a POST form value from the auth page,
+		// which lifts it out of the URL fragment. A query-string token is
+		// still accepted for links minted by older AeroLab versions.
 		//nolint:errcheck
 		r.ParseForm()
 		t := r.FormValue(c.TokenName)
 		if t != "" {
 			http.SetCookie(w, &http.Cookie{
-				Name:   c.TokenName,
-				Value:  t,
-				MaxAge: 0,
-				Path:   "/",
+				Name:     c.TokenName,
+				Value:    t,
+				MaxAge:   0,
+				Path:     "/",
+				HttpOnly: true,
+				Secure:   c.HTTPS,
+				SameSite: http.SameSiteLaxMode,
 			})
+			// Redirecting to the bare path drops any token that came in via
+			// the query string, so it does not linger in browser history.
 			http.Redirect(w, r, r.URL.Path, http.StatusFound)
 			return false
 		}
@@ -1327,13 +1355,10 @@ func (c *AgiExecProxyCmd) checkAuthOnly(w http.ResponseWriter, r *http.Request) 
 			return false
 		}
 		// actually try to authenticate
-		c.tokens.RLock()
-		if !inslice.HasString(c.tokens.tokens, t) {
-			c.tokens.RUnlock()
+		if !c.tokens.has(t) {
 			c.displayAuthTokenRequest(w, r)
 			return false
 		}
-		c.tokens.RUnlock()
 	}
 	return true
 }
@@ -1347,7 +1372,12 @@ func (c *AgiExecProxyCmd) checkAuth(w http.ResponseWriter, r *http.Request) bool
 	return ret
 }
 
-// displayAuthTokenRequest shows the token authentication form
+// displayAuthTokenRequest shows the token authentication form.
+//
+// Access links carry the token in the URL fragment (#AGI_TOKEN=...), which the
+// browser never transmits. The inline script lifts it out of the fragment,
+// erases it from the address bar and submits it over POST, so the token stays
+// out of access logs, Referer headers and browser history.
 func (c *AgiExecProxyCmd) displayAuthTokenRequest(w http.ResponseWriter, r *http.Request) {
 	tc, err := r.Cookie("X-AGI-CALLER")
 	if err == nil {
@@ -1356,7 +1386,19 @@ func (c *AgiExecProxyCmd) displayAuthTokenRequest(w http.ResponseWriter, r *http
 			return
 		}
 	}
-	w.Write([]byte(`<html><head><title>authenticate</title></head><body><form>Authentication Token: <input type=text name="` + c.TokenName + `"><input type=Submit name="Login" value="Login"></form></body></html>`)) //nolint:errcheck
+	tokenName := html.EscapeString(c.TokenName)
+	tokenNameJS, _ := json.Marshal(c.TokenName)
+	page := `<html><head><title>authenticate</title><meta name="referrer" content="no-referrer"></head><body>` +
+		`<form id="agiauth" method="POST">Authentication Token: ` +
+		`<input type="text" id="agitoken" name="` + tokenName + `">` +
+		`<input type="submit" name="Login" value="Login"></form><script>` +
+		`(function(){var n=` + string(tokenNameJS) + `;var h=window.location.hash;if(!h)return;` +
+		`var p=new URLSearchParams(h.substring(1));var t=p.get(n);if(!t)return;` +
+		`history.replaceState(null,"",window.location.pathname+window.location.search);` +
+		`document.getElementById("agitoken").value=t;document.getElementById("agiauth").submit();})();` +
+		`</script></body></html>`
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Write([]byte(page)) //nolint:errcheck
 }
 
 // grafanaHandler proxies requests to Grafana

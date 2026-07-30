@@ -37,7 +37,7 @@ type CloudClustersCredentialsCreateCmd struct {
 	Help      HelpCmd  `command:"help" subcommands-optional:"true" description:"Print help"`
 	ClusterID string   `short:"c" long:"cluster-id" description:"Cluster ID"`
 	Username  string   `short:"u" long:"username" description:"Username"`
-	Password  string   `short:"p" long:"password" description:"Password"`
+	Password  string   `short:"p" long:"password" description:"Password" telemetry:"redact"`
 	Roles     []string `short:"r" long:"roles" description:"Roles (read, write, read-write)" default:"read-write"`
 	Wait      bool     `short:"w" long:"wait" description:"Wait for credentials to become active"`
 }

@@ -106,7 +106,7 @@ type AgiMonitorConfigCmd struct {
 	// Notifications
 	NotifyURL    string `long:"notify-url" description:"Optional: specify a notification URL to send action notifications to"`
 	NotifyHeader string `long:"notify-header" description:"Optional: set a header in the notification; format: key=value"`
-	SlackToken   string `long:"notify-slack-token" description:"Set to enable slack notifications for events"`
+	SlackToken   string `long:"notify-slack-token" description:"Set to enable slack notifications for events" telemetry:"redact"`
 	SlackChannel string `long:"notify-slack-channel" description:"Set to the channel to notify to"`
 
 	// Internal state (not exposed as flags)
@@ -190,8 +190,8 @@ type AgiMonitorCreateCmdAws struct {
 	Route53DomainName string        `long:"route53-fqdn" description:"The route domain the zone refers to; eg monitor.eu-west-1.myagi.org"`
 	Expires           TypeExpiry     `long:"expire" description:"Instance expiry (0 for never)" default:"0"`
 	// AWS credentials - alternative to using instance profile
-	AWSKeyId     string `long:"key-id" description:"AWS Access Key ID; alternative to using --role instance profile; use ENV::VARNAME to read from environment variable"`
-	AWSSecretKey string `long:"secret-key" description:"AWS Secret Access Key; alternative to using --role instance profile; use ENV::VARNAME to read from environment variable"`
+	AWSKeyId     string `long:"key-id" description:"AWS Access Key ID; alternative to using --role instance profile; use ENV::VARNAME to read from environment variable" telemetry:"redact"`
+	AWSSecretKey string `long:"secret-key" description:"AWS Secret Access Key; alternative to using --role instance profile; use ENV::VARNAME to read from environment variable" telemetry:"redact"`
 }
 
 // AgiMonitorCreateCmdGcp contains GCP-specific options for monitor creation.

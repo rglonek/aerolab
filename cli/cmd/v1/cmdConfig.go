@@ -8,6 +8,7 @@ type ConfigCmd struct {
 	Gcp      ConfigGcpCmd      `command:"gcp" subcommands-optional:"true" description:"GCP-only related management commands" webicon:"fa-brands fa-google"`
 	EnvVars  ConfigEnvVarsCmd  `command:"env-vars" subcommands-optional:"true" description:"Show the environment variables and how they are set" webicon:"fas fa-gear"`
 	Migrate  ConfigMigrateCmd  `command:"migrate" subcommands-optional:"true" description:"Migrate the configuration to the new AeroLab v8" webicon:"fas fa-arrow-right-to-city"`
+	HostKeys ConfigHostKeysCmd `command:"host-keys" subcommands-optional:"true" description:"Inspect or prune remembered SSH host keys" webicon:"fas fa-fingerprint"`
 	Help     HelpCmd           `command:"help" subcommands-optional:"true" description:"Print help"`
 }
 

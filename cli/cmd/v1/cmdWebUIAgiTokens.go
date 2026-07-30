@@ -5,7 +5,6 @@ package cmd
 import (
 	"bytes"
 	"fmt"
-	"math/rand"
 	"strings"
 	"sync"
 	"time"
@@ -86,9 +85,17 @@ func (w *WebUICmd) getOrCreateAgiToken(name string, inst *backends.Instance) (st
 		return token, nil
 	}
 
-	// Generate token
-	token := generateRandomToken(128, rand.NewSource(time.Now().UnixNano()))
-	tokenName := fmt.Sprintf("webui-%d", time.Now().UnixNano())
+	// Generate token. The file name must not encode the creation time, since
+	// a known mint time narrows the search space for guessing the token.
+	token, err := generateRandomToken(128)
+	if err != nil {
+		return "", fmt.Errorf("could not generate token: %w", err)
+	}
+	tokenID, err := generateRandomID(8)
+	if err != nil {
+		return "", fmt.Errorf("could not generate token name: %w", err)
+	}
+	tokenName := "webui-" + tokenID
 
 	// Write token to the AGI instance via SFTP
 	confs, err := backends.InstanceList{inst}.GetSftpConfig("root")
@@ -193,13 +200,15 @@ func (w *WebUICmd) buildAgiBaseURL(inst *backends.Instance) (string, error) {
 }
 
 // buildAgiTokenURLBase constructs the URL prefix for token-based AGI access.
-// Returns the base URL with the /agi/menu?AGI_TOKEN= path appended.
+// The token is carried in the URL fragment rather than the query string:
+// browsers never send fragments to the server, so the token cannot leak into
+// access logs or Referer headers.
 func (w *WebUICmd) buildAgiTokenURLBase(inst *backends.Instance) (string, error) {
 	base, err := w.buildAgiBaseURL(inst)
 	if err != nil {
 		return "", err
 	}
-	return base + "/agi/menu?AGI_TOKEN=", nil
+	return base + "/agi/menu#AGI_TOKEN=", nil
 }
 
 // runAgiTokenCleanupLoop periodically removes cached tokens for AGI instances

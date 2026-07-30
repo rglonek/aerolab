@@ -2,6 +2,8 @@ package connect
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -140,7 +142,7 @@ func getOAuth2Client(log *logger.Logger, tokenCacheFilePath string, browser bool
 		var err error
 		token, err = tokenFromFile(tokenCacheFilePath)
 		if err == nil {
-			log.Debug("Using cached access token: %s", token.AccessToken)
+			log.Debug("Using cached access token: %s", tokenFingerprint(token.AccessToken))
 			return config.Client(context.Background(), token), nil
 		}
 	}
@@ -218,7 +220,7 @@ func getOAuth2Client(log *logger.Logger, tokenCacheFilePath string, browser bool
 
 	// Wait for the token.
 	token = <-tokenChan
-	log.Debug("Access Token: %s\n", token.AccessToken)
+	log.Debug("Access token obtained: %s", tokenFingerprint(token.AccessToken))
 
 	// Save the token for future use.
 	if tokenCacheFilePath != "" {
@@ -252,4 +254,17 @@ func saveToken(file string, token *oauth2.Token) error {
 	}
 	defer f.Close()
 	return json.NewEncoder(f).Encode(token)
+}
+
+// tokenFingerprint renders an OAuth access token as a short digest plus its
+// length. Debug logs are routinely pasted into bug reports and shipped to log
+// aggregators, and a raw bearer token in one grants whoever reads it the same
+// cloud access the user has. The digest is enough to tell two tokens apart or
+// confirm that a refresh happened.
+func tokenFingerprint(accessToken string) string {
+	if accessToken == "" {
+		return "<empty>"
+	}
+	sum := sha256.Sum256([]byte(accessToken))
+	return fmt.Sprintf("sha256:%s (len %d)", hex.EncodeToString(sum[:])[:12], len(accessToken))
 }

@@ -154,14 +154,13 @@ func (c *WebUICmd) handleTerminalWS(w http.ResponseWriter, r *http.Request) {
 		return wsConn.WriteMessage(msgType, data)
 	}
 
-	// Establish SSH connection
-	sshConfig, err := makeSshClientConfig(sshConf)
-	if err != nil {
-		wsWrite(websocket.TextMessage, []byte("\r\n*** SSH config error: "+err.Error()+" ***\r\n"))
-		return
+	// Establish SSH connection. sshexec.Dial is used rather than ssh.Dial so
+	// this path inherits host key verification and any custom dialer the
+	// backend configured, such as GCP IAP.
+	if sshConf.ConnectTimeout == 0 {
+		sshConf.ConnectTimeout = 10 * time.Second
 	}
-
-	sshConn, err := ssh.Dial("tcp", fmt.Sprintf("%s:%d", sshConf.Host, sshConf.Port), sshConfig)
+	sshConn, err := sshexec.Dial(sshConf)
 	if err != nil {
 		wsWrite(websocket.TextMessage, []byte("\r\n*** SSH connection failed: "+err.Error()+" ***\r\n"))
 		return
@@ -277,28 +276,4 @@ func (c *WebUICmd) handleTerminalWS(w http.ResponseWriter, r *http.Request) {
 	wsWrite(websocket.TextMessage, []byte("\r\n*** Session ended ***\r\n"))
 	wsWrite(websocket.CloseMessage,
 		websocket.FormatCloseMessage(websocket.CloseNormalClosure, "session ended"))
-}
-
-// makeSshClientConfig creates an ssh.ClientConfig from an sshexec.ClientConf
-func makeSshClientConfig(conf *sshexec.ClientConf) (*ssh.ClientConfig, error) {
-	config := &ssh.ClientConfig{
-		User:            conf.Username,
-		Auth:            []ssh.AuthMethod{},
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-		Timeout:         10 * time.Second,
-	}
-	if len(conf.PrivateKey) > 0 {
-		signer, err := ssh.ParsePrivateKey(conf.PrivateKey)
-		if err != nil {
-			return nil, fmt.Errorf("unable to parse private key: %v", err)
-		}
-		config.Auth = append(config.Auth, ssh.PublicKeys(signer))
-	}
-	if conf.Password != "" {
-		config.Auth = append(config.Auth, ssh.Password(conf.Password))
-	}
-	if conf.ConnectTimeout != 0 {
-		config.Timeout = conf.ConnectTimeout
-	}
-	return config, nil
 }

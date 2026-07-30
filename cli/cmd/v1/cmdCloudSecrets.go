@@ -28,7 +28,7 @@ func (c *CloudSecretsListCmd) Execute(args []string) error {
 type CloudSecretsCreateCmd struct {
 	Name        string  `short:"n" long:"name" description:"Secret name" webicon:"fas fa-plus"`
 	Description string  `short:"d" long:"description" description:"Secret description" webicon:"fas fa-info"`
-	Value       string  `short:"v" long:"value" description:"Secret value"`
+	Value       string  `short:"v" long:"value" description:"Secret value" telemetry:"redact"`
 	Help        HelpCmd `command:"help" subcommands-optional:"true" description:"Print help"`
 }
 

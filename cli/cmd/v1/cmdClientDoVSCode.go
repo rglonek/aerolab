@@ -17,7 +17,7 @@ import (
 
 type ClientCreateVSCodeCmd struct {
 	ClientCreateNoneCmd
-	VSCodePassword string `long:"vscode-password" description:"VSCode password for web access; leave empty for no password" default:""`
+	VSCodePassword string `long:"vscode-password" description:"VSCode password for web access; leave empty for no password" default:"" telemetry:"redact"`
 	Kernels        string `short:"k" long:"kernels" description:"Comma-separated list of language kernels to install; options: go,python,java,dotnet; default: all kernels" default:""`
 }
 

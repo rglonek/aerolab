@@ -145,7 +145,7 @@ func getOAuth2Credentials(log *logger.Logger, tokenCacheFilePath string, browser
 		var err error
 		token, err = tokenFromFile(tokenCacheFilePath)
 		if err == nil {
-			log.Debug("Using cached access token: %s", token.AccessToken)
+			log.Debug("Using cached access token: %s", tokenFingerprint(token.AccessToken))
 			ts := config.TokenSource(context.Background(), token)
 			return &google.Credentials{TokenSource: ts}, nil
 		}
@@ -224,7 +224,7 @@ func getOAuth2Credentials(log *logger.Logger, tokenCacheFilePath string, browser
 
 	// Wait for the token.
 	token = <-tokenChan
-	log.Debug("Access Token: %s\n", token.AccessToken)
+	log.Debug("Access token obtained: %s", tokenFingerprint(token.AccessToken))
 
 	// Save the token for future use.
 	if tokenCacheFilePath != "" {

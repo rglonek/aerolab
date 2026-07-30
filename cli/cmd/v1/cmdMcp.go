@@ -27,7 +27,7 @@ import (
 type McpCmd struct {
 	Transport              string   `long:"transport" description:"MCP transport: stdio|http" default:"stdio" webchoice:"stdio,http"`
 	Addr                   string   `long:"addr" description:"HTTP listen address (used when --transport=http)" default:"localhost:9190"`
-	AuthToken              string   `long:"auth-token" env:"AEROLAB_MCP_AUTH_TOKEN" description:"Bearer token for the HTTP transport. Required when --transport=http; the server refuses to start without it. Unused by the stdio transport"`
+	AuthToken              string   `long:"auth-token" env:"AEROLAB_MCP_AUTH_TOKEN" description:"Bearer token for the HTTP transport. Required when --transport=http; the server refuses to start without it. Unused by the stdio transport" telemetry:"redact"`
 	Profile                string   `long:"profile" description:"Tool profile controlling what operations are permitted" default:"standard" webchoice:"read-only,standard,admin"`
 	Binary                 string   `long:"binary" description:"Path to the aerolab binary invoked for tool execution (defaults to the current executable)"`
 	InitBackend            bool     `long:"init-backend" description:"Initialize the configured backend on startup so dynamic choices (zones, instance types, VPCs) can be resolved"`

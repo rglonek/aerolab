@@ -33,6 +33,7 @@ aerolab webui --user-header X-User
 | `--basic-user` | `admin` | Basic auth username |
 | `--basic-pass` | | Basic auth password (required if --auth=basic) |
 | `--token-path` | | Path to file containing valid tokens, one per line (required if --auth=token) |
+| `--insecure-allow-remote-noauth` | `false` | Allow `--auth=none` on a non-loopback listen address (dangerous, see below) |
 | `--cors-origins` | `*` | Comma-separated list of allowed CORS origins |
 | `--read-timeout` | `300` | HTTP read timeout in seconds |
 | `--write-timeout` | `300` | HTTP write timeout in seconds |
@@ -555,6 +556,28 @@ The `command.json` file contains:
 aerolab webui --auth none
 ```
 
+`--auth none` is only permitted on a loopback listen address such as
+`127.0.0.1:3333` (the default) or `[::1]:3333`. On any other address AeroLab
+refuses to start:
+
+```
+refusing to listen on 0.0.0.0:3333 with --auth=none: the Web UI grants full
+command execution and root shell access to anyone who can reach it.
+```
+
+The Web UI executes arbitrary AeroLab commands, opens root SSH shells and
+browses the local filesystem, so an unauthenticated non-loopback listener is
+equivalent to an open root shell on the network. Choose one of:
+
+- `--auth basic --basic-pass <password>`
+- `--auth token --token-path <file>`
+- keep the default loopback bind and reach it over an SSH tunnel
+- `--insecure-allow-remote-noauth` to override the refusal anyway
+
+AeroLab also warns, without refusing, when a non-loopback listener uses
+basic or token auth without `--https` (credentials cross the network in
+cleartext), and when `--cors-origins` is left at `*` on a non-loopback bind.
+
 ### Basic Authentication
 
 ```bash
@@ -898,9 +921,10 @@ The REST API is implemented in these files:
 
 ## Security Considerations
 
-1. **Authentication** - Always use `--auth basic` or `--auth token` in production
-2. **HTTPS** - Use `--https` with valid certificates for encrypted connections
-3. **CORS** - Restrict `--cors-origins` to specific domains in production
+1. **Authentication** - Always use `--auth basic` or `--auth token` in production. `--auth none` is refused outright on a non-loopback bind
+2. **HTTPS** - Use `--https` with valid certificates for encrypted connections; without it, basic credentials and tokens cross the network in cleartext
+3. **CORS** - Restrict `--cors-origins` to specific domains in production; the default `*` lets any site a user visits drive this API
 4. **Network** - Bind to specific interfaces (e.g., `--listen 127.0.0.1:8080`)
 5. **Tokens** - Use tokens at least 64 characters long for security
 6. **User Header** - Only trust `--user-header` behind authenticated proxies
+7. **Uploads** - Archive uploads are constrained to the destination directory; entries that traverse out of it, and symlink, hardlink, device or FIFO entries, are rejected

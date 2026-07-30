@@ -18,6 +18,7 @@ import (
 	"github.com/aerospike/aerolab/pkg/backend/backends"
 	"github.com/aerospike/aerolab/pkg/backend/clouds"
 	"github.com/aerospike/aerolab/pkg/backend/clouds/bgcp/connect"
+	"github.com/aerospike/aerolab/pkg/sshexec"
 	"github.com/aerospike/aerolab/pkg/utils/counters"
 	"github.com/aerospike/aerolab/pkg/utils/file"
 	"github.com/lithammer/shortuuid"
@@ -45,10 +46,47 @@ type b struct {
 	allZones            []string
 	defaultFWCreateLock sync.Mutex
 	createInstanceCount *counters.Int
+	hostKeys            *sshexec.HostKeyStore
+	hostKeysStrict      bool
 }
 
 func init() {
 	backends.RegisterBackend(backends.BackendTypeGCP, &b{})
+}
+
+func (s *b) SetHostKeyPolicy(store *sshexec.HostKeyStore, strict bool) {
+	s.hostKeys = store
+	s.hostKeysStrict = strict
+}
+
+// applyHostKeyPolicy points an SSH client config at the host key store so the
+// connection is verified against the key previously learned for this instance.
+func (s *b) applyHostKeyPolicy(clientConf *sshexec.ClientConf, i *backends.Instance) {
+	if s.hostKeys == nil {
+		return
+	}
+	id := i.HostKeyID()
+	if id == "" {
+		return
+	}
+	clientConf.HostKeyStore = s.hostKeys
+	clientConf.HostKeyID = id
+	clientConf.HostKeyStrict = s.hostKeysStrict
+	if s.log != nil {
+		clientConf.HostKeyLogf = s.log.Warn
+	}
+}
+
+// forgetHostKeys drops remembered host keys for the given instances. Called
+// when instances are created or terminated, so a node number that comes back
+// on fresh hardware is learned again instead of tripping a mismatch.
+func (s *b) forgetHostKeys(ids ...string) {
+	if s.hostKeys == nil || len(ids) == 0 {
+		return
+	}
+	if err := s.hostKeys.Forget(ids...); err != nil && s.log != nil {
+		s.log.Warn("Could not update the SSH host key store: %s", err)
+	}
 }
 
 func (s *b) SetInventory(networks backends.NetworkList, firewalls backends.FirewallList, instances backends.InstanceList, volumes backends.VolumeList, images backends.ImageList) {

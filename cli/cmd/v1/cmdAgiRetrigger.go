@@ -44,7 +44,7 @@ type AgiRetriggerCmd struct {
 	SftpHost    *string `long:"source-sftp-host" description:"SFTP host"`
 	SftpPort    *int    `long:"source-sftp-port" description:"SFTP port"`
 	SftpUser    *string `long:"source-sftp-user" description:"SFTP user"`
-	SftpPass    *string `long:"source-sftp-pass" description:"SFTP password (supports ENV::VAR_NAME)" webtype:"password"`
+	SftpPass    *string `long:"source-sftp-pass" description:"SFTP password (supports ENV::VAR_NAME)" webtype:"password" telemetry:"redact"`
 	SftpKey     *string `long:"source-sftp-key" description:"Key file for SFTP login"`
 	SftpPath    *string `long:"source-sftp-path" description:"Path on SFTP to download logs from"`
 	SftpRegex   *string `long:"source-sftp-regex" description:"Regex to filter files to download"`
@@ -54,8 +54,8 @@ type AgiRetriggerCmd struct {
 	S3Threads *int    `long:"source-s3-threads" description:"Number of concurrent downloader threads"`
 	S3Region  *string `long:"source-s3-region" description:"AWS region where S3 bucket is located; ignored if --source-s3-bucket uses the 'region:name' form"`
 	S3Bucket  *string `long:"source-s3-bucket" description:"S3 bucket name; may also be given as 'region:name' to embed the region (overrides --source-s3-region)"`
-	S3KeyID   *string `long:"source-s3-key-id" description:"AWS access key ID (supports ENV::VAR_NAME)"`
-	S3Secret  *string `long:"source-s3-secret-key" description:"AWS secret key (supports ENV::VAR_NAME)" webtype:"password"`
+	S3KeyID   *string `long:"source-s3-key-id" description:"AWS access key ID (supports ENV::VAR_NAME)" telemetry:"redact"`
+	S3Secret  *string `long:"source-s3-secret-key" description:"AWS secret key (supports ENV::VAR_NAME)" webtype:"password" telemetry:"redact"`
 	S3Path    *string `long:"source-s3-path" description:"Path prefix in S3 bucket"`
 	S3Regex   *string `long:"source-s3-regex" description:"Regex to filter files to download"`
 

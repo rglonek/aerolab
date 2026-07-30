@@ -187,6 +187,35 @@ type Instance struct {
 	BackendSpecific  any               `yaml:"backendSpecific" json:"backendSpecific"` // each backend can use this for their own specific needs not relating to the overall Volume definition, like mountatarget IDs, FileSystemArn, etc
 }
 
+// HostKeyID returns the stable identity this instance's SSH host key is
+// remembered against.
+//
+// The cluster UUID plus node number survives stop/start and address changes,
+// which is exactly when a hostname- or IP-keyed known_hosts entry would go
+// stale. It is deliberately reused when a node is destroyed and re-created with
+// the same number, so the create and terminate paths forget the old entry and
+// the replacement is learned fresh.
+//
+// An instance with no cluster UUID (pre-v8 resources, or backends that did not
+// record one) returns an empty string, which disables verification for it
+// rather than colliding with another instance's entry.
+func (i *Instance) HostKeyID() string {
+	if i == nil || i.ClusterUUID == "" {
+		return ""
+	}
+	return HostKeyID(i.BackendType, i.ClusterUUID, i.NodeNo)
+}
+
+// HostKeyID builds a host key store identity from its parts. Callers that know
+// the cluster UUID and node numbers before an instance exists (the create path)
+// use this to forget stale entries.
+func HostKeyID(backendType BackendType, clusterUUID string, nodeNo int) string {
+	if clusterUUID == "" {
+		return ""
+	}
+	return fmt.Sprintf("%s/%s/%d", backendType, clusterUUID, nodeNo)
+}
+
 // UnmarshalJSON implements custom JSON unmarshaling for Instance to handle AttachedVolumes
 func (i *Instance) UnmarshalJSON(data []byte) error {
 	// Create a temporary struct with AttachedVolumes as VolumeList for unmarshaling

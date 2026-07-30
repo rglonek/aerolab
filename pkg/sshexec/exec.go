@@ -52,6 +52,19 @@ type ClientConf struct {
 	// ssh.NewClientConn for the host-key entry / known_hosts. Used for IAP and
 	// other tunnels that produce a pre-connected net.Conn.
 	Dialer func(ctx context.Context) (net.Conn, error)
+
+	// HostKeyStore, when set together with HostKeyID, enables trust-on-first-use
+	// host key verification. Leaving either empty preserves the unverified
+	// behaviour, which is what external hosts AeroLab does not manage still get.
+	HostKeyStore *HostKeyStore
+	// HostKeyID is the stable identity the host key is remembered against,
+	// typically "<backend>/<clusterUUID>/<nodeNo>".
+	HostKeyID string
+	// HostKeyStrict refuses the connection on a key mismatch instead of
+	// warning through HostKeyLogf and relearning.
+	HostKeyStrict bool
+	// HostKeyLogf receives host key warnings. When nil, warnings are dropped.
+	HostKeyLogf func(format string, args ...any)
 }
 
 type Env struct {
@@ -286,6 +299,18 @@ func ExecRun(session *ssh.Session, conn *ssh.Client, i *ExecInput) *ExecOutput {
 	return out
 }
 
+// Dial opens an SSH connection using the shared client configuration. Callers
+// that need a raw *ssh.Client should use this rather than ssh.Dial directly,
+// so they inherit host key verification and any custom dialer (such as GCP
+// IAP) configured on the ClientConf.
+func Dial(i *ClientConf) (*ssh.Client, error) {
+	config, err := makeClientConfig(i)
+	if err != nil {
+		return nil, err
+	}
+	return dialSSH(i, fmt.Sprintf("%s:%d", i.Host, i.Port), config)
+}
+
 func ExecPrepare(i *ExecInput) (session *ssh.Session, conn *ssh.Client, err error) {
 	// get client config
 	config, err := makeClientConfig(&i.ClientConf)
@@ -465,10 +490,17 @@ func init() {
 }
 
 func makeClientConfig(i *ClientConf) (*ssh.ClientConfig, error) {
+	// Hosts AeroLab tracks get trust-on-first-use verification against the
+	// host key store. Everything else (user-supplied external hosts) keeps the
+	// previous unverified behaviour.
+	hostKeyCallback := ssh.InsecureIgnoreHostKey()
+	if i.HostKeyStore != nil && i.HostKeyID != "" {
+		hostKeyCallback = i.HostKeyStore.callback(i.HostKeyID, i.HostKeyStrict, i.HostKeyLogf)
+	}
 	config := &ssh.ClientConfig{
 		User:            i.Username,
 		Auth:            []ssh.AuthMethod{},
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		HostKeyCallback: hostKeyCallback,
 	}
 	if len(i.PrivateKey) > 0 {
 		signer, err := ssh.ParsePrivateKey(i.PrivateKey)

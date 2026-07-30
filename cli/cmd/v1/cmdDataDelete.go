@@ -29,7 +29,7 @@ type DataDeleteCmd struct {
 	RunDirect        bool              `short:"d" long:"run-direct" description:"If set, will run directly from current machine"`
 	UseMultiThreaded int               `short:"u" long:"multi-thread" description:"Number of threads for processing" default:"0"`
 	User             string            `short:"U" long:"username" description:"Aerospike username" default:""`
-	Pass             string            `short:"P" long:"password" description:"Aerospike password" default:""`
+	Pass             string            `short:"P" long:"password" description:"Aerospike password" default:"" telemetry:"redact"`
 	Version          TypeClientVersion `short:"v" long:"version" description:"Aerospike library version: 8" default:"8" webchoice:"8"`
 	AuthExternal     bool              `short:"Q" long:"auth-external" description:"Use external auth method"`
 	TlsCaCert        string            `short:"y" long:"tls-ca-cert" description:"TLS CA certificate path" default:""`

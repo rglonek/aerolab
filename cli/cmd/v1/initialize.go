@@ -185,18 +185,21 @@ func Initialize(i *Init, command []string, params any, args ...string) (*System,
 	// create directory if it does not exist
 	dir := filepath.Dir(cfgFile)
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		err = os.MkdirAll(dir, 0755)
+		err = os.MkdirAll(dir, 0700)
 		if err != nil {
 			return s, err
 		}
 	}
 
-	// if the config file does not exist, create it
+	// The config file holds cloud credentials and passwords, so it must not be
+	// readable by other users on the machine.
 	if _, err := os.Stat(cfgFile); os.IsNotExist(err) {
-		err = os.WriteFile(cfgFile, []byte(""), 0644)
+		err = os.WriteFile(cfgFile, []byte(""), 0600)
 		if err != nil {
 			return s, err
 		}
+	} else if err == nil {
+		tightenConfigPermissions(cfgFile)
 	}
 
 	// parse the ini file
@@ -474,6 +477,7 @@ func (i *Init) backend(s *System, pollInventoryHourly bool) error {
 		ListAllProjects:  i.Backend.ListAllProjects,
 		CustomSSHKeyPath: string(s.Opts.Config.Backend.SshKeyPath),
 		PollInterval:     i.Backend.PollInterval,
+		SSHStrictHostKey: s.Opts.Config.Backend.SSHStrictHostKey,
 	}
 	b, err := backend.New(project, config, i.Backend.PollInventoryHourly, backendList, i.ExistingInventory)
 	if err != nil {
@@ -524,11 +528,32 @@ func writeConfigFile(system *System) error {
 	if err != nil {
 		return err
 	}
-	err = os.WriteFile(cfgFile+".ts", []byte(time.Now().Format(time.RFC3339)), 0644)
+	// go-flags creates the file with os.Create (0666 before umask), so the
+	// mode has to be corrected afterwards.
+	if err := os.Chmod(cfgFile, 0600); err != nil {
+		return fmt.Errorf("could not set permissions on %s: %w", cfgFile, err)
+	}
+	err = os.WriteFile(cfgFile+".ts", []byte(time.Now().Format(time.RFC3339)), 0600)
 	if err != nil {
 		return err
 	}
 	return nil
+}
+
+// tightenConfigPermissions removes group and other access from an existing
+// config file. Installations created by earlier versions left it world
+// readable, and it contains cloud credentials and passwords.
+func tightenConfigPermissions(cfgFile string) {
+	info, err := os.Stat(cfgFile)
+	if err != nil {
+		return
+	}
+	if info.Mode().Perm()&0077 == 0 {
+		return
+	}
+	if err := os.Chmod(cfgFile, info.Mode().Perm()&0700); err != nil {
+		log.Printf("WARNING: could not restrict permissions on %s: %s", cfgFile, err)
+	}
 }
 
 func ConfigFileName() (cfgFile string, err error) {

@@ -7,6 +7,7 @@ Configuration commands allow you to configure Aerolab backends, defaults, and ba
 - `config backend` - Configure backend (Docker, AWS, GCP)
 - `config defaults` - Set default configuration values
 - `config env-vars` - Show environment variables
+- `config host-keys` - Inspect and prune remembered SSH host keys
 - `config migrate` - Migrate configuration from v7 to v8
 - `config docker` - Docker-specific configuration
 - `config aws` - AWS-specific configuration
@@ -30,6 +31,7 @@ aerolab config backend -t docker
 | `-r, --region` | Regions (comma-separated for multiple) |
 | `-c, --inventory-cache` | Enable inventory cache |
 | `-p, --key-path` | Custom SSH key path (default: `~/.config/aerolab`) |
+| `--ssh-strict-host-key` | Refuse to connect when an instance presents a different SSH host key than the one remembered (default: warn and relearn) |
 | `--skip-pricing` | AWS/GCP: skip all cost/pricing lookups. Instance-type and volume catalogs are still returned (needed for create), just without prices. Useful under GCP Workload Identity Federation (the billing API rejects federated tokens) or whenever the caller lacks pricing permissions |
 | `--check-access` | Check access to backend |
 
@@ -142,6 +144,64 @@ aerolab config backend -t aws --check-access
 ```
 
 Verifies you have access to the configured backend.
+
+## SSH Host Key Verification
+
+AeroLab remembers each instance's SSH host key the first time it connects to it
+(trust on first use) and checks it on every later connection, so a machine that
+answers on a recycled IP cannot silently impersonate one of your nodes.
+
+Keys are stored per project in `~/.config/aerolab/projects/<project>/known-hosts.json`
+(mode `0600`) and keyed by backend, cluster UUID and node number, so node
+numbers reused across clusters never collide. AeroLab forgets a key
+automatically when the instance is created or terminated; only a node rebuilt
+behind AeroLab's back produces a mismatch.
+
+By default a mismatch prints a loud warning with both fingerprints and then
+relearns the new key. To make it a hard failure instead:
+
+```bash
+aerolab config backend --ssh-strict-host-key
+```
+
+Clear it again with `--ssh-strict-host-key=false`.
+
+## Config Host-Keys
+
+Inspect and prune the remembered host keys — the recovery path when a legitimate
+rebuild trips strict mode.
+
+### List Remembered Keys
+
+```bash
+aerolab config host-keys list
+```
+
+Prints the ID, key type, SHA256 fingerprint, host and learn time for each entry,
+plus a note for any key that replaced a previous fingerprint.
+
+### Forget Keys
+
+```bash
+# Forget every node of a cluster
+aerolab config host-keys forget -n mydc
+
+# Forget specific nodes
+aerolab config host-keys forget -n mydc -l 2,3
+
+# Forget everything in this project
+aerolab config host-keys forget --all
+```
+
+| Option | Description |
+|--------|-------------|
+| `-n, --name` | Cluster names, comma separated; forgets every node unless `--nodes` is given |
+| `-l, --nodes` | Nodes list, comma separated. Empty=ALL |
+| `--all` | Forget every remembered host key in this project |
+
+Forgotten keys are relearned on the next connection. `--all` works without
+contacting the backend; forgetting by cluster name needs the inventory to
+resolve names to cluster UUIDs.
 
 ## Config Defaults
 

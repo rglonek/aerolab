@@ -52,6 +52,8 @@ type FakeCloud struct {
 	TerminatedInstances backends.InstanceList
 	StoppedInstances    backends.InstanceList
 	StartedInstances    backends.InstanceList
+	HostKeyStore        *sshexec.HostKeyStore
+	HostKeyStrict       bool
 }
 
 func (f *FakeCloud) record(name string) {
@@ -97,6 +99,11 @@ func (f *FakeCloud) Reset() {
 func (f *FakeCloud) SetConfig(configDir string, credentials *clouds.Credentials, project string, sshKeyDir string, log *logger.Logger, aerolabVersion string, workDir string, invalidateCacheFunc func(names ...string) error, listAllProjects bool) error {
 	f.record("SetConfig")
 	return f.err("SetConfig")
+}
+
+func (f *FakeCloud) SetHostKeyPolicy(store *sshexec.HostKeyStore, strict bool) {
+	f.record("SetHostKeyPolicy")
+	f.HostKeyStore, f.HostKeyStrict = store, strict
 }
 
 func (f *FakeCloud) SetInventory(networks backends.NetworkList, firewalls backends.FirewallList, instances backends.InstanceList, volumes backends.VolumeList, images backends.ImageList) {

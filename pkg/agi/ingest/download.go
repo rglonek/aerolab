@@ -2,6 +2,7 @@ package ingest
 
 import (
 	"context"
+	"crypto/subtle"
 	"fmt"
 	"io"
 	"maps"
@@ -253,10 +254,11 @@ func (i *Ingest) downloadS3File(client *s3.Client, f string) error {
 
 func (i *Ingest) DownloadAsftp() error {
 	client := &SSH{
-		Ip:   fmt.Sprintf("%s:%d", i.config.Downloader.SftpSource.Host, i.config.Downloader.SftpSource.Port),
-		User: i.config.Downloader.SftpSource.Username,
-		Cert: i.config.Downloader.SftpSource.KeyFile,
-		Pass: i.config.Downloader.SftpSource.Password,
+		Ip:                 fmt.Sprintf("%s:%d", i.config.Downloader.SftpSource.Host, i.config.Downloader.SftpSource.Port),
+		User:               i.config.Downloader.SftpSource.Username,
+		Cert:               i.config.Downloader.SftpSource.KeyFile,
+		Pass:               i.config.Downloader.SftpSource.Password,
+		HostKeyFingerprint: i.config.Downloader.SftpSource.HostKeyFingerprint,
 	}
 	mode := 2
 	if i.config.Downloader.SftpSource.Password != "" {
@@ -398,11 +400,15 @@ func sftpDownload(sclient *sftp.Client, f string, dstDir string) error {
 }
 
 type SSH struct {
-	Ip     string
-	User   string
-	Cert   string // key file path
-	Pass   string // password
-	client *ssh.Client
+	Ip   string
+	User string
+	Cert string // key file path
+	Pass string // password
+	// HostKeyFingerprint is the expected SHA256 host key fingerprint. When set,
+	// a server presenting any other key is refused; when empty, the key is
+	// accepted unverified and a warning is logged.
+	HostKeyFingerprint string
+	client             *ssh.Client
 }
 
 func (ssh_client *SSH) readPublicKeyFile(file string) (ssh.AuthMethod, error) {
@@ -439,6 +445,14 @@ func (ssh_client *SSH) Connect(mode int) error {
 		User: ssh_client.User,
 		Auth: auth,
 		HostKeyCallback: func(hostname string, remote net.Addr, key ssh.PublicKey) error {
+			actual := ssh.FingerprintSHA256(key)
+			if ssh_client.HostKeyFingerprint == "" {
+				log.Printf("WARNING: no SFTP host key fingerprint configured for %s, accepting %s unverified; recreate the AGI instance to pin it", hostname, actual)
+				return nil
+			}
+			if subtle.ConstantTimeCompare([]byte(actual), []byte(ssh_client.HostKeyFingerprint)) != 1 {
+				return fmt.Errorf("SFTP host key mismatch for %s: expected %s, got %s. The server was replaced, or the connection is being intercepted", hostname, ssh_client.HostKeyFingerprint, actual)
+			}
 			return nil
 		},
 		Timeout: time.Second * 5,
@@ -469,10 +483,11 @@ func SftpCheckLogin(config *Config, getFileList bool) (map[string]*DownloaderFil
 		config: config,
 	}
 	client := &SSH{
-		Ip:   fmt.Sprintf("%s:%d", i.config.Downloader.SftpSource.Host, i.config.Downloader.SftpSource.Port),
-		User: i.config.Downloader.SftpSource.Username,
-		Cert: i.config.Downloader.SftpSource.KeyFile,
-		Pass: i.config.Downloader.SftpSource.Password,
+		Ip:                 fmt.Sprintf("%s:%d", i.config.Downloader.SftpSource.Host, i.config.Downloader.SftpSource.Port),
+		User:               i.config.Downloader.SftpSource.Username,
+		Cert:               i.config.Downloader.SftpSource.KeyFile,
+		Pass:               i.config.Downloader.SftpSource.Password,
+		HostKeyFingerprint: i.config.Downloader.SftpSource.HostKeyFingerprint,
 	}
 	mode := 2
 	if i.config.Downloader.SftpSource.Password != "" {

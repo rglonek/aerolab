@@ -26,8 +26,8 @@ import (
 type ClientCreateEksCtlCmd struct {
 	ClientCreateNoneCmd
 	EksAwsRegion          string         `short:"r" long:"eks-aws-region" description:"AWS region to install expiries system too and configure as default region"`
-	EksAwsKeyId           string         `short:"k" long:"eks-aws-keyid" description:"AWS Key ID to use for auth when performing eksctl tasks and expiries"`
-	EksAwsSecretKey       string         `short:"s" long:"eks-aws-secretkey" description:"AWS Secret Key to use for auth when performing eksctl tasks and expiries"`
+	EksAwsKeyId           string         `short:"k" long:"eks-aws-keyid" description:"AWS Key ID to use for auth when performing eksctl tasks and expiries" telemetry:"redact"`
+	EksAwsSecretKey       string         `short:"s" long:"eks-aws-secretkey" description:"AWS Secret Key to use for auth when performing eksctl tasks and expiries" telemetry:"redact"`
 	EksAwsInstanceProfile string         `short:"x" long:"eks-aws-profile" description:"AWS instance profile to use instead of KEYID/SecretKey for authentication"`
 	FeaturesFilePath      flags.Filename `short:"f" long:"eks-asd-features" description:"Aerospike Features File to copy to the EKSCTL client machine; destination: /root/features.conf"`
 	AerolabBinary         flags.Filename `long:"aerolab-binary" description:"Path to local aerolab binary to install (required if running unofficial build)"`

@@ -633,6 +633,17 @@ func (s *b) InstancesTerminate(instances backends.InstanceList, waitDur time.Dur
 	defer s.invalidateCacheFunc(backends.CacheInvalidateInstance)
 	defer s.invalidateCacheFunc(backends.CacheInvalidateVolume)
 
+	// Forget the remembered SSH host keys: the identity is reusable, so a new
+	// node created later with the same cluster UUID and node number must be
+	// learned afresh rather than inherit a stale key.
+	hostKeyIDs := make([]string, 0, len(instances))
+	for _, instance := range instances {
+		if id := instance.HostKeyID(); id != "" {
+			hostKeyIDs = append(hostKeyIDs, id)
+		}
+	}
+	s.forgetHostKeys(hostKeyIDs...)
+
 	cli, err := connect.GetClient(s.credentials, log.WithPrefix("AUTH: "))
 	if err != nil {
 		return err
@@ -1023,6 +1034,7 @@ func (s *b) InstancesExec(instances backends.InstanceList, e *backends.ExecInput
 			outl.Unlock()
 			return
 		}
+		s.applyHostKeyPolicy(&clientConf, i)
 		execInput := &sshexec.ExecInput{
 			ClientConf: clientConf,
 			ExecDetail: e.ExecDetail,
@@ -1109,6 +1121,7 @@ func (s *b) InstancesGetSftpConfig(instances backends.InstanceList, username str
 		if err := s.applyIAPDialer(clientConf, i, log); err != nil {
 			return nil, err
 		}
+		s.applyHostKeyPolicy(clientConf, i)
 		confs = append(confs, clientConf)
 	}
 	return confs, nil
@@ -1543,6 +1556,17 @@ func (s *b) CreateInstances(input *backends.CreateInstanceInput, waitDur time.Du
 		}
 	}
 	log.Detail("Current last node number in cluster %s: %d", input.ClusterName, lastNodeNo)
+
+	// Drop any host key still remembered for the node numbers we are about to
+	// occupy. Terminate already clears these, but a node lost outside AeroLab
+	// (or a store from an older version) would otherwise look like a mismatch.
+	newHostKeyIDs := make([]string, 0, input.Nodes)
+	for n := lastNodeNo + 1; n <= lastNodeNo+input.Nodes; n++ {
+		if id := backends.HostKeyID(backends.BackendTypeGCP, clusterUUID, n); id != "" {
+			newHostKeyIDs = append(newHostKeyIDs, id)
+		}
+	}
+	s.forgetHostKeys(newHostKeyIDs...)
 
 	// resolve firewalls from s.firewalls so we know they are in the right VPC
 	securityGroupIds := []string{}

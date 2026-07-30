@@ -5,8 +5,6 @@ package cmd
 import (
 	"bytes"
 	"fmt"
-	"math/rand"
-	"strconv"
 	"strings"
 	"time"
 
@@ -23,9 +21,9 @@ import (
 // Tokens must be at least 64 characters long for security.
 type AgiAddTokenCmd struct {
 	ClusterName TypeAgiClusterName `short:"n" long:"name" description:"AGI name" default:"agi"`
-	TokenName   string             `short:"u" long:"token-name" description:"A unique token name; default: auto-generate timestamp"`
+	TokenName   string             `short:"u" long:"token-name" description:"A unique token name; default: auto-generate a random name"`
 	TokenSize   int                `short:"s" long:"size" description:"Size of the new token to be generated" default:"128"`
-	Token       string             `short:"t" long:"token" description:"A 64+ character long token to use; if not specified, a random token will be generated"`
+	Token       string             `short:"t" long:"token" description:"A 64+ character long token to use; if not specified, a random token will be generated" telemetry:"redact"`
 	GenURL      bool               `long:"url" description:"Generate and display a direct-access token URL"`
 	Open        bool               `short:"o" long:"open" description:"Open the AGI URL in the default browser (implies --url)"`
 	Remove      bool               `short:"r" long:"remove" description:"Remove the token instead of adding it"`
@@ -101,9 +99,15 @@ func (c *AgiAddTokenCmd) AddToken(system *System, inventory *backends.Inventory,
 		return c.listTokens(inst, logger)
 	}
 
-	// Generate token name if not specified
+	// Generate token name if not specified. The name must not encode the
+	// creation time, since a known mint time narrows the search space for
+	// anyone trying to guess the token itself.
 	if c.TokenName == "" {
-		c.TokenName = strconv.FormatInt(time.Now().UnixNano(), 10)
+		id, err := generateRandomID(8)
+		if err != nil {
+			return err
+		}
+		c.TokenName = "tok-" + id
 	}
 
 	// Handle remove operation
@@ -129,7 +133,10 @@ func (c *AgiAddTokenCmd) AddToken(system *System, inventory *backends.Inventory,
 		}
 		token = c.Token
 	} else {
-		token = generateRandomToken(c.TokenSize, rand.NewSource(time.Now().UnixNano()))
+		token, err = generateRandomToken(c.TokenSize)
+		if err != nil {
+			return fmt.Errorf("failed to generate token: %w", err)
+		}
 	}
 
 	// Write token file to remote
@@ -335,32 +342,7 @@ func (c *AgiAddTokenCmd) buildAccessURL(inst *backends.Instance, system *System)
 		}
 	}
 
-	return protocol + ip + port + "/agi/menu?AGI_TOKEN=", nil
-}
-
-// generateRandomToken generates a random token of the specified size.
-func generateRandomToken(n int, src rand.Source) string {
-	const letterBytes = "abcdefghijklmnopqrstuvwxyz1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-	const (
-		letterIdxBits = 6                    // 6 bits to represent a letter index
-		letterIdxMask = 1<<letterIdxBits - 1 // All 1-bits, as many as letterIdxBits
-		letterIdxMax  = 63 / letterIdxBits   // # of letter indices fitting in 63 bits
-	)
-
-	sb := strings.Builder{}
-	sb.Grow(n)
-
-	for i, cache, remain := n-1, src.Int63(), letterIdxMax; i >= 0; {
-		if remain == 0 {
-			cache, remain = src.Int63(), letterIdxMax
-		}
-		if idx := int(cache & letterIdxMask); idx < len(letterBytes) {
-			sb.WriteByte(letterBytes[idx])
-			i--
-		}
-		cache >>= letterIdxBits
-		remain--
-	}
-
-	return sb.String()
+	// The token travels in the URL fragment: browsers never send it to the
+	// server, so it cannot appear in access logs or Referer headers.
+	return protocol + ip + port + "/agi/menu#AGI_TOKEN=", nil
 }

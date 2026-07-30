@@ -228,11 +228,18 @@ func TelemetryEvent(command []string, params any, args []string, system *System,
 	// fill item
 	version, commit, edition, _ := GetAerolabVersion()
 	stdoutFd := os.Stdout.Fd()
+
+	// Scrub secrets before anything is written to disk. Fields tagged
+	// telemetry:"redact" are replaced in Params, and the flags that set them
+	// are scrubbed out of the recorded command line so the same value does not
+	// escape through os.Args.
+	redactedParams, redacted := redactParams(params)
+
 	item := telemetryItem{
-		CmdLine:         os.Args[1:],
+		CmdLine:         redactCmdLine(os.Args[1:], redacted),
 		Command:         command,
 		Args:            args,
-		Params:          params,
+		Params:          redactedParams,
 		UUID:            userUUID,
 		StartTime:       system.InitTime.UnixMicro(),
 		EndTime:         time.Now().UnixMicro(),
@@ -244,7 +251,7 @@ func TelemetryEvent(command []string, params any, args []string, system *System,
 		Error:           errString,
 		Stderr:          logBuffer,
 		StderrTruncated: system.LogBufferTruncated,
-		EnvVars:         getAerolabEnvVars(),
+		EnvVars:         redactEnvVars(getAerolabEnvVars()),
 		IsTerminal:      term.IsTerminal(int(stdoutFd)),
 		IsForeground:    termutil.IsForegroundNoError(stdoutFd, true),
 	}
@@ -280,7 +287,7 @@ func getDefaults(system *System) []telemetryDefault {
 		if !ok {
 			break
 		}
-		if strings.HasSuffix(val.Key, ".Password") || strings.HasSuffix(val.Key, ".Pass") || strings.HasSuffix(val.Key, ".User") || strings.HasSuffix(val.Key, ".Username") {
+		if isSensitiveDefaultKey(val.Key) {
 			continue
 		}
 		out = append(out, telemetryDefault(val))
@@ -407,10 +414,15 @@ func isCloudCommand(command []string) bool {
 //   - telemetryItem.CmdLine  (os.Args[1:], so `-p mypassword` is shipped)
 //   - telemetryItem.Args     (positional args)
 //
-// Keep this list aligned with any command that declares a flag for a
-// secret-shaped input. When adding such flags to a command, either add
-// the command path here or make sure the command never calls Initialize
-// + Error (and therefore never produces a telemetry event).
+// The primary defense is the `telemetry:"redact"` struct tag, applied
+// centrally in TelemetryEvent (see telemetryRedact.go). This list is the
+// second layer: it drops the whole event for commands whose entire purpose is
+// handling credentials, so a newly added and untagged flag on one of them
+// cannot leak while the tag is missing.
+//
+// When adding a secret-shaped flag to a command, tag the field. Adding the
+// command path here as well costs nothing and is worth it when the command is
+// credential-centric.
 func isCommandSensitive(command []string) bool {
 	if len(command) == 0 {
 		return false
@@ -442,13 +454,30 @@ func isCommandSensitive(command []string) bool {
 			}
 		}
 	case "agi":
-		if len(command) >= 2 && command[1] == "add-auth-token" {
-			// --token is a 64+ char auth token.
+		if len(command) < 2 {
+			return false
+		}
+		switch command[1] {
+		// --token is a 64+ char auth token.
+		case "add-auth-token":
 			return true
+		// `aerolab agi monitor create` - --aws.secret-key, --notify-slack-token.
+		case "monitor":
+			return len(command) >= 3 && command[2] == "create"
 		}
 	case "data":
 		if len(command) >= 2 && (command[1] == "insert" || command[1] == "delete") {
 			// --password is the Aerospike user password.
+			return true
+		}
+	case "config":
+		// `aerolab config backend` - --gcp.client-secret.
+		if len(command) >= 2 && command[1] == "backend" {
+			return true
+		}
+	case "client":
+		// `aerolab client create|grow eksctl` - --eks-aws-secret-key.
+		if len(command) >= 3 && (command[1] == "create" || command[1] == "grow") && command[2] == "eksctl" {
 			return true
 		}
 	}

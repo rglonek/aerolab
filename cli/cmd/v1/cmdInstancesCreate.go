@@ -128,7 +128,7 @@ type InstancesCreateCmdDocker struct {
 	SwapLimit          string         `long:"swap-limit" description:"Total memory limit (RAM+swap) (e.g., 1g); if equal to ram-limit, swap is disabled"`
 	AdvancedConfigPath flags.Filename `long:"advanced-config" description:"Path to JSON file containing advanced Docker container configuration"`
 	RegistryUser       string         `long:"registry-user" description:"Username for docker registry authentication when pulling custom images"`
-	RegistryPass       string         `long:"registry-pass" description:"Password for docker registry authentication when pulling custom images" webtype:"password"`
+	RegistryPass       string         `long:"registry-pass" description:"Password for docker registry authentication when pulling custom images" webtype:"password" telemetry:"redact"`
 	RegistryURL        string         `long:"registry-url" description:"Registry URL (e.g., docker.io, ghcr.io); if empty, uses default registry"`
 }
 
