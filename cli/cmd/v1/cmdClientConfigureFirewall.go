@@ -11,7 +11,7 @@ import (
 type ClientConfigureFirewallCmd struct {
 	ClientName   TypeClientName `short:"n" long:"name" description:"Client group name" default:"client"`
 	Machines     TypeMachines   `short:"l" long:"nodes" description:"Node list, comma separated. Empty=ALL" default:""`
-	FirewallName string         `short:"f" long:"firewall" description:"Firewall name to assign to the client machines" required:"true"`
+	FirewallName string         `short:"f" long:"firewall" description:"Firewall name to assign to the client machines"`
 	Help         HelpCmd        `command:"help" subcommands-optional:"true" description:"Print help"`
 }
 
@@ -44,9 +44,15 @@ func (c *ClientConfigureFirewallCmd) configureFirewall(system *System, inventory
 		inventory = system.Backend.GetInventory()
 	}
 
-	if c.ClientName.String() == "" {
-		return fmt.Errorf("client group name is required")
+	if err := c.ClientName.Require(inventory); err != nil {
+		return err
 	}
+
+	firewallName, err := RequireChoice(c.FirewallName, "firewall name", firewallNames(inventory)...)
+	if err != nil {
+		return err
+	}
+	c.FirewallName = firewallName
 
 	// Support comma-separated client names
 	var clients backends.Instances
@@ -101,7 +107,7 @@ func (c *ClientConfigureFirewallCmd) configureFirewall(system *System, inventory
 	logger.Info("Assigning firewall '%s' to %d client machines", c.FirewallName, clients.Count())
 
 	// Assign firewall to all selected client instances
-	err := clients.AssignFirewalls(firewalls)
+	err = clients.AssignFirewalls(firewalls)
 	if err != nil {
 		return fmt.Errorf("failed to assign firewall: %w", err)
 	}

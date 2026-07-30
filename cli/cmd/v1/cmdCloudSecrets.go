@@ -38,14 +38,17 @@ func (c *CloudSecretsCreateCmd) Execute(args []string) error {
 		return err
 	}
 
-	if c.Name == "" {
-		return fmt.Errorf("name is required")
+	c.Name, err = RequireString(c.Name, "name")
+	if err != nil {
+		return err
 	}
-	if c.Description == "" {
-		return fmt.Errorf("description is required")
+	c.Description, err = RequireString(c.Description, "description")
+	if err != nil {
+		return err
 	}
-	if c.Value == "" {
-		return fmt.Errorf("value is required")
+	c.Value, err = RequireSecret(c.Value, "value")
+	if err != nil {
+		return err
 	}
 	request := cloud.CreateSecretRequest{
 		Name:        c.Name,
@@ -68,9 +71,11 @@ type CloudSecretsDeleteCmd struct {
 }
 
 func (c *CloudSecretsDeleteCmd) Execute(args []string) error {
-	if c.SecretID == "" {
-		return fmt.Errorf("secret ID is required")
+	secretID, err := RequireString(c.SecretID, "secret ID")
+	if err != nil {
+		return err
 	}
+	c.SecretID = secretID
 	client, err := newCloudClient()
 	if err != nil {
 		return err

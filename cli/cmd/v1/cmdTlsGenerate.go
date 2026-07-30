@@ -91,8 +91,8 @@ func (c *TlsGenerateCmd) GenerateTLS(system *System, inventory *backends.Invento
 		}
 
 		// Support multi-cluster
-		if c.ClusterName.String() == "" {
-			return nil, fmt.Errorf("cluster name is required")
+		if err := c.ClusterName.Require(inventory, backends.LifeCycleStateRunning); err != nil {
+			return nil, err
 		}
 		var cluster backends.Instances
 		if strings.Contains(c.ClusterName.String(), ",") {

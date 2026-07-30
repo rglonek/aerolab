@@ -219,7 +219,12 @@ func (c *ConfigBackendCmd) ExecTypeSet(system *System, args []string) error {
 	if c.Type == "docker" || c.Type == "none" {
 		c.Region = ""
 	} else if c.regionSet == "" {
-		return errors.New("ERROR: Region is required for AWS and GCP backends")
+		region, err := RequireString("", "region")
+		if err != nil {
+			return errors.New("ERROR: Region is required for AWS and GCP backends")
+		}
+		c.regionSet = "yes"
+		c.Region = region
 	}
 
 	if c.Type == "gcp" && c.Project == "" {

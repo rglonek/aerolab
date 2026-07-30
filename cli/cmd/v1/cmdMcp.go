@@ -101,7 +101,11 @@ func (c *McpCmd) runServer(system *System) error {
 	// served without authentication. Refuse to start unless a bearer
 	// token is supplied (via --auth-token or AEROLAB_MCP_AUTH_TOKEN).
 	if aerolabmcp.Transport(strings.ToLower(c.Transport)) == aerolabmcp.TransportHTTP && strings.TrimSpace(c.AuthToken) == "" {
-		return fmt.Errorf("--auth-token is required when --transport=http (set it via --auth-token or the AEROLAB_MCP_AUTH_TOKEN environment variable); refusing to start")
+		token, err := RequireSecret("", "auth token")
+		if err != nil {
+			return fmt.Errorf("--auth-token is required when --transport=http (set it via --auth-token or the AEROLAB_MCP_AUTH_TOKEN environment variable); refusing to start")
+		}
+		c.AuthToken = token
 	}
 
 	profile, err := aerolabmcp.ParseProfile(c.Profile)

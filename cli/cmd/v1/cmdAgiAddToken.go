@@ -99,6 +99,13 @@ func (c *AgiAddTokenCmd) AddToken(system *System, inventory *backends.Inventory,
 		return c.listTokens(inst, logger)
 	}
 
+	// Handle remove operation. This has to happen before a name is
+	// generated below, otherwise removal would target a name that was just
+	// made up rather than one that exists.
+	if c.Remove {
+		return c.removeToken(inst, logger)
+	}
+
 	// Generate token name if not specified. The name must not encode the
 	// creation time, since a known mint time narrows the search space for
 	// anyone trying to guess the token itself.
@@ -108,11 +115,6 @@ func (c *AgiAddTokenCmd) AddToken(system *System, inventory *backends.Inventory,
 			return err
 		}
 		c.TokenName = "tok-" + id
-	}
-
-	// Handle remove operation
-	if c.Remove {
-		return c.removeToken(inst, logger)
 	}
 
 	// Generate access URL if requested (--open implies --url)
@@ -235,10 +237,44 @@ func (c *AgiAddTokenCmd) listTokens(inst *backends.Instance, logger *logger.Logg
 	return nil
 }
 
+// existingTokenNames returns the token names present on the AGI instance, or
+// nil if they cannot be listed.
+func (c *AgiAddTokenCmd) existingTokenNames(inst *backends.Instance) []string {
+	outputs := backends.InstanceList{inst}.Exec(&backends.ExecInput{
+		ExecDetail: sshexec.ExecDetail{
+			Command:        []string{"ls", "-1", "/opt/agi/tokens/"},
+			SessionTimeout: time.Minute,
+		},
+		Username:        "root",
+		ConnectTimeout:  30 * time.Second,
+		ParallelThreads: 1,
+		MaxRetries:      c.MaxRetries,
+		RetrySleep:      c.RetrySleep,
+	})
+	if len(outputs) == 0 || outputs[0].Output.Err != nil {
+		return nil
+	}
+	names := []string{}
+	for _, line := range strings.Split(string(outputs[0].Output.Stdout), "\n") {
+		if line = strings.TrimSpace(line); line != "" {
+			names = append(names, line)
+		}
+	}
+	return names
+}
+
 // removeToken removes a token from the AGI instance.
 func (c *AgiAddTokenCmd) removeToken(inst *backends.Instance, logger *logger.Logger) error {
 	if c.TokenName == "" {
-		return fmt.Errorf("token name is required for removal")
+		var err error
+		if names := c.existingTokenNames(inst); len(names) > 0 {
+			c.TokenName, err = RequireChoice("", "token name", names...)
+		} else {
+			c.TokenName, err = RequireString("", "token name")
+		}
+		if err != nil {
+			return err
+		}
 	}
 
 	tokenPath := fmt.Sprintf("/opt/agi/tokens/%s", c.TokenName)

@@ -44,8 +44,8 @@ func (c *ClientChangeExpiryCmd) ChangeExpiryClient(system *System, inventory *ba
 	if inventory == nil {
 		inventory = system.Backend.GetInventory()
 	}
-	if c.ClientName.String() == "" {
-		return fmt.Errorf("client name is required")
+	if err := c.ClientName.Require(inventory); err != nil {
+		return err
 	}
 
 	// Handle comma-separated client names

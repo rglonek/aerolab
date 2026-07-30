@@ -579,6 +579,72 @@ func (t *TypeClientName) GetInstanceList(inventory *backends.Inventory, interact
 	return instances, nil
 }
 
+// Require ensures a cluster name was given. When it is missing and we are
+// running interactively, the user picks one of the clusters that exist in the
+// inventory; otherwise the usual required-option error is returned.
+func (t *TypeClusterName) Require(inventory *backends.Inventory, states ...backends.LifeCycleState) error {
+	name, err := requireClusterName(string(*t), "cluster name", inventory, []string{"server", "aerospike"}, states...)
+	if err != nil {
+		return err
+	}
+	*t = TypeClusterName(name)
+	return nil
+}
+
+// Require ensures an AGI name was given, offering the existing AGI instances
+// to pick from when running interactively.
+func (t *TypeAgiClusterName) Require(inventory *backends.Inventory, states ...backends.LifeCycleState) error {
+	name, err := requireClusterName(string(*t), "AGI name", inventory, []string{"agi"}, states...)
+	if err != nil {
+		return err
+	}
+	*t = TypeAgiClusterName(name)
+	return nil
+}
+
+// Require ensures a client group name was given, offering the existing client
+// groups to pick from when running interactively.
+func (t *TypeClientName) Require(inventory *backends.Inventory, states ...backends.LifeCycleState) error {
+	name, err := requireClusterName(string(*t), "client group name", inventory, []string{"client"}, states...)
+	if err != nil {
+		return err
+	}
+	*t = TypeClientName(name)
+	return nil
+}
+
+// firewallNames returns the sorted, deduplicated firewall names in the
+// inventory, for offering as a choice when --firewall was not given.
+func firewallNames(inventory *backends.Inventory) []string {
+	if inventory == nil {
+		return nil
+	}
+	seen := map[string]struct{}{}
+	out := []string{}
+	for _, f := range inventory.Firewalls.Describe() {
+		if f.Name == "" {
+			continue
+		}
+		if _, ok := seen[f.Name]; ok {
+			continue
+		}
+		seen[f.Name] = struct{}{}
+		out = append(out, f.Name)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func requireClusterName(current string, label string, inventory *backends.Inventory, instanceTypes []string, states ...backends.LifeCycleState) (string, error) {
+	if current != "" {
+		return current, nil
+	}
+	if inventory == nil {
+		return "", requiredOptionErr(label)
+	}
+	return RequireChoice("", label, availableClusterNames(inventory, instanceTypes, states...)...)
+}
+
 // returns the cluster instance list for a given cluster name, or an error if cluster is not found.
 // When instanceTypes contains "client", also matches instances with aerolab.old.type=client (legacy/Docker clients).
 func getInstanceListForClusterName(t *string, inventory *backends.Inventory, instanceTypes []string, interactiveStates ...backends.LifeCycleState) (backends.Instances, error) {

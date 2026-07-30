@@ -61,18 +61,30 @@ func (c *ClientCreateEksCtlCmd) Execute(args []string) error {
 
 	// Validate required parameters
 	if c.FeaturesFilePath == "" {
-		return errors.New("features file must be specified using -f /path/to/features.conf")
+		featuresFile, err := RequireString("", "features file path")
+		if err != nil {
+			return errors.New("features file must be specified using -f /path/to/features.conf")
+		}
+		c.FeaturesFilePath = flags.Filename(featuresFile)
 	}
 	if (c.EksAwsKeyId == "" || c.EksAwsSecretKey == "") && c.EksAwsInstanceProfile == "" {
 		return errors.New("either KeyID+SecretKey OR InstanceProfile must be specified; for help see: aerolab client create eksctl help")
 	}
 	if c.EksAwsRegion == "" {
-		return errors.New("AWS region must be specified (use -r AWSREGION)")
+		region, err := RequireString("", "AWS region")
+		if err != nil {
+			return errors.New("AWS region must be specified (use -r AWSREGION)")
+		}
+		c.EksAwsRegion = region
 	}
 
 	_, _, earlyEdition, earlyVersion := GetAerolabVersion()
 	if strings.Contains(earlyEdition, "unofficial") && c.AerolabBinary == "" {
-		return fmt.Errorf("running unofficial aerolab build (%s); --aerolab-binary flag is required to specify the path to a Linux aerolab binary", earlyVersion)
+		binary, err := RequireString("", "path to a Linux aerolab binary")
+		if err != nil {
+			return fmt.Errorf("running unofficial aerolab build (%s); --aerolab-binary flag is required to specify the path to a Linux aerolab binary", earlyVersion)
+		}
+		c.AerolabBinary = flags.Filename(binary)
 	}
 
 	system, err := Initialize(&Init{InitBackend: true, UpgradeCheck: true}, cmd, c, args...)

@@ -148,7 +148,11 @@ func (c *CreateNetworkCmd) CreateNetwork(system *System, inventory *backends.Inv
 		return errors.New("this function is only available for docker backend")
 	}
 	if c.Name == "" {
-		return errors.New("name must be specified")
+		name, err := RequireString("", "network name")
+		if err != nil {
+			return errors.New("name must be specified")
+		}
+		c.Name = name
 	}
 	if c.Subnet == "default" {
 		c.Subnet = ""

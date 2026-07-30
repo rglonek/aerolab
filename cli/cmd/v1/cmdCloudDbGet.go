@@ -29,6 +29,13 @@ func (c *CloudClustersGetHostCmd) Execute(args []string) error {
 		return Error(err, system, cmd, c, args)
 	}
 
+	if c.ClusterName == "" {
+		c.ClusterID, err = requireCloudClusterID(c.ClusterID)
+		if err != nil {
+			return Error(err, system, cmd, c, args)
+		}
+	}
+
 	client, err := newCloudClient()
 	if err != nil {
 		return Error(err, system, cmd, c, args)
@@ -62,6 +69,13 @@ func (c *CloudClustersGetTlsCertCmd) Execute(args []string) error {
 	system, err := Initialize(&Init{InitBackend: false, UpgradeCheck: true}, cmd, c, args...)
 	if err != nil {
 		return Error(err, system, cmd, c, args)
+	}
+
+	if c.ClusterName == "" {
+		c.ClusterID, err = requireCloudClusterID(c.ClusterID)
+		if err != nil {
+			return Error(err, system, cmd, c, args)
+		}
 	}
 
 	client, err := newCloudClient()

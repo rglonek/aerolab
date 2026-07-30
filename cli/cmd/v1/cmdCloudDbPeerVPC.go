@@ -58,9 +58,11 @@ func (c *CloudClustersPeerVPCCmd) Execute(args []string) error {
 }
 
 func (c *CloudClustersPeerVPCCmd) PeerVPC(system *System, inventory *backends.Inventory, args []string, stdin io.ReadCloser, stdout io.Writer, stderr io.Writer, logger *logger.Logger) error {
-	if c.ClusterID == "" {
-		return fmt.Errorf("cluster ID is required")
+	clusterID, err := requireCloudClusterID(c.ClusterID)
+	if err != nil {
+		return err
 	}
+	c.ClusterID = clusterID
 	if system == nil {
 		var err error
 		system, err = Initialize(&Init{InitBackend: true, ExistingInventory: inventory}, []string{"cloud", "clusters", "peer-vpc"}, c, args...)
@@ -125,7 +127,6 @@ func (c *CloudClustersPeerVPCCmd) PeerVPC(system *System, inventory *backends.In
 	var cidr string
 	var accountId string
 	var vpcRegion string
-	var err error
 
 	if calledFromCreate {
 		// Use pre-resolved values from caller (e.g., db create)

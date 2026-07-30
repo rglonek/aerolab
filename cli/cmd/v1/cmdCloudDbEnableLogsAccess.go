@@ -48,7 +48,11 @@ func (c *CloudClustersEnableLogsAccessCmd) Execute(args []string) error {
 //   - error: nil on success, or an error describing what failed
 func (c *CloudClustersEnableLogsAccessCmd) EnableLogsAccess(system *System, inventory *backends.Inventory, logger *logger.Logger) error {
 	if c.ClusterID == "" && c.ClusterName == "" {
-		return fmt.Errorf("cluster ID or name is required")
+		clusterID, err := requireCloudClusterID("")
+		if err != nil {
+			return fmt.Errorf("cluster ID or name is required")
+		}
+		c.ClusterID = clusterID
 	}
 
 	// Validate role ARN format (basic validation) for provided roles

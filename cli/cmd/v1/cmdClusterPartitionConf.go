@@ -80,14 +80,20 @@ func (c *ClusterPartitionConfCmd) PartitionConfCluster(system *System, inventory
 	if inventory == nil {
 		inventory = system.Backend.GetInventory()
 	}
-	if c.ClusterName.String() == "" {
-		return nil, fmt.Errorf("cluster name is required")
+	if err := c.ClusterName.Require(inventory, backends.LifeCycleStateRunning); err != nil {
+		return nil, err
 	}
-	if !slices.Contains([]string{"memory", "device", "shadow", "pi-flash", "si-flash", "allflash"}, c.ConfDest) {
-		return nil, fmt.Errorf("configure options must be one of: memory, device, shadow, pi-flash, si-flash, allflash")
+	confDestOptions := []string{"memory", "device", "shadow", "pi-flash", "si-flash", "allflash"}
+	c.ConfDest, err = RequireChoice(c.ConfDest, "configure option", confDestOptions...)
+	if err != nil {
+		return nil, err
 	}
-	if c.Namespace == "" {
-		return nil, fmt.Errorf("namespace name is required")
+	if !slices.Contains(confDestOptions, c.ConfDest) {
+		return nil, fmt.Errorf("configure options must be one of: %s", strings.Join(confDestOptions, ", "))
+	}
+	c.Namespace, err = RequireString(c.Namespace, "namespace name")
+	if err != nil {
+		return nil, err
 	}
 
 	switch c.FilterType {

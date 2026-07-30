@@ -22,6 +22,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/route53"
 	rtypes "github.com/aws/aws-sdk-go-v2/service/route53/types"
+	flags "github.com/rglonek/go-flags"
 	"github.com/rglonek/logger"
 	"gopkg.in/yaml.v3"
 )
@@ -114,7 +115,11 @@ func (c *AgiMonitorCreateCmd) CreateMonitor(system *System, inventory *backends.
 
 	// Validate autocert configuration
 	if len(c.AutoCertDomains) > 0 && c.AutoCertEmail == "" {
-		return nil, errors.New("if autocert domains is in use, a valid email must be provided for letsencrypt registration")
+		email, err := RequireString("", "letsencrypt registration email")
+		if err != nil {
+			return nil, errors.New("if autocert domains is in use, a valid email must be provided for letsencrypt registration")
+		}
+		c.AutoCertEmail = email
 	}
 
 	// Set default owner if not specified
@@ -645,7 +650,11 @@ func (c *AgiMonitorCreateCmd) installAerolab(system *System, logger *logger.Logg
 	useLocalBinary := c.AerolabBinary != ""
 
 	if isUnofficial && !useLocalBinary {
-		return fmt.Errorf("running unofficial aerolab build (%s); --aerolab-binary flag is required to specify the path to a Linux aerolab binary", currentAerolabVersion)
+		binary, err := RequireString("", "path to a Linux aerolab binary")
+		if err != nil {
+			return fmt.Errorf("running unofficial aerolab build (%s); --aerolab-binary flag is required to specify the path to a Linux aerolab binary", currentAerolabVersion)
+		}
+		c.AerolabBinary = flags.Filename(binary)
 	}
 
 	// Get SFTP connection

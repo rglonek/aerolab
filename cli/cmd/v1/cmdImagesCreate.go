@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -44,9 +45,26 @@ func (c *ImagesCreateCmd) Execute(args []string) error {
 	return Error(nil, system, cmd, c, args)
 }
 
+// imageableInstanceNames returns the sorted names of the instances an image
+// can be created from, for offering as a choice when --instance-name was not
+// given.
+func imageableInstanceNames(inventory *backends.Inventory) []string {
+	if inventory == nil {
+		return nil
+	}
+	out := []string{}
+	for _, i := range inventory.Instances.WithState(backends.LifeCycleStateRunning, backends.LifeCycleStateStopped).Describe() {
+		if i.Name != "" {
+			out = append(out, i.Name)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
 func (c *ImagesCreateCmd) CreateImage(system *System, inventory *backends.Inventory, logger *logger.Logger, args []string) (*backends.Image, error) {
+	var err error
 	if system == nil {
-		var err error
 		system, err = Initialize(&Init{InitBackend: true, ExistingInventory: inventory}, []string{"images", "create"}, c, args...)
 		if err != nil {
 			return nil, err
@@ -58,9 +76,11 @@ func (c *ImagesCreateCmd) CreateImage(system *System, inventory *backends.Invent
 
 	// find the instance and check it's state
 	logger.Info("Validating parameters")
-	if c.InstanceName == "" {
-		return nil, fmt.Errorf("instance-name is required")
+	instanceName, err := RequireChoice(c.InstanceName, "instance-name", imageableInstanceNames(inventory)...)
+	if err != nil {
+		return nil, err
 	}
+	c.InstanceName = instanceName
 	instances := inventory.Instances.WithName(c.InstanceName)
 	if instances.Count() == 0 {
 		return nil, fmt.Errorf("instance %s not found", c.InstanceName)
@@ -81,22 +101,26 @@ func (c *ImagesCreateCmd) CreateImage(system *System, inventory *backends.Invent
 	}
 
 	// check name validity
-	if c.Name == "" {
-		return nil, fmt.Errorf("name is required")
+	c.Name, err = RequireString(c.Name, "name")
+	if err != nil {
+		return nil, err
 	}
 	if !regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9-]*$`).MatchString(c.Name) {
 		return nil, fmt.Errorf("name must match regex ^[a-zA-Z0-9][a-zA-Z0-9-]*$")
 	}
 
 	// check variables are set and valid
-	if c.Type == "" {
-		return nil, fmt.Errorf("type is required")
+	c.Type, err = RequireString(c.Type, "type")
+	if err != nil {
+		return nil, err
 	}
-	if c.Version == "" {
-		return nil, fmt.Errorf("version is required")
+	c.Version, err = RequireString(c.Version, "version")
+	if err != nil {
+		return nil, err
 	}
-	if c.Owner == "" {
-		return nil, fmt.Errorf("owner is required")
+	c.Owner, err = RequireString(c.Owner, "owner")
+	if err != nil {
+		return nil, err
 	}
 
 	// check if the image already exists

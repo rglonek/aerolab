@@ -64,20 +64,26 @@ func (c *CloudClustersCreateCmd) CreateCloudDb(system *System, inventory *backen
 			return err
 		}
 	}
-	if c.Name == "" {
-		return fmt.Errorf("name is required")
+	var err error
+	c.Name, err = RequireString(c.Name, "name")
+	if err != nil {
+		return err
 	}
-	if c.InstanceType == "" {
-		return fmt.Errorf("instance type is required")
+	c.InstanceType, err = RequireString(c.InstanceType, "instance type")
+	if err != nil {
+		return err
 	}
-	if c.Region == "" {
-		return fmt.Errorf("region is required")
+	c.Region, err = RequireString(c.Region, "region")
+	if err != nil {
+		return err
 	}
-	if c.ClusterSize == 0 {
-		return fmt.Errorf("cluster size is required")
+	c.ClusterSize, err = RequireInt(c.ClusterSize, "cluster size")
+	if err != nil {
+		return err
 	}
-	if c.DataStorage == "" {
-		return fmt.Errorf("data storage is required")
+	c.DataStorage, err = RequireChoice(c.DataStorage, "data storage", "memory", "local-disk", "network-storage")
+	if err != nil {
+		return err
 	}
 	if c.Credentials != "" {
 		// Parse USER:PASSWORD format
@@ -90,7 +96,6 @@ func (c *CloudClustersCreateCmd) CreateCloudDb(system *System, inventory *backen
 		}
 	}
 	if system == nil {
-		var err error
 		system, err = Initialize(&Init{InitBackend: true, ExistingInventory: inventory}, []string{"cloud", "clusters", "create"}, c, args...)
 		if err != nil {
 			return err
@@ -119,7 +124,6 @@ func (c *CloudClustersCreateCmd) CreateCloudDb(system *System, inventory *backen
 	var accountId string
 	var cloudCIDR string
 	var vpcRegion string
-	var err error
 	if c.VPCID != "" {
 		logger.Info("Getting VPC details for VPC-ID: %s", c.VPCID)
 		if inventory == nil {

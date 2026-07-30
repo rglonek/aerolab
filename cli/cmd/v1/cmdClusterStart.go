@@ -55,8 +55,8 @@ func (c *ClusterStartCmd) StartCluster(system *System, inventory *backends.Inven
 	if inventory == nil {
 		inventory = system.Backend.GetInventory()
 	}
-	if c.ClusterName.String() == "" {
-		return nil, fmt.Errorf("cluster name is required")
+	if err := c.ClusterName.Require(inventory, backends.LifeCycleStateStopped); err != nil {
+		return nil, err
 	}
 	var cluster backends.Instances
 	if strings.Contains(c.ClusterName.String(), ",") {

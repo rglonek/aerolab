@@ -49,11 +49,12 @@ func (c *CloudClustersUpdateCmd) Execute(args []string) error {
 }
 
 func (c *CloudClustersUpdateCmd) UpdateCloudCluster(system *System, inventory *backends.Inventory, args []string, stdin io.ReadCloser, stdout io.Writer, stderr io.Writer, logger *logger.Logger) error {
-	if c.ClusterID == "" {
-		return fmt.Errorf("cluster ID is required")
+	var err error
+	c.ClusterID, err = requireCloudClusterID(c.ClusterID)
+	if err != nil {
+		return err
 	}
 	if system == nil {
-		var err error
 		system, err = Initialize(&Init{InitBackend: true, ExistingInventory: inventory}, []string{"cloud", "clusters", "update"}, c, args...)
 		if err != nil {
 			return err

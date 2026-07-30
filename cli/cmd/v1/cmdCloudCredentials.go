@@ -15,9 +15,11 @@ type CloudClustersCredentialsListCmd struct {
 }
 
 func (c *CloudClustersCredentialsListCmd) Execute(args []string) error {
-	if c.ClusterID == "" {
-		return fmt.Errorf("cluster ID is required")
+	clusterID, err := requireCloudClusterID(c.ClusterID)
+	if err != nil {
+		return err
 	}
+	c.ClusterID = clusterID
 	client, err := newCloudClient()
 	if err != nil {
 		return err
@@ -59,14 +61,18 @@ func (c *CloudClustersCredentialsCreateCmd) Execute(args []string) error {
 
 func (c *CloudClustersCredentialsCreateCmd) CreateCloudCredentials(system *System) error {
 	logger := system.Logger
-	if c.ClusterID == "" {
-		return fmt.Errorf("cluster ID is required")
+	clusterID, err := requireCloudClusterID(c.ClusterID)
+	if err != nil {
+		return err
 	}
-	if c.Username == "" {
-		return fmt.Errorf("username is required")
+	c.ClusterID = clusterID
+	c.Username, err = RequireString(c.Username, "username")
+	if err != nil {
+		return err
 	}
-	if c.Password == "" {
-		return fmt.Errorf("password is required")
+	c.Password, err = RequireSecret(c.Password, "password")
+	if err != nil {
+		return err
 	}
 	if len(c.Password) < 8 {
 		return fmt.Errorf("password must be at least 8 characters long")
@@ -196,11 +202,14 @@ type CloudClustersCredentialsDeleteCmd struct {
 }
 
 func (c *CloudClustersCredentialsDeleteCmd) Execute(args []string) error {
-	if c.ClusterID == "" {
-		return fmt.Errorf("cluster ID is required")
+	clusterID, err := requireCloudClusterID(c.ClusterID)
+	if err != nil {
+		return err
 	}
-	if c.CredentialsID == "" {
-		return fmt.Errorf("credentials ID is required")
+	c.ClusterID = clusterID
+	c.CredentialsID, err = RequireString(c.CredentialsID, "credentials ID")
+	if err != nil {
+		return err
 	}
 	client, err := newCloudClient()
 	if err != nil {

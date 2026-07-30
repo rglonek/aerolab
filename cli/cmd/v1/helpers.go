@@ -13,9 +13,12 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/aerospike/aerolab/pkg/termutil"
+	"github.com/aerospike/aerolab/pkg/utils/choice"
 	"github.com/aerospike/aerolab/pkg/utils/shutdown"
+	"golang.org/x/term"
 )
 
 func GetSelfPath() (string, error) {
@@ -135,12 +138,17 @@ func IsInteractive() bool {
 }
 
 func AskForString(prompt string) (string, error) {
-	if IsInteractive() {
-		fmt.Printf("%s: ", prompt)
-		reader := bufio.NewReader(os.Stdin)
-		return reader.ReadString('\n')
+	if !IsInteractive() {
+		return "", errors.New("not interactive")
 	}
-	return "", errors.New("not interactive")
+	fmt.Printf("%s: ", prompt)
+	reader := bufio.NewReader(os.Stdin)
+	s, err := reader.ReadString('\n')
+	s = strings.TrimSpace(s)
+	if err != nil && s == "" {
+		return "", err
+	}
+	return s, nil
 }
 
 func AskForInt(prompt string) (int, error) {
@@ -148,7 +156,7 @@ func AskForInt(prompt string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	return strconv.Atoi(strings.TrimSpace(s))
+	return strconv.Atoi(s)
 }
 
 func AskForFloat(prompt string) (float64, error) {
@@ -156,7 +164,143 @@ func AskForFloat(prompt string) (float64, error) {
 	if err != nil {
 		return 0, err
 	}
-	return strconv.ParseFloat(strings.TrimSpace(s), 64)
+	return strconv.ParseFloat(s, 64)
+}
+
+// AskForSecret reads a value from the terminal without echoing it back.
+func AskForSecret(prompt string) (string, error) {
+	if !IsInteractive() {
+		return "", errors.New("not interactive")
+	}
+	if !term.IsTerminal(int(os.Stdin.Fd())) {
+		// stdin is piped or otherwise not a terminal of its own, so there
+		// is no echo to suppress.
+		return AskForString(prompt)
+	}
+	fmt.Printf("%s: ", prompt)
+	s, err := term.ReadPassword(int(os.Stdin.Fd()))
+	fmt.Println()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(s)), nil
+}
+
+// maxPromptAttempts bounds interactive re-prompting so that a terminal which
+// keeps returning unusable input cannot spin forever.
+const maxPromptAttempts = 10
+
+// requiredOptionErr is the error returned for a required option that has no
+// value and cannot be asked for.
+func requiredOptionErr(name string) error {
+	return fmt.Errorf("%s is required", name)
+}
+
+// RequireString returns val when it holds a value. When it is empty, the user
+// is asked for one in interactive mode; otherwise "<name> is required" is
+// returned, which is what non-interactive callers have always seen.
+func RequireString(val string, name string) (string, error) {
+	return requireString(val, name, AskForString)
+}
+
+// RequireSecret behaves like RequireString but does not echo what is typed.
+func RequireSecret(val string, name string) (string, error) {
+	return requireString(val, name, AskForSecret)
+}
+
+func requireString(val string, name string, ask func(string) (string, error)) (string, error) {
+	if val != "" {
+		return val, nil
+	}
+	if !IsInteractive() {
+		return "", requiredOptionErr(name)
+	}
+	for range maxPromptAttempts {
+		v, err := ask("Enter " + name)
+		if err != nil {
+			return "", requiredOptionErr(name)
+		}
+		if v != "" {
+			return v, nil
+		}
+	}
+	return "", requiredOptionErr(name)
+}
+
+// RequireInt returns val when it is non-zero, otherwise prompts for a number
+// in interactive mode. Zero is treated as "not provided", matching how the
+// commands validate their integer options.
+func RequireInt(val int, name string) (int, error) {
+	if val != 0 {
+		return val, nil
+	}
+	if !IsInteractive() {
+		return 0, requiredOptionErr(name)
+	}
+	for range maxPromptAttempts {
+		v, err := AskForInt("Enter " + name)
+		switch {
+		case err == nil && v != 0:
+			return v, nil
+		case errors.Is(err, strconv.ErrSyntax), errors.Is(err, strconv.ErrRange):
+			fmt.Println("Not a valid number, try again")
+		case err != nil:
+			return 0, requiredOptionErr(name)
+		default:
+			fmt.Println("Value must not be zero, try again")
+		}
+	}
+	return 0, requiredOptionErr(name)
+}
+
+// RequireFloat returns val when it is non-zero, otherwise prompts for a number
+// in interactive mode.
+func RequireFloat(val float64, name string) (float64, error) {
+	if val != 0 {
+		return val, nil
+	}
+	if !IsInteractive() {
+		return 0, requiredOptionErr(name)
+	}
+	for range maxPromptAttempts {
+		v, err := AskForFloat("Enter " + name)
+		switch {
+		case err == nil && v != 0:
+			return v, nil
+		case errors.Is(err, strconv.ErrSyntax), errors.Is(err, strconv.ErrRange):
+			fmt.Println("Not a valid number, try again")
+		case err != nil:
+			return 0, requiredOptionErr(name)
+		default:
+			fmt.Println("Value must not be zero, try again")
+		}
+	}
+	return 0, requiredOptionErr(name)
+}
+
+// RequireChoice returns val when it holds a value, otherwise lets the user
+// pick one of options from a list in interactive mode. With no options to
+// offer there is nothing to pick from, so the required-option error is
+// returned as it would be non-interactively.
+func RequireChoice(val string, name string, options ...string) (string, error) {
+	if val != "" {
+		return val, nil
+	}
+	if !IsInteractive() || len(options) == 0 {
+		return "", requiredOptionErr(name)
+	}
+	title := name + " is required, pick one:"
+	if r := []rune(title); len(r) > 0 {
+		title = string(unicode.ToUpper(r[0])) + string(r[1:])
+	}
+	selected, quitting, err := choice.Choice(title, choice.StringSliceToItems(options))
+	if err != nil {
+		return "", err
+	}
+	if quitting || selected == "" {
+		return "", requiredOptionErr(name)
+	}
+	return selected, nil
 }
 
 func updateDiskCacheDo(system *System) {

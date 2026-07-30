@@ -52,8 +52,8 @@ func (c *ClusterDestroyCmd) DestroyCluster(system *System, inventory *backends.I
 	if inventory == nil {
 		inventory = system.Backend.GetInventory()
 	}
-	if c.ClusterName.String() == "" {
-		return nil, fmt.Errorf("cluster name is required")
+	if err := c.ClusterName.Require(inventory); err != nil {
+		return nil, err
 	}
 	var cluster backends.Instances
 	var err error

@@ -25,8 +25,9 @@ func (c *CloudClustersDeleteCmd) Execute(args []string) error {
 	if err != nil {
 		return Error(err, system, cmd, c, args)
 	}
-	if c.ClusterID == "" {
-		return fmt.Errorf("cluster ID is required")
+	c.ClusterID, err = requireCloudClusterID(c.ClusterID)
+	if err != nil {
+		return Error(err, system, cmd, c, args)
 	}
 	system.Logger.Info("Running %s", strings.Join(cmd, "."))
 

@@ -22,8 +22,9 @@ func (c *CloudClustersWaitCmd) Execute(args []string) error {
 	if err != nil {
 		return Error(err, system, cmd, c, args)
 	}
-	if c.ClusterID == "" {
-		return fmt.Errorf("cluster ID is required")
+	c.ClusterID, err = requireCloudClusterID(c.ClusterID)
+	if err != nil {
+		return Error(err, system, cmd, c, args)
 	}
 	// Validate that at least one status option is provided
 	if len(c.Status) == 0 && len(c.StatusNe) == 0 {

@@ -737,7 +737,11 @@ func (c *AgiCreateCmd) validateParameters() error {
 
 	// Validate S3 configuration (still validate S3 path if S3 is enabled, even with NoConfigOverride)
 	if c.S3Enable && c.S3Path == "" {
-		return fmt.Errorf("--source-s3-path is required when S3 source is enabled")
+		s3Path, err := RequireString("", "S3 source path")
+		if err != nil {
+			return fmt.Errorf("--source-s3-path is required when S3 source is enabled")
+		}
+		c.S3Path = s3Path
 	}
 
 	// Validate SSL cert/key

@@ -89,9 +89,11 @@ func (c *CloudClustersVPCPeeringStatusCmd) GetVPCPeeringStatus(system *System, i
 		log = system.Logger
 	}
 
-	if c.ClusterID == "" {
-		return nil, fmt.Errorf("cluster ID is required")
+	clusterID, err := requireCloudClusterID(c.ClusterID)
+	if err != nil {
+		return nil, err
 	}
+	c.ClusterID = clusterID
 
 	// Get peerings from cloud API
 	client, err := newCloudClient()

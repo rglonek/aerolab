@@ -224,7 +224,11 @@ func (c *AgiMonitorListenCmd) Execute(args []string) error {
 
 	// Validate autocert configuration
 	if len(c.AutoCertDomains) > 0 && c.AutoCertEmail == "" {
-		return Error(errors.New("if autocert domains is in use, a valid email must be provided for letsencrypt registration"), system, cmd, c, args)
+		email, aerr := RequireString("", "letsencrypt registration email")
+		if aerr != nil {
+			return Error(errors.New("if autocert domains is in use, a valid email must be provided for letsencrypt registration"), system, cmd, c, args)
+		}
+		c.AutoCertEmail = email
 	}
 
 	// Initialize notifier

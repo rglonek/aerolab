@@ -154,6 +154,32 @@ func parseDurationWithDays(s string) (time.Duration, error) {
 	return ParseExtendedDuration(s)
 }
 
+// requireTLSAndAuthOptions fills in the certificate and credential options
+// that the selected --https/--auth modes need but which were not given on the
+// command line. Non-interactively the same errors as before are returned.
+func (c *WebUICmd) requireTLSAndAuthOptions() error {
+	var err error
+	if c.HTTPS {
+		if c.CertFile, err = RequireString(c.CertFile, "TLS certificate file path"); err != nil {
+			return fmt.Errorf("--cert and --key are required when --https is enabled")
+		}
+		if c.KeyFile, err = RequireString(c.KeyFile, "TLS key file path"); err != nil {
+			return fmt.Errorf("--cert and --key are required when --https is enabled")
+		}
+	}
+	switch c.AuthType {
+	case "basic":
+		if c.BasicAuthPass, err = RequireSecret(c.BasicAuthPass, "basic auth password"); err != nil {
+			return fmt.Errorf("--basic-pass is required when --auth=basic")
+		}
+	case "token":
+		if c.TokenAuthPath, err = RequireString(c.TokenAuthPath, "token file path"); err != nil {
+			return fmt.Errorf("--token-path is required when --auth=token")
+		}
+	}
+	return nil
+}
+
 func (c *WebUICmd) Execute(args []string) error {
 	cmd := []string{"webui"}
 	system, err := Initialize(&Init{InitBackend: true, UpgradeCheck: true}, cmd, c, args...)
@@ -161,6 +187,12 @@ func (c *WebUICmd) Execute(args []string) error {
 		return Error(err, system, cmd, c, args)
 	}
 	system.Logger.Info("Running %s", strings.Join(cmd, "."))
+
+	// Ask for any missing TLS/auth options while we still can: the
+	// AEROLAB_NONINTERACTIVE below turns off prompting for good.
+	if err := c.requireTLSAndAuthOptions(); err != nil {
+		return Error(err, system, cmd, c, args)
+	}
 
 	// Set non-interactive mode for all command executions
 	os.Setenv("AEROLAB_NONINTERACTIVE", "1")

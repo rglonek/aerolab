@@ -92,15 +92,20 @@ func (c *AgiShareCmd) Share(system *System, inventory *backends.Inventory, logge
 	// Determine the key to add/remove
 	var pubkey []byte
 
+	if c.KeyFile == "" && c.Key == "" {
+		keyFile, kerr := RequireString("", "path to the public key file")
+		if kerr != nil {
+			return fmt.Errorf("either --pubkey or --key must be specified")
+		}
+		c.KeyFile = flags.Filename(keyFile)
+	}
 	if c.KeyFile != "" {
 		pubkey, err = os.ReadFile(string(c.KeyFile))
 		if err != nil {
 			return fmt.Errorf("failed to read key file %s: %w", string(c.KeyFile), err)
 		}
-	} else if c.Key != "" {
-		pubkey = []byte(c.Key)
 	} else {
-		return fmt.Errorf("either --pubkey or --key must be specified")
+		pubkey = []byte(c.Key)
 	}
 
 	// Validate key format

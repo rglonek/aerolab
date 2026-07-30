@@ -69,8 +69,8 @@ func (c *ClusterAddExporterCmd) AddExporterCluster(system *System, inventory *ba
 	if inventory == nil {
 		inventory = system.Backend.GetInventory()
 	}
-	if c.ClusterName.String() == "" {
-		return nil, fmt.Errorf("cluster name is required")
+	if err := c.ClusterName.Require(inventory, backends.LifeCycleStateRunning); err != nil {
+		return nil, err
 	}
 	if c.CustomConf != "" {
 		if _, err := os.Stat(string(c.CustomConf)); err != nil {

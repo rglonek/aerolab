@@ -53,8 +53,8 @@ func (c *ClusterShareCmd) ShareCluster(system *System, inventory *backends.Inven
 	if inventory == nil {
 		inventory = system.Backend.GetInventory()
 	}
-	if c.ClusterName.String() == "" {
-		return fmt.Errorf("cluster name is required")
+	if err := c.ClusterName.Require(inventory, backends.LifeCycleStateRunning); err != nil {
+		return err
 	}
 	// open the key file, read it, and make sure it looks like an ssh public key
 	pubkey, err := os.ReadFile(string(c.KeyFile))

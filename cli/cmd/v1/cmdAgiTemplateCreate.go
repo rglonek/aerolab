@@ -144,7 +144,12 @@ func (c *AgiTemplateCreateCmd) CreateTemplate(system *System, inventory *backend
 			useLocalBinary = true
 			logger.Info("Running unofficial build on Linux with matching architecture (%s), using self: %s", hostArch, execPath)
 		} else {
-			return "", fmt.Errorf("running unofficial aerolab build (%s); --aerolab-binary flag is required to specify the path to a Linux aerolab binary matching the target architecture (%s) (host: %s/%s)", currentAerolabVersion, c.Arch, runtime.GOOS, hostArch)
+			binary, err := RequireString("", fmt.Sprintf("path to a Linux %s aerolab binary", c.Arch))
+			if err != nil {
+				return "", fmt.Errorf("running unofficial aerolab build (%s); --aerolab-binary flag is required to specify the path to a Linux aerolab binary matching the target architecture (%s) (host: %s/%s)", currentAerolabVersion, c.Arch, runtime.GOOS, hostArch)
+			}
+			c.AerolabBinary = flags.Filename(binary)
+			useLocalBinary = true
 		}
 	}
 

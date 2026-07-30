@@ -64,8 +64,8 @@ func (c *RosterShowCmd) ShowRoster(system *System, inventory *backends.Inventory
 	if inventory == nil {
 		inventory = system.Backend.GetInventory()
 	}
-	if c.ClusterName.String() == "" {
-		return fmt.Errorf("cluster name is required")
+	if err := c.ClusterName.Require(inventory, backends.LifeCycleStateRunning); err != nil {
+		return err
 	}
 	var cluster backends.Instances
 	if strings.Contains(c.ClusterName.String(), ",") {

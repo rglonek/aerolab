@@ -17,7 +17,7 @@ import (
 // The label is stored in /opt/agi/label and is also updated in instance tags.
 type AgiRelabelCmd struct {
 	ClusterName TypeAgiClusterName `short:"n" long:"name" description:"AGI name" default:"agi"`
-	NewLabel    string             `short:"l" long:"label" description:"New label for the AGI instance" required:"true"`
+	NewLabel    string             `short:"l" long:"label" description:"New label for the AGI instance"`
 	GcpZone     string             `short:"z" long:"zone" description:"GCP only: zone where the instance is"`
 	MaxRetries  int                `long:"max-retries" description:"Maximum number of retries for transient SSH/SFTP failures" default:"1" simplemode:"false"`
 	RetrySleep  time.Duration      `long:"retry-sleep" description:"Sleep duration between retries" default:"5s" simplemode:"false"`
@@ -67,22 +67,15 @@ func (c *AgiRelabelCmd) Relabel(system *System, inventory *backends.Inventory, l
 		inventory = system.Backend.GetInventory()
 	}
 
-	// Validate new label
-	if c.NewLabel == "" {
-		if IsInteractive() {
-			// ask user for new label
-			newLabel, err := AskForString("Enter new label")
-			if err != nil {
-				return err
-			}
-			if newLabel == "" {
-				return fmt.Errorf("new label is required")
-			}
-			c.NewLabel = newLabel
-		} else {
-			return fmt.Errorf("new label is required")
-		}
+	if err := c.ClusterName.Require(inventory); err != nil {
+		return err
 	}
+
+	newLabel, err := RequireString(c.NewLabel, "new label")
+	if err != nil {
+		return err
+	}
+	c.NewLabel = newLabel
 
 	// Get AGI instance
 	instance, err := c.ClusterName.GetInstanceList(inventory)

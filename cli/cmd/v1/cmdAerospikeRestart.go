@@ -51,8 +51,8 @@ func (c *AerospikeRestartCmd) RestartAerospike(system *System, inventory *backen
 	if inventory == nil {
 		inventory = system.Backend.GetInventory()
 	}
-	if c.ClusterName.String() == "" {
-		return nil, fmt.Errorf("cluster name is required")
+	if err := c.ClusterName.Require(inventory, backends.LifeCycleStateRunning); err != nil {
+		return nil, err
 	}
 	var cluster backends.Instances
 	if strings.Contains(c.ClusterName.String(), ",") {

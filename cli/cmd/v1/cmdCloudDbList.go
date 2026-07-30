@@ -155,6 +155,35 @@ func (c *CloudClustersListCmd) GetClusters() ([]Cluster, map[string]any, error) 
 	return result.Clusters, rawResult, nil
 }
 
+// requireCloudClusterID resolves a missing --cluster-id. Interactively the
+// user picks from the clusters the API reports; if that listing is
+// unavailable they can type an ID instead. Non-interactive callers get the
+// usual required-option error.
+func requireCloudClusterID(clusterID string) (string, error) {
+	if clusterID != "" {
+		return clusterID, nil
+	}
+	if !IsInteractive() {
+		return "", requiredOptionErr("cluster ID")
+	}
+	clusters, _, err := (&CloudClustersListCmd{StatusNe: "decommissioned"}).GetClusters()
+	if err != nil || len(clusters) == 0 {
+		return RequireString("", "cluster ID")
+	}
+	labels := make([]string, 0, len(clusters))
+	byLabel := make(map[string]string, len(clusters))
+	for _, cluster := range clusters {
+		label := fmt.Sprintf("%s (%s)", cluster.Name, cluster.ID)
+		labels = append(labels, label)
+		byLabel[label] = cluster.ID
+	}
+	selected, err := RequireChoice("", "cluster ID", labels...)
+	if err != nil {
+		return "", err
+	}
+	return byLabel[selected], nil
+}
+
 // ListClusters retrieves and formats Aerospike Cloud clusters for table/text output.
 // This method can be called by other commands (like inventory list) to include cloud clusters.
 //

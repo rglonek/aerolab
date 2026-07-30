@@ -97,8 +97,8 @@ func (c *ClusterApplyCmd) ApplyCluster(system *System, inventory *backends.Inven
 	if inventory == nil {
 		inventory = system.Backend.GetInventory()
 	}
-	if c.ClusterName.String() == "" {
-		return nil, fmt.Errorf("cluster name is required")
+	if err := c.ClusterName.Require(inventory); err != nil {
+		return nil, err
 	}
 	if strings.Contains(c.ClusterName.String(), ",") {
 		clusters := strings.Split(c.ClusterName.String(), ",")
