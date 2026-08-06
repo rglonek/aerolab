@@ -83,7 +83,7 @@ func (at *archTest) testDeployAmd64(t *testing.T) {
 		Owner:                 "test-owner",
 		Description:           "test-description",
 		BackendSpecificParams: params,
-	}, 2*time.Minute)
+	}, instanceReadyWait())
 	require.NoError(t, err)
 	require.Equal(t, insts.Instances.Count(), 1)
 	err = testBackend.RefreshChangedInventory()
@@ -99,7 +99,9 @@ func (at *archTest) testDeployAmd64(t *testing.T) {
 			Terminal:       true,
 		},
 		Username:        "root",
-		ConnectTimeout:  10 * time.Second,
+		ConnectTimeout:  execConnectTimeout(),
+		MaxRetries:      execMaxRetries(),
+		RetrySleep:      execRetrySleep(),
 		ParallelThreads: 2,
 	})
 	require.Equal(t, len(outs), 1)
@@ -141,7 +143,7 @@ func (at *archTest) testDeployArm64(t *testing.T) {
 		Owner:                 "test-owner",
 		Description:           "test-description",
 		BackendSpecificParams: params,
-	}, 2*time.Minute)
+	}, instanceReadyWait())
 	require.NoError(t, err)
 	require.Equal(t, insts.Instances.Count(), 1)
 	err = testBackend.RefreshChangedInventory()
@@ -157,7 +159,9 @@ func (at *archTest) testDeployArm64(t *testing.T) {
 			Terminal:       true,
 		},
 		Username:        "root",
-		ConnectTimeout:  10 * time.Second,
+		ConnectTimeout:  execConnectTimeout(),
+		MaxRetries:      execMaxRetries(),
+		RetrySleep:      execRetrySleep(),
 		ParallelThreads: 2,
 	})
 	require.Equal(t, len(outs), 1)

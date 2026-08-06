@@ -87,7 +87,7 @@ func (i *imageTest) testCreateVanillaInstance(t *testing.T) {
 		Owner:                 "test-owner",
 		Description:           "test-description",
 		BackendSpecificParams: params,
-	}, 2*time.Minute)
+	}, instanceReadyWait())
 	require.NoError(t, err)
 	require.Equal(t, insts.Instances.Count(), 1)
 }
@@ -108,7 +108,9 @@ func (i *imageTest) testAddFileToInstance(t *testing.T) {
 			Terminal:       true,
 		},
 		Username:        "root",
-		ConnectTimeout:  10 * time.Second,
+		ConnectTimeout:  execConnectTimeout(),
+		MaxRetries:      execMaxRetries(),
+		RetrySleep:      execRetrySleep(),
 		ParallelThreads: 1,
 	})
 	require.Len(t, out, 1)
@@ -211,7 +213,7 @@ func (i *imageTest) testCreateInstanceFromImage(t *testing.T) {
 		Owner:                 "test-owner",
 		Description:           "test-description",
 		BackendSpecificParams: params,
-	}, 2*time.Minute)
+	}, instanceReadyWait())
 	require.NoError(t, err)
 	require.Equal(t, insts.Instances.Count(), 1)
 }
@@ -232,7 +234,9 @@ func (i *imageTest) testReadFileFromInstance(t *testing.T) {
 			Terminal:       true,
 		},
 		Username:        "root",
-		ConnectTimeout:  10 * time.Second,
+		ConnectTimeout:  execConnectTimeout(),
+		MaxRetries:      execMaxRetries(),
+		RetrySleep:      execRetrySleep(),
 		ParallelThreads: 1,
 	})
 	require.Len(t, out, 1)

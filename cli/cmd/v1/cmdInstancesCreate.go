@@ -903,6 +903,19 @@ func (c *InstancesCreateCmd) CreateInstances(system *System, inventory *backends
 			}
 			createInstancesInput.BackendSpecificParams["docker"].(*bdocker.CreateInstanceParams).Image = imgs[0]
 		} else {
+			// A custom image is not built by aerolab, so it carries no
+			// architecture label to read the architecture back from. Take it
+			// from the request instead, which is native unless overridden:
+			// defaulting to amd64 makes every custom image fail to start on an
+			// arm64 host, since the container is created with an explicit
+			// --platform.
+			narch := backends.ArchitectureNative
+			switch c.Arch {
+			case "amd64":
+				narch = backends.ArchitectureX8664
+			case "arm64":
+				narch = backends.ArchitectureARM64
+			}
 			// Check if image exists locally
 			existingImages := inventory.Images.WithName(c.Docker.ImageName).Describe()
 			if len(existingImages) > 0 {
@@ -911,17 +924,19 @@ func (c *InstancesCreateCmd) CreateInstances(system *System, inventory *backends
 				createInstancesInput.BackendSpecificParams["docker"].(*bdocker.CreateInstanceParams).Image.ZoneName = "default"
 				createInstancesInput.BackendSpecificParams["docker"].(*bdocker.CreateInstanceParams).Image.Public = false
 				createInstancesInput.BackendSpecificParams["docker"].(*bdocker.CreateInstanceParams).Image.InAccount = true
+				createInstancesInput.BackendSpecificParams["docker"].(*bdocker.CreateInstanceParams).Image.Architecture = narch
 			} else {
 				// Image doesn't exist locally - create a placeholder for the backend to pull
 				createInstancesInput.BackendSpecificParams["docker"].(*bdocker.CreateInstanceParams).Image = &backends.Image{
-					Name:        c.Docker.ImageName,
-					ImageId:     c.Docker.ImageName,
-					ZoneName:    "default",
-					ZoneID:      "default",
-					Public:      false,
-					InAccount:   false, // Indicates image needs to be pulled
-					BackendType: backends.BackendTypeDocker,
-					Tags:        map[string]string{},
+					Name:         c.Docker.ImageName,
+					ImageId:      c.Docker.ImageName,
+					ZoneName:     "default",
+					ZoneID:       "default",
+					Public:       false,
+					InAccount:    false, // Indicates image needs to be pulled
+					BackendType:  backends.BackendTypeDocker,
+					Architecture: narch,
+					Tags:         map[string]string{},
 				}
 			}
 		}

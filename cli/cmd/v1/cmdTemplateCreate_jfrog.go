@@ -278,6 +278,11 @@ func templateOptionalDeps(debug bool) installers.Software {
 				{Command: "ping", Package: "iputils-ping"},
 				{Command: "ping", Package: "iputils"},
 				{Command: "ldapsearch", Package: "ldap-utils"},
+				// The rhel counterpart also pulls in openldap itself, which
+				// provides the liblber.so.2 / libldap.so.2 that the aerospike
+				// server rpm links against. RHEL 10 base images no longer ship
+				// them, so without this the server rpm fails to install.
+				{Command: "ldapsearch", Package: "openldap-clients"},
 				{Command: "netstat", Package: "net-tools"},
 				{Command: "lsb_release", Package: "lsb-release"},
 				{Command: "lsb_release", Package: "redhat-lsb-core"},

@@ -282,14 +282,15 @@ func (c *ClientCreateGraphCmd) createGraphOnDocker(system *System, inventory *ba
 
 	// Create instances using InstancesCreateCmd with custom docker image
 	instancesCmd := InstancesCreateCmd{
-		ClusterName:               c.ClientName.String(),
-		Count:                     c.ClientCount,
-		Owner:                     c.Owner,
-		Type:                      c.TypeOverride,
-		Tags:                      graphTags,
-		OS:                        "ubuntu",
-		Version:                   "24.04",
-		Arch:                      "amd64",
+		ClusterName: c.ClientName.String(),
+		Count:       c.ClientCount,
+		Owner:       c.Owner,
+		Type:        c.TypeOverride,
+		Tags:        graphTags,
+		OS:          "ubuntu",
+		Version:     "24.04",
+		// Arch is left unset so the graph container runs natively. The image is
+		// multi-arch, and forcing amd64 fails outright on an arm64 host.
 		Docker:                    c.Docker,
 		ParallelSSHThreads:        c.ParallelSSHThreads,
 		MaxRetries:                c.MaxRetries,

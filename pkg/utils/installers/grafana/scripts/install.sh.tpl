@@ -47,10 +47,28 @@ sslverify=1
 sslcacert=/etc/pki/tls/certs/ca-bundle.crt
 EOF
 
+    # rpm.grafana.com intermittently serves a repomd.xml that does not match its
+    # detached signature, which yum reports as "repomd.xml GPG signature
+    # verification error: Bad GPG signature" and then caches, so retrying within
+    # a second just re-reads the same bad copy. Drop the cached metadata between
+    # attempts and back off, rather than turning off repo_gpgcheck.
+    yum_install_grafana() {
+        local attempt
+        for attempt in 1 2 3; do
+            if yum install -y "$@"; then
+                return 0
+            fi
+            echo "grafana install attempt $attempt failed, clearing repo metadata and retrying"
+            yum clean metadata --disablerepo='*' --enablerepo=grafana || yum clean all || true
+            sleep $((attempt * 5))
+        done
+        return 1
+    }
+
     if [ -z "$VERSION" ]; then
-        retry_cmd yum install -y grafana || exit 1
+        yum_install_grafana grafana || exit 1
     else
-        retry_cmd yum install -y grafana-"$VERSION" || exit 1
+        yum_install_grafana grafana-"$VERSION" || exit 1
     fi
 
 else

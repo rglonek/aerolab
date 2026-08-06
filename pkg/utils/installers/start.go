@@ -12,6 +12,26 @@ var dependenciesScriptTemplate []byte
 type Dependency struct {
 	Command string `json:"command"` // command to check for
 	Package string `json:"package"` // package to install if command not found
+	// PackageRPM overrides Package on rpm-based distributions, for the cases
+	// where the two families name the same package differently
+	// (openssh-client on debian, openssh-clients on rhel). Empty means Package
+	// is correct for both.
+	PackageRPM string `json:"packageRpm,omitempty"`
+}
+
+// AptPackage is the package providing Command on apt-based distributions. It is
+// referenced from the dependency install script template.
+func (d Dependency) AptPackage() string {
+	return d.Package
+}
+
+// RpmPackage is the package providing Command on rpm-based distributions. It is
+// referenced from the dependency install script template.
+func (d Dependency) RpmPackage() string {
+	if d.PackageRPM != "" {
+		return d.PackageRPM
+	}
+	return d.Package
 }
 
 type Installs struct {

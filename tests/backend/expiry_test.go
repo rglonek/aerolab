@@ -161,7 +161,7 @@ func (e *expiryTest) testCreateInstance(t *testing.T) {
 		Description:           "test-description",
 		Expires:               time.Now().Add(90 * time.Second),
 		BackendSpecificParams: params,
-	}, 2*time.Minute)
+	}, instanceReadyWait())
 	require.NoError(t, err)
 	require.Equal(t, insts.Instances.Count(), 1)
 	err = testBackend.RefreshChangedInventory()

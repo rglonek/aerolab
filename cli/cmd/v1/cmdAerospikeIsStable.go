@@ -54,6 +54,28 @@ func (c *AerospikeIsStableCmd) Execute(args []string) error {
 	return Error(errors.New("cluster not stable"), system, cmd, c, args)
 }
 
+// sessionTimeout is how long the ssh session running the check may last.
+//
+// When waiting, the remote script itself loops for up to WaitTimeout seconds, so
+// the session has to outlive it: a fixed limit shorter than WaitTimeout kills
+// the session first and reports "session timeout" instead of waiting as asked.
+// Waiting with no timeout means the script only returns once the cluster is
+// stable, so the session must not impose a limit of its own either.
+func (c *AerospikeIsStableCmd) sessionTimeout() time.Duration {
+	const minimum = time.Minute
+	if !c.Wait {
+		return minimum
+	}
+	if c.WaitTimeout == 0 {
+		return 0
+	}
+	// Headroom covers the script's final sleep and asinfo call.
+	if d := time.Duration(c.WaitTimeout)*time.Second + 30*time.Second; d > minimum {
+		return d
+	}
+	return minimum
+}
+
 // IsStable checks if the aerospike cluster is stable.
 // This function performs the following operations:
 // 1. Gets the list of nodes in the cluster
@@ -199,7 +221,7 @@ exit 1
 			output := instance.Exec(&backends.ExecInput{
 				ExecDetail: sshexec.ExecDetail{
 					Command:        cmd,
-					SessionTimeout: time.Minute,
+					SessionTimeout: c.sessionTimeout(),
 					Env:            []*sshexec.Env{},
 					Terminal:       false,
 				},

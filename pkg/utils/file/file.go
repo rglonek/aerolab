@@ -33,3 +33,20 @@ func storeJSON(name string, tmpExt string, flag int, perm os.FileMode, data any)
 	defer f.Close()
 	return json.NewEncoder(f).Encode(data)
 }
+
+// Store writes data to name by filling name+tmpExt first and renaming it into
+// place, so a concurrent reader sees either the previous contents or the new
+// ones, never a half-written file.
+func Store(name string, tmpExt string, perm os.FileMode, data []byte) error {
+	fdir, _ := path.Split(name)
+	if fdir != "" {
+		if err := os.MkdirAll(fdir, 0755); err != nil {
+			return err
+		}
+	}
+	if err := os.WriteFile(name+tmpExt, data, perm); err != nil {
+		os.Remove(name + tmpExt)
+		return err
+	}
+	return os.Rename(name+tmpExt, name)
+}

@@ -27,12 +27,19 @@ func TestDockerTLSXDRData(t *testing.T) {
 	c.run("cluster", "create", "-c", "2", "-d", "ubuntu", "-i", "24.04", "-v", asVer, "-n", dc1)
 	c.run("cluster", "create", "-c", "2", "-d", "ubuntu", "-i", "24.04", "-v", asVer, "-n", dc2)
 
-	// TLS.
-	c.run("tls", "generate", "-n", dc1)
+	// TLS. Each run gets its own CA: `tls generate` reuses whatever CA it finds
+	// in its work dir, so a shared one would have every run signing against the
+	// first run's key.
+	c.run("tls", "generate", "-n", dc1, "-W", t.TempDir())
 	c.run("tls", "copy", "-s", dc1, "-d", dc2)
 
 	// XDR.
 	c.run("xdr", "connect", "-s", dc1, "-D", dc2)
+
+	// `xdr connect` restarts the source cluster and returns as soon as the
+	// restart is issued, so wait for the service to be up again before talking
+	// to it.
+	c.run("aerospike", "is-stable", "-n", dc1, "-w", "-o", "120", "-i")
 
 	// Data insert/delete and connectivity.
 	c.run("data", "insert", "-n", dc1, "-a", "1", "-z", "3000")
@@ -56,8 +63,10 @@ func TestDockerNetBlock(t *testing.T) {
 	})
 
 	c.run("inventory", "delete-project-resources", "-f")
-	c.run("cluster", "create", "-c", "1", "-d", "ubuntu", "-i", "24.04", "-v", asVer, "-n", dc1)
-	c.run("cluster", "create", "-c", "1", "-d", "ubuntu", "-i", "24.04", "-v", asVer, "-n", dc2)
+	// `net block` drives iptables inside the container, which needs NET_ADMIN.
+	// An unprivileged container fails with iptables exit status 4.
+	c.run("cluster", "create", "-c", "1", "-d", "ubuntu", "-i", "24.04", "-v", asVer, "-n", dc1, "--docker.privileged")
+	c.run("cluster", "create", "-c", "1", "-d", "ubuntu", "-i", "24.04", "-v", asVer, "-n", dc2, "--docker.privileged")
 
 	c.run("net", "block", "-s", dc1, "-d", dc2)
 	c.run("net", "list")
@@ -93,7 +102,9 @@ func TestDockerClientMatrix(t *testing.T) {
 	c.run("client", "configure", "ams", "-n", "ams", "-s", server)
 	c.run("client", "create", "tools", "-n", "tools")
 	c.run("client", "configure", "tools", "-n", "tools", "-m", "ams")
-	c.run("client", "create", "graph", "-n", "graph")
+	// -n names the client; the cluster to seed from comes from -C and defaults
+	// to "asd", which is not the randomly named cluster created above.
+	c.run("client", "create", "graph", "-n", "graph", "-C", server)
 
 	list := c.run("client", "list")
 	for _, name := range clients {

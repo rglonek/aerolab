@@ -3,106 +3,59 @@
 package aerolab_test
 
 import (
-	"fmt"
-	"os"
-	"os/exec"
 	"testing"
 
 	"github.com/aerospike/aerolab/pkg/utils/installers/aerolab"
 	"github.com/aerospike/aerolab/tests/installers/installertest"
-	"github.com/lithammer/shortuuid"
 	"github.com/stretchr/testify/require"
 )
 
 func TestAerolabLatestUbuntu24(t *testing.T) {
 	installertest.RequireDocker(t)
-	os.RemoveAll("dockertest")
-	defer os.RemoveAll("dockertest")
-	os.MkdirAll("dockertest", 0755) //nolint:errcheck
 
 	script, err := aerolab.GetLinuxInstallScript("", nil, nil)
 	require.NoError(t, err)
 	require.NotNil(t, script)
 	require.NotEmpty(t, script)
 
-	img := "amd64/ubuntu:24.04"
-	uuid := shortuuid.New()
-	err = os.WriteFile(fmt.Sprintf("dockertest/%s.sh", uuid), script, 0755)
-	require.NoError(t, err)
-	out, err := exec.Command("docker", "run", "-v", "./dockertest:/mnt", "--rm", "-i", "--name", uuid, img, "/bin/bash", "-c", fmt.Sprintf("echo 'x' && ls /mnt && chmod +x /mnt/%s.sh && /mnt/%s.sh", uuid, uuid)).CombinedOutput()
-	_ = out
-	//fmt.Println(string(out))
-	require.NoError(t, err)
+	installertest.RunScriptInImage(t, "{arch}/ubuntu:24.04", script)
 }
 
 func TestAerolabLatestCentos8(t *testing.T) {
 	installertest.RequireDocker(t)
-	os.RemoveAll("dockertest")
-	defer os.RemoveAll("dockertest")
-	os.MkdirAll("dockertest", 0755) //nolint:errcheck
 
 	script, err := aerolab.GetLinuxInstallScript("", nil, nil)
 	require.NoError(t, err)
 	require.NotNil(t, script)
 	require.NotEmpty(t, script)
 
-	img := "quay.io/centos/amd64:stream8"
-	uuid := shortuuid.New()
-	err = os.WriteFile(fmt.Sprintf("dockertest/%s.sh", uuid), script, 0755)
-	require.NoError(t, err)
-	out, err := exec.Command("docker", "run", "-v", "./dockertest:/mnt", "--rm", "-i", "--name", uuid, img, "/bin/bash", "-c", fmt.Sprintf("echo 'x' && ls /mnt && chmod +x /mnt/%s.sh && /mnt/%s.sh", uuid, uuid)).CombinedOutput()
-	_ = out
-	//fmt.Println(string(out))
-	require.NoError(t, err)
+	installertest.RunScriptInImage(t, "quay.io/centos/{arch}:stream8", script)
 }
 
 func TestAerolabLatestStable(t *testing.T) {
 	installertest.RequireDocker(t)
-	os.RemoveAll("dockertest")
-	defer os.RemoveAll("dockertest")
-	os.MkdirAll("dockertest", 0755) //nolint:errcheck
 
 	script, err := aerolab.GetLinuxInstallScript("", nil, new(false))
 	require.NoError(t, err)
 	require.NotNil(t, script)
 	require.NotEmpty(t, script)
 
-	img := "amd64/ubuntu:24.04"
-	uuid := shortuuid.New()
-	err = os.WriteFile(fmt.Sprintf("dockertest/%s.sh", uuid), script, 0755)
-	require.NoError(t, err)
-	out, err := exec.Command("docker", "run", "-v", "./dockertest:/mnt", "--rm", "-i", "--name", uuid, img, "/bin/bash", "-c", fmt.Sprintf("echo 'x' && ls /mnt && chmod +x /mnt/%s.sh && /mnt/%s.sh", uuid, uuid)).CombinedOutput()
-	_ = out
-	//fmt.Println(string(out))
-	require.NoError(t, err)
+	installertest.RunScriptInImage(t, "{arch}/ubuntu:24.04", script)
 }
 
 func TestAerolabLatestPrelease(t *testing.T) {
 	installertest.RequireDocker(t)
-	os.RemoveAll("dockertest")
-	defer os.RemoveAll("dockertest")
-	os.MkdirAll("dockertest", 0755) //nolint:errcheck
 
 	script, err := aerolab.GetLinuxInstallScript("", nil, new(true))
 	require.NoError(t, err)
 	require.NotNil(t, script)
 	require.NotEmpty(t, script)
 
-	img := "amd64/ubuntu:24.04"
-	uuid := shortuuid.New()
-	err = os.WriteFile(fmt.Sprintf("dockertest/%s.sh", uuid), script, 0755)
-	require.NoError(t, err)
-	out, err := exec.Command("docker", "run", "-v", "./dockertest:/mnt", "--rm", "-i", "--name", uuid, img, "/bin/bash", "-c", fmt.Sprintf("echo 'x' && ls /mnt && chmod +x /mnt/%s.sh && /mnt/%s.sh", uuid, uuid)).CombinedOutput()
-	_ = out
-	//fmt.Println(string(out))
-	require.NoError(t, err)
+	installertest.RunScriptInImage(t, "{arch}/ubuntu:24.04", script)
 }
 
 func TestAerolabVersioned(t *testing.T) {
 	installertest.RequireDocker(t)
-	os.RemoveAll("dockertest")
-	defer os.RemoveAll("dockertest")
-	os.MkdirAll("dockertest", 0755) //nolint:errcheck
 
 	script, err := aerolab.GetLinuxInstallScript("", new("7.7.0"), new(false))
 	require.NoError(t, err)
@@ -110,21 +63,11 @@ func TestAerolabVersioned(t *testing.T) {
 	require.NotEmpty(t, script)
 	require.Contains(t, string(script), "7.7.0")
 
-	img := "amd64/ubuntu:24.04"
-	uuid := shortuuid.New()
-	err = os.WriteFile(fmt.Sprintf("dockertest/%s.sh", uuid), script, 0755)
-	require.NoError(t, err)
-	out, err := exec.Command("docker", "run", "-v", "./dockertest:/mnt", "--rm", "-i", "--name", uuid, img, "/bin/bash", "-c", fmt.Sprintf("echo 'x' && ls /mnt && chmod +x /mnt/%s.sh && /mnt/%s.sh", uuid, uuid)).CombinedOutput()
-	_ = out
-	//fmt.Println(string(out))
-	require.NoError(t, err)
+	installertest.RunScriptInImage(t, "{arch}/ubuntu:24.04", script)
 }
 
 func TestAerolabVersionPrefixed(t *testing.T) {
 	installertest.RequireDocker(t)
-	os.RemoveAll("dockertest")
-	defer os.RemoveAll("dockertest")
-	os.MkdirAll("dockertest", 0755) //nolint:errcheck
 
 	script, err := aerolab.GetLinuxInstallScript("", new("7.7.*"), new(false))
 	require.NoError(t, err)
@@ -133,12 +76,5 @@ func TestAerolabVersionPrefixed(t *testing.T) {
 	// The selector resolves to the newest 7.7.x, so only the prefix is stable.
 	require.Contains(t, string(script), "7.7.")
 
-	img := "amd64/ubuntu:24.04"
-	uuid := shortuuid.New()
-	err = os.WriteFile(fmt.Sprintf("dockertest/%s.sh", uuid), script, 0755)
-	require.NoError(t, err)
-	out, err := exec.Command("docker", "run", "-v", "./dockertest:/mnt", "--rm", "-i", "--name", uuid, img, "/bin/bash", "-c", fmt.Sprintf("echo 'x' && ls /mnt && chmod +x /mnt/%s.sh && /mnt/%s.sh", uuid, uuid)).CombinedOutput()
-	_ = out
-	//fmt.Println(string(out))
-	require.NoError(t, err)
+	installertest.RunScriptInImage(t, "{arch}/ubuntu:24.04", script)
 }

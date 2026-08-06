@@ -255,9 +255,15 @@ func (c *CloudClustersUpdateCmd) waitForClusterUpdateComplete(client *cloud.Clie
 			found = true
 			lastClusterResult = dbMap // Store the last result
 
-			status, ok := dbMap["status"].(string)
-			if !ok {
-				return lastClusterResult, fmt.Errorf("status field not found or invalid in response")
+			// The API reports cluster status under health.status; there is no
+			// top-level status field, so reading one directly failed every
+			// update with "status field not found or invalid in response" after
+			// the update itself had been accepted. getHealthStatus is what the
+			// `wait` command uses, and it still falls back to a top-level
+			// status if a response ever carries one.
+			status, err := getHealthStatus(dbMap)
+			if err != nil {
+				return lastClusterResult, err
 			}
 
 			logger.Info("Cluster status: %s", status)

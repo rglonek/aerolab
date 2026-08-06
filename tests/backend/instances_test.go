@@ -36,8 +36,6 @@ func Test15_Instances(t *testing.T) {
 	t.Run("end inventory empty", testInventoryEmpty)
 }
 
-type testInstancesDNS struct{}
-
 func testInstancesUpdateHostsFile(t *testing.T) {
 	require.NoError(t, setup(false))
 	require.NoError(t, testBackend.RefreshChangedInventory())
@@ -157,7 +155,7 @@ func testCreateInstance(t *testing.T) {
 		Owner:                 "test-owner",
 		Description:           "test-description",
 		BackendSpecificParams: params,
-	}, 2*time.Minute)
+	}, instanceReadyWait())
 	require.NoError(t, err)
 	require.Equal(t, insts.Instances.Count(), 3)
 	err = testBackend.RefreshChangedInventory()
@@ -303,7 +301,9 @@ func testInstancesExec(t *testing.T) {
 			Terminal:       true,
 		},
 		Username:        "root",
-		ConnectTimeout:  10 * time.Second,
+		ConnectTimeout:  execConnectTimeout(),
+		MaxRetries:      execMaxRetries(),
+		RetrySleep:      execRetrySleep(),
 		ParallelThreads: 2,
 	})
 	require.Equal(t, len(outs), 3)

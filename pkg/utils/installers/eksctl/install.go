@@ -20,7 +20,7 @@ func GetInstallScript() ([]byte, error) {
 				{Command: "curl", Package: "curl"},
 				{Command: "unzip", Package: "unzip"},
 				{Command: "vim", Package: "vim"},
-				{Command: "ssh", Package: "openssh-client"},
+				{Command: "ssh", Package: "openssh-client", PackageRPM: "openssh-clients"},
 				{Command: "zip", Package: "zip"},
 				{Command: "git", Package: "git"},
 				{Command: "jq", Package: "jq"},

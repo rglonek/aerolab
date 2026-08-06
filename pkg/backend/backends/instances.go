@@ -702,6 +702,9 @@ func (v InstanceList) RemoveFirewalls(fw FirewallList) error {
 	wait := new(sync.WaitGroup)
 	for _, c := range ListBackendTypes() {
 		wait.Go(func() {
+			if v.WithBackendType(c).Count() == 0 {
+				return
+			}
 			err := cloudList[c].InstancesRemoveFirewalls(v.WithBackendType(c).Describe(), fw)
 			if err != nil {
 				retErr = err

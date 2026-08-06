@@ -122,7 +122,7 @@ func getDefaultClient(log *logger.Logger, configuredProject string, forceQuotaPr
 // log is the logger to use for logging; all logging is done at the debug level.
 // tokenCacheFilePath is the file path to cache the token in.
 // browser is a flag to enable opening the browser for the OAuth flow.
-// secrets is the client ID and client secret for the Google Cloud Platform; if not provided, embedded secrets are used.
+// secrets is the client ID and client secret for the Google Cloud Platform; it is required, aerolab ships no built-in client ID.
 func getOAuth2Client(log *logger.Logger, tokenCacheFilePath string, browser bool, secrets *clouds.LoginGCPSecrets) (*http.Client, error) {
 	if secrets == nil || secrets.ClientID == "" {
 		return nil, fmt.Errorf("client ID is required")

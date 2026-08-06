@@ -1,6 +1,7 @@
 package file
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -33,6 +34,26 @@ func TestStoreJSONRoundTrip(t *testing.T) {
 		t.Fatalf("round trip mismatch: got %+v, want %+v", out, in)
 	}
 
+	if _, err := os.Stat(name + ".tmp"); !os.IsNotExist(err) {
+		t.Fatalf("temp file should be renamed away, stat err = %v", err)
+	}
+}
+
+func TestStoreRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	name := filepath.Join(dir, "nested", "key")
+
+	in := []byte("ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAB")
+	if err := Store(name, ".tmp", 0600, in); err != nil {
+		t.Fatalf("Store: %v", err)
+	}
+	out, err := os.ReadFile(name)
+	if err != nil {
+		t.Fatalf("reading stored file: %v", err)
+	}
+	if !bytes.Equal(out, in) {
+		t.Fatalf("round trip mismatch: got %q, want %q", out, in)
+	}
 	if _, err := os.Stat(name + ".tmp"); !os.IsNotExist(err) {
 		t.Fatalf("temp file should be renamed away, stat err = %v", err)
 	}

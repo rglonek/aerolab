@@ -31,8 +31,10 @@ type CreateVolumeParams struct {
 	SizeGiB int `yaml:"sizeGiB" json:"sizeGiB"`
 	// vpc: will use first subnet in the vpc, subnet: will use the specified subnet id, zone: will use the default VPC, first subnet in the zone
 	Placement string `yaml:"placement" json:"placement" required:"true"`
-	// for attached disk only: gp2, gp3, etc
-	DiskType string `yaml:"diskType" json:"diskType" required:"true"`
+	// for attached disk only: gp2, gp3, etc. Required for attached disks, but
+	// checked at creation time rather than via `required` so shared disks, which
+	// have no disk type, do not have to pass a placeholder value.
+	DiskType string `yaml:"diskType" json:"diskType"`
 	// optional: attach disk only, provisioned iops
 	Iops int `yaml:"iops" json:"iops"`
 	// optional: attach disk only, bytes/second
@@ -1175,8 +1177,13 @@ func (s *b) CreateVolumeGetPrice(input *backends.CreateVolumeInput) (costGB floa
 	if err := structtags.CheckRequired(backendSpecificParams); err != nil {
 		return 0, fmt.Errorf("required fields missing in backend-specific parameters: %w", err)
 	}
-	if backendSpecificParams.SizeGiB == 0 && input.VolumeType == backends.VolumeTypeAttachedDisk {
-		return 0, errors.New("sizeGiB is required for attached disk")
+	if input.VolumeType == backends.VolumeTypeAttachedDisk {
+		if backendSpecificParams.SizeGiB == 0 {
+			return 0, errors.New("sizeGiB is required for attached disk")
+		}
+		if backendSpecificParams.DiskType == "" {
+			return 0, errors.New("diskType is required for attached disk")
+		}
 	}
 	_, _, zone, err := s.ResolveNetworkPlacement(backendSpecificParams.Placement)
 	if err != nil {
@@ -1236,8 +1243,13 @@ func (s *b) CreateVolume(input *backends.CreateVolumeInput) (output *backends.Cr
 	if err := structtags.CheckRequired(backendSpecificParams); err != nil {
 		return nil, fmt.Errorf("required fields missing in backend-specific parameters: %w", err)
 	}
-	if backendSpecificParams.SizeGiB == 0 && input.VolumeType == backends.VolumeTypeAttachedDisk {
-		return nil, errors.New("sizeGiB is required for attached disk")
+	if input.VolumeType == backends.VolumeTypeAttachedDisk {
+		if backendSpecificParams.SizeGiB == 0 {
+			return nil, errors.New("sizeGiB is required for attached disk")
+		}
+		if backendSpecificParams.DiskType == "" {
+			return nil, errors.New("diskType is required for attached disk")
+		}
 	}
 
 	_, _, zone, err := s.ResolveNetworkPlacement(backendSpecificParams.Placement)

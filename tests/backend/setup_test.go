@@ -32,6 +32,11 @@ var (
 	podman         bool
 	testBackend    backends.Backend
 	backendType    backends.BackendType
+	// testCredentials are the credentials the backend under test was built
+	// with. Tests that have to inspect a cloud resource the backends interface
+	// does not expose (the DNS test reads the hosted zone directly) build their
+	// own client from these, so they authenticate exactly as the backend does.
+	testCredentials *clouds.Credentials
 )
 
 type BackendTestOptions struct {
@@ -46,6 +51,22 @@ type BackendTestOptions struct {
 	// GCPNoPublicIP creates every GCP test instance without a public IP
 	// (AEROLAB_GCP_NO_PUBLIC_IP). The project needs Cloud NAT for egress.
 	GCPNoPublicIP bool
+	// GCPAuthMethod selects how the GCP backend authenticates
+	// (AEROLAB_GCP_AUTH_METHOD: any|login|service-account). It defaults to
+	// service-account, matching the CLI, so the suite runs off Application
+	// Default Credentials. The login method is the interactive browser flow
+	// and only works with an OAuth client id in AEROLAB_GCP_CLIENT_ID.
+	GCPAuthMethod clouds.GCPAuthMethod
+	// GCPLoginSecrets carries the OAuth client id/secret for the login auth
+	// method (AEROLAB_GCP_CLIENT_ID, AEROLAB_GCP_CLIENT_SECRET); nil when
+	// unset, which is what every other auth method wants.
+	GCPLoginSecrets *clouds.LoginGCPSecrets
+	// GCPAutoEnableServices lets the backend enable the Google Cloud services
+	// it needs (compute, iap when GCPUseIAP is set, ...) rather than refusing
+	// to run. It defaults to on because the suite is non-interactive and the
+	// prompt-free alternative is a hard failure at setup; set
+	// AEROLAB_GCP_AUTO_ENABLE_SERVICES=0 to enable them by hand instead.
+	GCPAutoEnableServices bool
 }
 
 func (o *BackendTestOptions) Validate() error {
@@ -76,6 +97,24 @@ func (o *BackendTestOptions) Validate() error {
 		}
 		if err := lookupBoolEnv("AEROLAB_GCP_NO_PUBLIC_IP", &o.GCPNoPublicIP); err != nil {
 			return err
+		}
+		o.GCPAutoEnableServices = true
+		if err := lookupBoolEnv("AEROLAB_GCP_AUTO_ENABLE_SERVICES", &o.GCPAutoEnableServices); err != nil {
+			return err
+		}
+		o.GCPAuthMethod = clouds.GCPAuthMethod(getenvDefault("AEROLAB_GCP_AUTH_METHOD", clouds.GCPAuthMethodServiceAccount))
+		switch o.GCPAuthMethod {
+		case clouds.GCPAuthMethodServiceAccount, clouds.GCPAuthMethodLogin, clouds.GCPAuthMethodAny:
+		default:
+			return errors.New("AEROLAB_GCP_AUTH_METHOD must be one of any|login|service-account, got: " + string(o.GCPAuthMethod))
+		}
+		if clientID := os.Getenv("AEROLAB_GCP_CLIENT_ID"); clientID != "" {
+			o.GCPLoginSecrets = &clouds.LoginGCPSecrets{
+				ClientID:     clientID,
+				ClientSecret: os.Getenv("AEROLAB_GCP_CLIENT_SECRET"), // can be empty for the PKCE flow
+			}
+		} else if o.GCPAuthMethod == clouds.GCPAuthMethodLogin {
+			return errors.New("AEROLAB_GCP_AUTH_METHOD=login requires an OAuth client id in AEROLAB_GCP_CLIENT_ID")
 		}
 	case "docker":
 		backendType = backends.BackendTypeDocker
@@ -141,6 +180,46 @@ func gcpArchInstanceType(arch backends.Architecture) string {
 	return getenvDefault("AEROLAB_TEST_GCP_INSTANCE_TYPE", "e2-standard-4")
 }
 
+// instanceReadyWait is how long a create waits for its instances to become
+// ssh-reachable. Docker containers are up immediately, but a cloud VM boots on
+// its own schedule: a GCP instance with no public IP, reached over an IAP
+// tunnel, regularly needs more than two minutes from create to sshd accepting
+// connections. The CLI allows itself ten minutes and up for the same wait, so
+// the suite is not testing anything real by insisting on a tighter budget.
+func instanceReadyWait() time.Duration {
+	if cloud == "docker" {
+		return 2 * time.Minute
+	}
+	return 5 * time.Minute
+}
+
+// execConnectTimeout bounds a single exec's connect: the dial plus the SSH
+// handshake. Docker answers on loopback, but a cloud instance reached over an
+// IAP tunnel occasionally needs more than ten seconds to finish the handshake,
+// so the cloud budget matches the 30s the CLI gives itself everywhere rather
+// than a tighter number that only usually works.
+func execConnectTimeout() time.Duration {
+	if cloud == "docker" {
+		return 10 * time.Second
+	}
+	return 30 * time.Second
+}
+
+// execMaxRetries and execRetrySleep give the suite's execs the same tolerance
+// for a transient SSH failure that the CLI gives itself: every aerolab exec
+// path defaults to --max-retries 1 / --retry-sleep 5s, while these tests set
+// neither and so got a single attempt.
+//
+// That made the suite stricter than the product it tests. A freshly created
+// instance is exactly where a redial pays off -- one blip on the first
+// connection after create is normal, sshd having just come up (and on GCP,
+// with an IAP tunnel in front of it) -- and aerolab's own readiness loop
+// reaches the same instance by retrying once a second. A test that takes the
+// single-attempt reading and fails is reporting the blip, not a defect.
+func execMaxRetries() int { return 1 }
+
+func execRetrySleep() time.Duration { return 5 * time.Second }
+
 // gcpParams applies the suite-wide GCP options to a set of create-instance
 // params. Every GCP instance the suite creates goes through here so a project
 // that requires private-only instances is tested the way it is actually used.
@@ -151,12 +230,22 @@ func gcpParams(p *bgcp.CreateInstanceParams) *bgcp.CreateInstanceParams {
 	return p
 }
 
-func setup(fresh bool) error {
+func setup(fresh bool) (err error) {
 	if Options != nil {
 		return nil // already setup
 	}
 	Options = &BackendTestOptions{}
-	err := Options.Validate()
+	// A half-finished setup must not look like a completed one: the "already
+	// setup" short-circuit above would hand the next subtest a nil testBackend,
+	// which then panics and takes the whole test binary down with it, hiding
+	// the real error.
+	defer func() {
+		if err != nil {
+			Options = nil
+			testBackend = nil
+		}
+	}()
+	err = Options.Validate()
 	if err != nil {
 		return err
 	}
@@ -179,10 +268,12 @@ func setup(fresh bool) error {
 			AuthMethod: clouds.AWSAuthMethodShared,
 		},
 		GCP: clouds.GCP{
-			Project:    os.Getenv("GCP_PROJECT"),
-			AuthMethod: clouds.GCPAuthMethodLogin,
-			UseIAP:     Options.GCPUseIAP,
+			Project:            os.Getenv("GCP_PROJECT"),
+			AuthMethod:         Options.GCPAuthMethod,
+			UseIAP:             Options.GCPUseIAP,
+			AutoEnableServices: Options.GCPAutoEnableServices,
 			Login: clouds.LoginGCPConfig{
+				Secrets:            Options.GCPLoginSecrets,
 				Browser:            true,
 				TokenCacheFilePath: filepath.Join(tempDir, "gcp_token.json"),
 			},
@@ -191,6 +282,7 @@ func setup(fresh bool) error {
 			EnableDefaultFromEnv: true,
 		},
 	}
+	testCredentials = credentials
 
 	var btype backends.BackendType
 	switch cloud {
@@ -241,6 +333,13 @@ func setup(fresh bool) error {
 }
 
 func cleanupBackend() error {
+	if testBackend == nil {
+		// setup() never got as far as building a backend; there is nothing to
+		// clean up, and dereferencing it here would panic inside t.Cleanup and
+		// take the run down instead of reporting the setup failure.
+		log.Print("BACKEND NOT INITIALIZED, NOTHING TO CLEAN UP")
+		return nil
+	}
 	log.Print("CLEANING UP BACKEND")
 	err := testBackend.ForceRefreshInventory()
 	if err != nil {
@@ -325,11 +424,16 @@ func testInventoryEmpty(t *testing.T) {
 	require.Equal(t, inventory.Instances.WithNotState(backends.LifeCycleStateTerminated).Count(), 0)
 	require.Equal(t, inventory.Volumes.Count(), 0)
 	require.Equal(t, inventory.Networks.WithAerolabManaged(true).Count(), 0)
-	netCount := 1
+	// Networks aerolab did not create belong to the operator. Docker's are
+	// fixed (bridge/host/none), but a cloud account can hold any number of
+	// pre-existing VPCs, so all this can honestly assert is that there is at
+	// least one to deploy into; the aerolab-managed count above is the part
+	// that says the inventory is clean.
 	if cloud == "docker" && !podman {
-		netCount = 3
+		require.Equal(t, inventory.Networks.WithAerolabManaged(false).Count(), 3)
+	} else {
+		require.GreaterOrEqual(t, inventory.Networks.WithAerolabManaged(false).Count(), 1)
 	}
-	require.Equal(t, inventory.Networks.WithAerolabManaged(false).Count(), netCount)
 	require.Equal(t, inventory.Firewalls.Count(), 0)
 	require.Equal(t, inventory.Images.WithInAccount(true).Count(), 0)
 	require.GreaterOrEqual(t, inventory.Images.WithInAccount(false).Count(), 20)

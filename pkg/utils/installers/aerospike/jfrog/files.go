@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -44,7 +45,6 @@ func (fs Files) Match(c MatchCriteria) (*File, error) {
 		return nil, fmt.Errorf("jfrog: unsupported OS %q (only amazon/centos/debian/ubuntu have JFrog packages)", c.OSName)
 	}
 
-	var seen []string
 	for i := range fs {
 		f := &fs[i]
 		if f.Parts == nil {
@@ -67,21 +67,85 @@ func (fs Files) Match(c MatchCriteria) (*File, error) {
 		}
 		return f, nil
 	}
+	return nil, fs.noMatchError(c, wantFormat)
+}
 
-	// build a helpful "what we did see" message for the user
-	for _, f := range fs {
-		if f.Parts != nil && f.Parts.Edition == c.Edition && f.Parts.Format == wantFormat {
-			seen = append(seen, fmt.Sprintf("%s/%s/%s",
-				f.Parts.OSName+f.Parts.OSVersion, f.Parts.Arch, f.Name))
+// diagSampleSize caps how many artifact names a failed match reports. A build
+// carries a few hundred artifacts; a sample is enough to tell a genuinely
+// missing package apart from a naming scheme the parser does not know.
+const diagSampleSize = 10
+
+// noMatchError explains a failed Match. The artifact list is fetched, filtered
+// and discarded within a single call, so this error is the only place an
+// operator gets to see what the build actually carried — without it, an
+// upstream naming change is indistinguishable from a missing package.
+func (fs Files) noMatchError(c MatchCriteria, wantFormat string) error {
+	var candidates, unrecognised []string
+	for i := range fs {
+		f := &fs[i]
+		if f.Parts == nil {
+			// signatures and checksums are expected not to parse; only
+			// package-looking names say anything about the naming scheme
+			if isPackageName(f.Name) {
+				unrecognised = append(unrecognised, f.Name)
+			}
+			continue
+		}
+		if f.Parts.Edition == c.Edition && f.Parts.Format == wantFormat {
+			candidates = append(candidates, f.Parts.OSName+f.Parts.OSVersion+"/"+f.Parts.Arch)
 		}
 	}
-	if len(seen) == 0 {
-		return nil, fmt.Errorf("jfrog: no %s %s package found for %s/%s/%s",
-			c.Edition, wantFormat, c.OSName, c.OSVersion, c.Arch)
+	if len(candidates) > 0 {
+		return fmt.Errorf(
+			"jfrog: no %s %s package matches %s%s/%s; this build has %s %s packages only for: %s",
+			c.Edition, wantFormat, c.OSName, c.OSVersion, c.Arch,
+			c.Edition, wantFormat, strings.Join(uniq(candidates), ", "))
 	}
-	return nil, fmt.Errorf(
-		"jfrog: no %s %s package matches %s %s %s; available %s candidates: %v",
-		c.Edition, wantFormat, c.OSName, c.OSVersion, c.Arch, c.Edition, seen)
+	if len(unrecognised) == 0 {
+		for i := range fs {
+			unrecognised = append(unrecognised, fs[i].Name)
+		}
+	}
+	return fmt.Errorf(
+		"jfrog: no %s %s package found for %s%s/%s; none of the %d artifacts on this build "+
+			"parsed as an aerospike server package. Either the build publishes a naming scheme "+
+			"aerolab does not recognise yet, or your JFrog credentials cannot read the repository "+
+			"holding the package (AQL silently omits unreadable artifacts). Artifacts seen: %s",
+		c.Edition, wantFormat, c.OSName, c.OSVersion, c.Arch, len(fs),
+		sample(unrecognised, diagSampleSize))
+}
+
+// isPackageName reports whether a name looks like an installable package
+// rather than a signature, checksum or source archive.
+func isPackageName(name string) bool {
+	return strings.HasSuffix(name, ".deb") || strings.HasSuffix(name, ".rpm")
+}
+
+// uniq removes duplicates while preserving order. Builds publish the same
+// artifact into several repositories, so raw lists repeat themselves.
+func uniq(in []string) []string {
+	seen := make(map[string]struct{}, len(in))
+	out := make([]string, 0, len(in))
+	for _, s := range in {
+		if _, ok := seen[s]; ok {
+			continue
+		}
+		seen[s] = struct{}{}
+		out = append(out, s)
+	}
+	return out
+}
+
+// sample renders at most max entries, noting how many were elided.
+func sample(in []string, max int) string {
+	in = uniq(in)
+	if len(in) == 0 {
+		return "(none)"
+	}
+	if len(in) <= max {
+		return strings.Join(in, ", ")
+	}
+	return fmt.Sprintf("%s, ... (+%d more)", strings.Join(in[:max], ", "), len(in)-max)
 }
 
 // MatchTools returns the "aerospike-tools_*.tgz" artifact matching the OS

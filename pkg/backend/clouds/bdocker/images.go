@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/aerospike/aerolab/pkg/backend/backends"
+	cerrdefs "github.com/containerd/errdefs"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/image"
@@ -290,6 +291,12 @@ func (s *b) ImagesDelete(images backends.ImageList, waitDur time.Duration) error
 	log.Detail("Entering goroutines")
 	wg := new(sync.WaitGroup)
 	var reterr error
+	errLock := new(sync.Mutex)
+	addErr := func(err error) {
+		errLock.Lock()
+		reterr = errors.Join(reterr, err)
+		errLock.Unlock()
+	}
 	for zone, ids := range volIds {
 		wg.Add(1)
 		go func(zone string, ids backends.ImageList) {
@@ -297,42 +304,53 @@ func (s *b) ImagesDelete(images backends.ImageList, waitDur time.Duration) error
 			log.Detail("Connecting to Docker")
 			cli, err := s.getDockerClient(zone)
 			if err != nil {
-				reterr = errors.Join(reterr, err)
+				addErr(err)
 				return
 			}
+			// The same docker image can be listed more than once: the public
+			// base images are enumerated per architecture and some repositories
+			// are multi-arch (rockylinux:10 and later), so the arm64/amd64 and
+			// native entries resolve to one image ID. Removing it twice fails
+			// with "No such image"; remove each ID once only.
+			removed := make(map[string]bool)
 			for _, id := range ids {
 				imgDetail := getImageDetail(id)
+				removeId := ""
 				if id.InAccount && id.Public && imgDetail.Docker != nil {
-					customId := imgDetail.Docker.ID
-					golog := log.WithPrefix(zone + "::" + customId + ": ")
-					golog.Detail("Deregistering Custom Root Image")
+					removeId = imgDetail.Docker.ID
 					s.builderMutex.Lock()
 					if _, ok := s.builders[zone]; ok {
 						delete(s.builders[zone], id.Name)
 					}
 					s.builderMutex.Unlock()
-					_, err = cli.ImageRemove(context.Background(), customId, image.RemoveOptions{
-						Force:         true,
-						PruneChildren: true,
-					})
-					if err != nil {
-						reterr = errors.Join(reterr, err)
-						return
-					}
-					golog.Detail("Done")
 				} else if !id.Public {
-					golog := log.WithPrefix(zone + "::" + id.ImageId + ": ")
-					golog.Detail("Deregistering Image")
-					_, err = cli.ImageRemove(context.Background(), id.ImageId, image.RemoveOptions{
-						Force:         true,
-						PruneChildren: true,
-					})
-					if err != nil {
-						reterr = errors.Join(reterr, err)
-						return
-					}
-					golog.Detail("Done")
+					removeId = id.ImageId
 				}
+				if removeId == "" {
+					continue
+				}
+				golog := log.WithPrefix(zone + "::" + removeId + ": ")
+				if removed[removeId] {
+					golog.Detail("Already deregistered, skipping")
+					continue
+				}
+				removed[removeId] = true
+				golog.Detail("Deregistering Image")
+				_, err = cli.ImageRemove(context.Background(), removeId, image.RemoveOptions{
+					Force:         true,
+					PruneChildren: true,
+				})
+				if err != nil {
+					// PruneChildren can take out an image that is also listed
+					// here on its own; it being gone already is what we wanted.
+					if cerrdefs.IsNotFound(err) {
+						golog.Detail("Already gone, skipping")
+						continue
+					}
+					addErr(err)
+					continue
+				}
+				golog.Detail("Done")
 			}
 		}(zone, ids)
 	}

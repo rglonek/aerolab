@@ -20,15 +20,20 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 )
 
+// getPricingClient returns a client for the Pricing API, which is a single
+// global low-TPS endpoint shared by every region we price. The SDK default of
+// three attempts is not enough for the bursts aerolab produces, so this raises
+// the attempt count and uses adaptive mode, which adds a client-side rate
+// limiter that slows the caller down instead of failing on ThrottlingException.
 func getPricingClient(creds *clouds.AWS, region *string) (*pricing.Client, error) {
-	cfg, err := getCfgForClient(creds, region)
+	cfg, err := getCfgForClient(creds, region, config.WithRetryMaxAttempts(10), config.WithRetryMode(aws.RetryModeAdaptive))
 	if err != nil {
 		return nil, err
 	}
 	return pricing.NewFromConfig(*cfg), nil
 }
 
-func getCfgForClient(creds *clouds.AWS, region *string) (*aws.Config, error) {
+func getCfgForClient(creds *clouds.AWS, region *string, extraOpts ...func(*config.LoadOptions) error) (*aws.Config, error) {
 	opts := []func(*config.LoadOptions) error{}
 	if creds != nil {
 		switch creds.AuthMethod {
@@ -45,6 +50,7 @@ func getCfgForClient(creds *clouds.AWS, region *string) (*aws.Config, error) {
 	if region != nil {
 		opts = append(opts, config.WithRegion(*region))
 	}
+	opts = append(opts, extraOpts...)
 	cfg, err := config.LoadDefaultConfig(context.Background(), opts...)
 	if err != nil {
 		return nil, err

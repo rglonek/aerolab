@@ -158,7 +158,19 @@ func ExecWithRetry(i *ExecInput, cleanupName string) *ExecOutput {
 		curSession, curConn = session, conn
 		mu.Unlock()
 
-		lastOutput = ExecRun(session, conn, i)
+		out := ExecRun(session, conn, i)
+		// Carry the earlier attempts' output forward. A retry usually fails
+		// differently from the attempt that triggered it -- when a node drops
+		// mid-script the retry cannot even dial, so it produces nothing -- and
+		// returning only the last attempt threw away the script log that
+		// explained the failure, leaving callers (scriptlog.SaveFailure among
+		// them) to report "no output captured".
+		if lastOutput != nil {
+			out.Stdout = joinAttemptOutput(lastOutput.Stdout, out.Stdout, attempt)
+			out.Stderr = joinAttemptOutput(lastOutput.Stderr, out.Stderr, attempt)
+			out.Warn = append(lastOutput.Warn, out.Warn...)
+		}
+		lastOutput = out
 
 		if isInterrupted() {
 			lastOutput.Err = errors.New("interrupted")
@@ -175,6 +187,26 @@ func ExecWithRetry(i *ExecInput, cleanupName string) *ExecOutput {
 		lastOutput.Err = fmt.Errorf("failed after %d attempts: %w", maxRetries+1, lastOutput.Err)
 	}
 	return lastOutput
+}
+
+// joinAttemptOutput concatenates the output of a retried command's attempts,
+// labelling the boundary so a reader can tell which attempt produced what.
+// attempt is the zero-based index of the newer output. Either side may be
+// empty: a stream that produced nothing contributes nothing, and when the
+// caller redirected the stream (i.Stdout / i.Stderr set) both sides are nil.
+func joinAttemptOutput(prev []byte, cur []byte, attempt int) []byte {
+	if len(prev) == 0 {
+		return cur
+	}
+	if len(cur) == 0 {
+		return prev
+	}
+	sep := fmt.Sprintf("\n--- retry %d ---\n", attempt)
+	joined := make([]byte, 0, len(prev)+len(sep)+len(cur))
+	joined = append(joined, prev...)
+	joined = append(joined, sep...)
+	joined = append(joined, cur...)
+	return joined
 }
 
 func ExecRun(session *ssh.Session, conn *ssh.Client, i *ExecInput) *ExecOutput {
@@ -366,6 +398,11 @@ func dialSSH(cc *ClientConf, addr string, config *ssh.ClientConfig) (*ssh.Client
 		return ssh.Dial("tcp", addr, config)
 	}
 
+	deadline := time.Time{}
+	if cc.ConnectTimeout > 0 {
+		deadline = time.Now().Add(cc.ConnectTimeout)
+	}
+
 	type dialResult struct {
 		nc  net.Conn
 		err error
@@ -404,12 +441,58 @@ func dialSSH(cc *ClientConf, addr string, config *ssh.ClientConfig) (*ssh.Client
 		return nil, err
 	}
 
-	sshConn, chans, reqs, err := ssh.NewClientConn(nc, addr, config)
-	if err != nil {
-		_ = nc.Close()
-		return nil, err
+	// The handshake needs the same bound as the dial. ssh.ClientConfig.Timeout
+	// only covers the TCP dial ssh.Dial performs itself, so with a custom
+	// dialer nothing limits ssh.NewClientConn. Over an IAP tunnel that is the
+	// phase that hangs: the WebSocket dial to the tunnel endpoint succeeds
+	// straight away and IAP only reports that it cannot reach the VM ("code
+	// 4003 (failed to connect to backend)", i.e. sshd is not up yet) about 30
+	// seconds later, so a caller polling a booting instance on a 5s budget got
+	// six times fewer attempts than it asked for.
+	type handshakeResult struct {
+		conn  ssh.Conn
+		chans <-chan ssh.NewChannel
+		reqs  <-chan *ssh.Request
+		err   error
 	}
-	return ssh.NewClient(sshConn, chans, reqs), nil
+	hsCh := make(chan handshakeResult, 1)
+	go func() {
+		sshConn, chans, reqs, err := ssh.NewClientConn(nc, addr, config)
+		hsCh <- handshakeResult{conn: sshConn, chans: chans, reqs: reqs, err: err}
+	}()
+
+	var hs handshakeResult
+	if !deadline.IsZero() {
+		remaining := time.Until(deadline)
+		if remaining <= 0 {
+			_ = nc.Close()
+			return nil, fmt.Errorf("dial timeout after %s", cc.ConnectTimeout)
+		}
+		timer := time.NewTimer(remaining)
+		select {
+		case hs = <-hsCh:
+			timer.Stop()
+		case <-timer.C:
+			// Closing the conn unblocks the handshake goroutine; drain it so
+			// a late success does not leak the tunnel.
+			_ = nc.Close()
+			go func() {
+				late := <-hsCh
+				if late.conn != nil {
+					_ = late.conn.Close()
+				}
+			}()
+			return nil, fmt.Errorf("ssh handshake timeout after %s", cc.ConnectTimeout)
+		}
+	} else {
+		hs = <-hsCh
+	}
+
+	if hs.err != nil {
+		_ = nc.Close()
+		return nil, hs.err
+	}
+	return ssh.NewClient(hs.conn, hs.chans, hs.reqs), nil
 }
 
 var sessionsLock = new(sync.RWMutex)

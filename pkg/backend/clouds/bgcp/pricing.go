@@ -16,6 +16,7 @@ import (
 	"github.com/aerospike/aerolab/pkg/backend/backends"
 	"github.com/aerospike/aerolab/pkg/backend/clouds/bgcp/connect"
 	"github.com/lithammer/shortuuid"
+	"github.com/rglonek/logger"
 	"google.golang.org/api/cloudbilling/v1"
 	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
@@ -51,16 +52,31 @@ func (s *b) GetVolumePrices() (backends.VolumePriceList, error) {
 	prices, err := s.getVolumePricesFromCache()
 	if err != nil {
 		log.Detail("Cache miss (%s), getting from GCP", err)
-		prices, err = s.getVolumePricesFromGCP()
+		prices, err = s.refreshVolumePrices(log)
 		if err != nil {
 			return nil, err
 		}
-		// store in cache
-		log.Detail("Storing in cache")
-		err = s.putVolumePricesToCache(prices)
-		if err != nil {
-			return nil, err
-		}
+	}
+	return prices, nil
+}
+
+// refreshVolumePrices repopulates the volume price cache from GCP. Only one
+// caller fetches; the rest wait and then read the cache that the winner wrote,
+// so a burst of cache misses costs a single walk of the billing catalog.
+func (s *b) refreshVolumePrices(log *logger.Logger) (backends.VolumePriceList, error) {
+	s.volumePricesFetch.Lock()
+	defer s.volumePricesFetch.Unlock()
+	if prices, err := s.getVolumePricesFromCache(); err == nil {
+		log.Detail("Volume prices were fetched by a concurrent caller, using cache")
+		return prices, nil
+	}
+	prices, err := s.getVolumePricesFromGCP()
+	if err != nil {
+		return nil, err
+	}
+	log.Detail("Storing in cache")
+	if err := s.putVolumePricesToCache(prices); err != nil {
+		return nil, err
 	}
 	return prices, nil
 }
@@ -89,25 +105,41 @@ func (s *b) GetInstanceTypes() (backends.InstanceTypeList, error) {
 	prices, err := s.getInstanceTypesFromCache()
 	if err != nil {
 		log.Detail("Cache miss (%s), getting from GCP", err)
-		prices, err = s.getInstanceTypesFromGCP()
+		prices, err = s.refreshInstanceTypes(log)
 		if err != nil {
 			return nil, err
-		}
-		// store in cache only if we got results (avoid caching empty results)
-		if len(prices) > 0 {
-			log.Detail("Storing in cache")
-			err = s.putInstanceTypesToCache(prices)
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			log.Detail("Not caching empty instance types list")
 		}
 	}
 
 	// translate to backends.InstanceTypeList
 	log.Detail("Responding")
 	return prices, nil
+}
+
+// refreshInstanceTypes repopulates the instance type cache from GCP. Only one
+// caller fetches; the rest wait and then read the cache that the winner wrote,
+// so a burst of cache misses costs a single walk of the billing catalog.
+func (s *b) refreshInstanceTypes(log *logger.Logger) (backends.InstanceTypeList, error) {
+	s.instanceTypesFetch.Lock()
+	defer s.instanceTypesFetch.Unlock()
+	if types, err := s.getInstanceTypesFromCache(); err == nil {
+		log.Detail("Instance types were fetched by a concurrent caller, using cache")
+		return types, nil
+	}
+	types, err := s.getInstanceTypesFromGCP()
+	if err != nil {
+		return nil, err
+	}
+	// store in cache only if we got results (avoid caching empty results)
+	if len(types) == 0 {
+		log.Detail("Not caching empty instance types list")
+		return types, nil
+	}
+	log.Detail("Storing in cache")
+	if err := s.putInstanceTypesToCache(types); err != nil {
+		return nil, err
+	}
+	return types, nil
 }
 
 // cache operations
@@ -152,6 +184,9 @@ func (s *b) getInstanceTypesFromCache() (backends.InstanceTypeList, error) {
 }
 
 func (s *b) putVolumePricesToCache(prices backends.VolumePriceList) error {
+	if err := os.MkdirAll(s.workDir, 0755); err != nil {
+		return fmt.Errorf("failed to create work directory: %w", err)
+	}
 	f := path.Join(s.workDir, "volume_prices.json")
 	fd, err := os.Create(f)
 	if err != nil {

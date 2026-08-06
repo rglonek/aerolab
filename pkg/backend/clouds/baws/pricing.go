@@ -19,6 +19,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/pricing"
 	"github.com/aws/aws-sdk-go-v2/service/pricing/types"
 	"github.com/lithammer/shortuuid"
+	"github.com/rglonek/logger"
 )
 
 type volumePrice struct {
@@ -68,13 +69,7 @@ func (s *b) GetVolumePrices() (backends.VolumePriceList, error) {
 	prices, err := s.getVolumePricesFromCache()
 	if err != nil {
 		log.Detail("Cache miss (%s), getting from AWS", err)
-		prices, err = s.getVolumePricesFromAWS()
-		if err != nil {
-			return nil, err
-		}
-		// store in cache
-		log.Detail("Storing in cache")
-		err = s.putVolumePricesToCache(prices)
+		prices, err = s.refreshVolumePrices(log)
 		if err != nil {
 			return nil, err
 		}
@@ -111,7 +106,31 @@ NEXTPRICE:
 	return backendPrices, nil
 }
 
+// refreshVolumePrices repopulates the volume price cache from AWS. Only one
+// caller fetches; the rest wait and then read the cache that the winner wrote,
+// so a burst of cache misses costs a single trip to the Pricing API.
+func (s *b) refreshVolumePrices(log *logger.Logger) ([]*volumePrice, error) {
+	s.volumePricesFetch.Lock()
+	defer s.volumePricesFetch.Unlock()
+	if prices, err := s.getVolumePricesFromCache(); err == nil {
+		log.Detail("Volume prices were fetched by a concurrent caller, using cache")
+		return prices, nil
+	}
+	prices, err := s.getVolumePricesFromAWS()
+	if err != nil {
+		return nil, err
+	}
+	log.Detail("Storing in cache")
+	if err := s.putVolumePricesToCache(prices); err != nil {
+		return nil, err
+	}
+	return prices, nil
+}
+
 func (s *b) putVolumePricesToCache(prices []*volumePrice) error {
+	if err := os.MkdirAll(s.workDir, 0755); err != nil {
+		return fmt.Errorf("failed to create work directory: %w", err)
+	}
 	f := path.Join(s.workDir, "volume_prices.json")
 	fd, err := os.Create(f)
 	if err != nil {
@@ -246,19 +265,9 @@ func (s *b) GetInstanceTypes() (backends.InstanceTypeList, error) {
 	prices, err := s.getInstanceTypesFromCache()
 	if err != nil {
 		log.Detail("Cache miss (%s), getting from AWS", err)
-		prices, err = s.getInstanceTypesFromAWS()
+		prices, err = s.refreshInstanceTypes(log)
 		if err != nil {
 			return nil, err
-		}
-		// store in cache only if we got results (avoid caching empty results)
-		if len(prices) > 0 {
-			log.Detail("Storing in cache")
-			err = s.putInstanceTypesToCache(prices)
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			log.Detail("Not caching empty instance types list")
 		}
 	}
 
@@ -283,6 +292,32 @@ func (s *b) GetInstanceTypes() (backends.InstanceTypeList, error) {
 		})
 	}
 	return backendTypes, nil
+}
+
+// refreshInstanceTypes repopulates the instance type cache from AWS. Only one
+// caller fetches; the rest wait and then read the cache that the winner wrote,
+// so a burst of cache misses costs a single trip to the Pricing API.
+func (s *b) refreshInstanceTypes(log *logger.Logger) ([]*instanceType, error) {
+	s.instanceTypesFetch.Lock()
+	defer s.instanceTypesFetch.Unlock()
+	if types, err := s.getInstanceTypesFromCache(); err == nil {
+		log.Detail("Instance types were fetched by a concurrent caller, using cache")
+		return types, nil
+	}
+	types, err := s.getInstanceTypesFromAWS()
+	if err != nil {
+		return nil, err
+	}
+	// store in cache only if we got results (avoid caching empty results)
+	if len(types) == 0 {
+		log.Detail("Not caching empty instance types list")
+		return types, nil
+	}
+	log.Detail("Storing in cache")
+	if err := s.putInstanceTypesToCache(types); err != nil {
+		return nil, err
+	}
+	return types, nil
 }
 
 func (s *b) putInstanceTypesToCache(types []*instanceType) error {

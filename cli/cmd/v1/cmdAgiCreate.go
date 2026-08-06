@@ -1050,6 +1050,11 @@ func (c *AgiCreateCmd) resolveTemplate(system *System, inventory *backends.Inven
 		GCPSubnet:          c.GCP.Subnet,
 		AerolabBinary:      c.AerolabBinary,
 		WithEFS:            withEFS,
+		// Struct-tag defaults come from the flag parser, which never sees this
+		// literal; without these the template build gives up on the first
+		// transient SSH failure, unlike `aerolab agi template create`.
+		MaxRetries: c.MaxRetries,
+		RetrySleep: c.RetrySleep,
 	}
 
 	templateName, err := templateCreate.CreateTemplate(system, inventory, logger.WithPrefix("[template] "), args)

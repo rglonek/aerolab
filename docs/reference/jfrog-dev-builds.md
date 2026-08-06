@@ -104,6 +104,38 @@ After destroying the template, the next `cluster create` rebuilds it from the cu
 
 ---
 
+## 6. Troubleshooting: "no &lt;edition&gt; deb/rpm package found"
+
+Aerolab picks an artifact off the build by parsing its **filename**. The upstream version, the
+distro tag, the architecture and the extension are the parts it relies on:
+
+```
+aerospike-server-<edition>_<version>[-<release>]<osTag>_<amd64|arm64>.deb
+aerospike-server-<edition>-<version>[-<release>].<osTag>.<x86_64|aarch64>.rpm
+```
+
+where `<osTag>` is `ubuntu24.04`, `debian13`, `el9`, `el10`, `amzn2023`, and so on. The release
+field is free-form, so dev builds that carry a git describe are fine in either packaging style —
+`8.1.3.0-70-g282a6817d-1ubuntu24.04_amd64.deb` for deb, and the underscore-folded
+`8.1.3.0_70_g282a6817d-1.el9.x86_64.rpm` for rpm (rpm forbids dashes in a version).
+
+If nothing on the build matches, the error tells you which case you are in:
+
+- **The distro or architecture you asked for was not built.** The error lists the targets the
+  build does have — pick one of those.
+- **Nothing on the build parsed at all.** The error samples the artifact names it saw. Either the
+  pipeline has changed its naming scheme, or your JFrog credentials cannot read the repository the
+  package lives in — AQL silently omits artifacts you have no read permission on, so the build
+  looks empty rather than forbidden. Confirm with a direct query and compare against the JFrog UI:
+
+  ```bash
+  curl -s -H "Authorization: Bearer $AEROLAB_ARTIFACTS_AUTH" -H "Content-Type: text/plain" \
+    -X POST "$AEROLAB_ARTIFACTS_URL/artifactory/api/search/aql" \
+    --data 'items.find({"@build.name":"aerospike-server","@build.number":"<build>-artifacts"}).include("repo","path","name")'
+  ```
+
+---
+
 ## Quick reference
 
 ```bash

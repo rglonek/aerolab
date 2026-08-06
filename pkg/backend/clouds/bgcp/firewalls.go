@@ -111,7 +111,7 @@ func (s *b) GetFirewalls(networks backends.NetworkList) (backends.FirewallList, 
 		}
 		m, err := decodeFromDescriptionField(stringValue(pair.Description))
 		if err != nil {
-			log.Detail("failed to decode metadata for firewall %s: %s", pair.Name, err)
+			log.Detail("failed to decode metadata for firewall %s: %s", pair.GetName(), err)
 			continue
 		}
 		if !s.listAllProjects {

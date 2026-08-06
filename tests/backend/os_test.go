@@ -3,6 +3,7 @@
 package backend_test
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -20,12 +21,12 @@ import (
 var osTestList = make(chan *osTestDef, 100)
 
 /* supported OSes:
-* AWS:
+* AWS: (ubuntu 18.04 and debian 10 are EOL and no longer published as AMIs)
   - amazon: 2023, 2
-  - ubuntu: 26.04, 24.04, 22.04, 20.04, 18.04
+  - ubuntu: 26.04, 24.04, 22.04, 20.04
   - rocky: 10, 9, 8
   - centos: 10, 9
-  - debian: 13, 12, 11, 10
+  - debian: 13, 12, 11
 * GCP:
   - ubuntu: 26.04, 24.04, 22.04, 20.04, 18.04
   - rocky: 10, 9, 8
@@ -34,6 +35,45 @@ var osTestList = make(chan *osTestDef, 100)
 */
 
 var osTestSequential = false
+
+// errImageUnavailable marks an entry the target region publishes no image for.
+// The lists above are per-cloud, but image availability is also per-region
+// (rocky 8 exists in us-east-1 but not ca-central-1, for example), so those
+// entries are reported and skipped rather than failed.
+var errImageUnavailable = errors.New("no image published in this region")
+
+// imagesInTestRegion narrows public images to the ones the region under test can
+// actually launch.
+//
+// The backends do not describe an image's location the same way, so this cannot
+// be an equality test on ZoneName. AWS publishes an image per region and reports
+// that one region. GCP images are global, and the backend reports their storage
+// locations joined with commas -- a fifty-element string that never equals a
+// single region, which meant an equality filter here skipped every entry in the
+// list and let the OS test pass having deployed nothing at all.
+//
+// Membership is therefore tested against the split value, and a location is also
+// accepted when it is the multi-region containing the region ("us" covers
+// us-central1), which is how GCP describes an image stored multi-regionally. An
+// image that reports no location is treated as unrestricted.
+func imagesInTestRegion(images backends.Images) backends.Images {
+	region := Options.TestRegions[0]
+	ret := backends.ImageList{}
+	for _, img := range images.Describe() {
+		if img.ZoneName == "" {
+			ret = append(ret, img)
+			continue
+		}
+		for _, loc := range strings.Split(img.ZoneName, ",") {
+			loc = strings.TrimSpace(loc)
+			if loc == region || strings.HasPrefix(region, loc+"-") {
+				ret = append(ret, img)
+				break
+			}
+		}
+	}
+	return ret
+}
 
 func fillOsTestList() {
 	if cloud == "aws" {
@@ -62,7 +102,7 @@ func fillOsTestList() {
 		name:    "ubuntu",
 		version: "20.04",
 	}
-	if cloud != "docker" {
+	if cloud == "gcp" {
 		osTestList <- &osTestDef{
 			name:    "ubuntu",
 			version: "18.04",
@@ -88,7 +128,7 @@ func fillOsTestList() {
 		name:    "debian",
 		version: "11",
 	}
-	if cloud != "docker" {
+	if cloud == "gcp" {
 		osTestList <- &osTestDef{
 			name:    "debian",
 			version: "10",
@@ -142,10 +182,18 @@ func testOSRemoveFirewalls(t *testing.T) {
 
 func testOS(t *testing.T) {
 	fillOsTestList()
+	entries := 0
+	skipped := 0
 	if osTestSequential {
 		for osTest := range osTestList {
+			entries++
 			t.Logf("testing %s:%s", osTest.name, osTest.version)
 			err := osTest.test(osTest)
+			if errors.Is(err, errImageUnavailable) {
+				skipped++
+				t.Logf("skipping: %s", err)
+				continue
+			}
 			if err != nil {
 				require.NoError(t, err)
 			}
@@ -154,6 +202,7 @@ func testOS(t *testing.T) {
 		errs := make(chan error, 100)
 		wg := sync.WaitGroup{}
 		for osTest := range osTestList {
+			entries++
 			wg.Add(1)
 			go func(osTest *osTestDef) {
 				defer wg.Done()
@@ -167,25 +216,62 @@ func testOS(t *testing.T) {
 		close(errs)
 		isErr := false
 		for err := range errs {
+			if errors.Is(err, errImageUnavailable) {
+				skipped++
+				t.Logf("skipping: %s", err)
+				continue
+			}
 			if err != nil {
 				t.Log(err)
 				isErr = true
 			}
 		}
-		require.False(t, isErr)
+		require.False(t, isErr, "one or more OS images failed, see the logged errors above")
 	}
+
+	// Skipping an entry the region genuinely has no image for is expected;
+	// skipping every one of them is not, and it used to pass as a green test
+	// that had deployed nothing. Whatever the cause -- an image lookup that
+	// cannot match, a region with no images, an empty list -- a run that
+	// exercised no OS at all has not tested anything and must say so.
+	require.NotZero(t, entries, "the OS list is empty for cloud %q", cloud)
+	require.NotEqual(t, entries, skipped,
+		"all %d OS entries were skipped as unavailable in %s: the image lookup or the list is wrong, not the images",
+		entries, Options.TestRegions[0])
 }
 
-func (o *osTestDef) test(os *osTestDef) error {
+// osTestCleanup removes, best effort, whatever the run for one OS created.
+func osTestCleanup(instanceName string, imageName string) {
+	if err := testBackend.RefreshChangedInventory(); err != nil {
+		return
+	}
+	inventory := testBackend.GetInventory()
+	inventory.Instances.WithNotState(backends.LifeCycleStateTerminated).WithName(instanceName).Terminate(10 * time.Minute) //nolint:errcheck
+	inventory.Images.WithInAccount(true).WithName(imageName).DeleteImages(10 * time.Minute)                                //nolint:errcheck
+}
+
+func (o *osTestDef) test(os *osTestDef) (err error) {
 	instanceName := "z" + strings.ToLower(shortuuid.New())
+	// AWS rejects ':' in an AMI name, and docker tags the committed image
+	// itself, so ':latest' belongs only in the name we later look the image up
+	// by, and only on docker.
+	imageName := instanceName + "-image"
+	lookupName := imageName
+	if cloud == "docker" {
+		lookupName = imageName + ":latest"
+	}
 	// create new instance
-	err := testBackend.RefreshChangedInventory()
+	err = testBackend.RefreshChangedInventory()
 	if err != nil {
 		return fmt.Errorf("1: image %s:%s %w", os.name, os.version, err)
 	}
-	images := testBackend.GetInventory().Images.WithInAccount(false).WithOSName(os.name).WithOSVersion(os.version).WithArchitecture(backends.ArchitectureX8664)
+	// Scoped to the region under test, because on AWS the same OS/version is
+	// published as a separate image per region and one region's image cannot be
+	// launched into another.
+	images := imagesInTestRegion(
+		testBackend.GetInventory().Images.WithInAccount(false).WithOSName(os.name).WithOSVersion(os.version).WithArchitecture(backends.ArchitectureX8664))
 	if images.Count() == 0 {
-		return fmt.Errorf("2: image %s:%s not found", os.name, os.version)
+		return fmt.Errorf("2: image %s:%s: %w", os.name, os.version, errImageUnavailable)
 	}
 	if images.Count() > 1 {
 		return fmt.Errorf("3: multiple images found for %s:%s", os.name, os.version)
@@ -217,6 +303,14 @@ func (o *osTestDef) test(os *osTestDef) error {
 			Firewalls:        []string{},
 		},
 	}
+	// Failures are collected and reported once every OS has been tried, so a
+	// run that gives up half way must not strand its instance: the firewall
+	// removal that follows would fail on the dependency it still holds.
+	defer func() {
+		if err != nil {
+			osTestCleanup(instanceName, lookupName)
+		}
+	}()
 	insts, err := testBackend.CreateInstances(&backends.CreateInstanceInput{
 		ClusterName:           instanceName,
 		Name:                  instanceName,
@@ -249,7 +343,6 @@ func (o *osTestDef) test(os *osTestDef) error {
 		return fmt.Errorf("7.2: image %s:%s %w", os.name, os.version, err)
 	}
 	// create image from instance
-	imageName := instanceName + "-image:latest"
 	_, err = testBackend.CreateImage(&backends.CreateImageInput{
 		BackendType: backendType,
 		Instance:    inst.Describe()[0],
@@ -269,7 +362,7 @@ func (o *osTestDef) test(os *osTestDef) error {
 	if err != nil {
 		return fmt.Errorf("9: image %s:%s %w", os.name, os.version, err)
 	}
-	images = testBackend.GetInventory().Images.WithInAccount(true).WithName(imageName)
+	images = testBackend.GetInventory().Images.WithInAccount(true).WithName(lookupName)
 	if images.Count() != 1 {
 		return fmt.Errorf("10: image %s:%s expected 1 image, got %d", os.name, os.version, images.Count())
 	}
@@ -339,7 +432,7 @@ func (o *osTestDef) test(os *osTestDef) error {
 		return fmt.Errorf("17: image %s:%s %w", os.name, os.version, err)
 	}
 	// destroy image
-	err = testBackend.GetInventory().Images.WithName(imageName).DeleteImages(10 * time.Minute)
+	err = testBackend.GetInventory().Images.WithName(lookupName).DeleteImages(10 * time.Minute)
 	if err != nil {
 		return fmt.Errorf("18: image %s:%s %w", os.name, os.version, err)
 	}

@@ -158,8 +158,10 @@ check: generate
 ## GOFLAGS=-mod=vendor and GOWORK=off are exported above and inherited here.
 ## Default `test` runs only hermetic unit + mock tests (no cloud creds, no Docker).
 ## Integration tests are gated behind build tags:
-##   integration_docker - needs a running Docker daemon (CI-runnable on Linux)
-##   integration_cloud  - needs real AWS/GCP credentials (opt-in, manual only)
+##   integration_docker         - needs a running Docker daemon (CI-runnable on Linux)
+##   integration_cloud          - needs real AWS/GCP credentials (opt-in, manual only)
+##   integration_aerospike_cloud - needs Aerospike Cloud API credentials + AWS
+##                                (opt-in, manual only; provisions billable clusters)
 ## Note: -race requires cgo, so these targets intentionally do not set CGO_ENABLED=0.
 
 ## generate refreshes the files consumed by //go:embed directives. Most embed
@@ -172,28 +174,77 @@ check: generate
 generate:
 	go generate ./...
 
+## Every test target below comes in two forms. The plain one generates first, so
+## a bare `make test-docker` is self-contained. The `-nogen` one skips generate,
+## for callers that have already run it once and want to start several tiers at
+## the same time (tests/everything.sh): generate rewrites shared embed artifacts
+## in place -- it deletes and recreates expiry.linux.amd64.zip and pkg/webui/dist
+## -- so two concurrent runs race on those files and can hand a half-written
+## artifact to whichever build is reading it.
+
 .PHONY: test
-test: generate
+test: generate test-nogen
+
+.PHONY: test-nogen
+test-nogen:
 	go test -race -shuffle=on -timeout=10m ./...
 
 .PHONY: test-cover
-test-cover: generate
+test-cover: generate test-cover-nogen
+
+.PHONY: test-cover-nogen
+test-cover-nogen:
 	go test -race -shuffle=on -timeout=10m -covermode=atomic -coverprofile=coverage.out ./...
 	go tool cover -func=coverage.out | tail -n1
 
+## The integration suites drive Docker and real cloud APIs, which the go test
+## cache cannot see, so a re-run would otherwise replay a stale (cached) PASS
+## without touching any infrastructure. -count=1 forces them to actually run, and
+## -v surfaces which entries in the OS/distro matrices were skipped.
+## embedexpiry must be repeated here: a -tags flag on the command line replaces
+## the one in GOFLAGS rather than adding to it, so without it these builds get
+## the expiry stub and every expiry test fails with ErrNoExpiryBinary.
 .PHONY: test-docker
-test-docker: generate
-	go test -tags=integration_docker -timeout=60m ./tests/...
+test-docker: generate test-docker-nogen
+
+.PHONY: test-docker-nogen
+test-docker-nogen:
+	go test -tags=integration_docker,embedexpiry -count=1 -v -timeout=60m ./tests/...
 
 .PHONY: test-cloud
-test-cloud: generate
-	go test -tags=integration_cloud -timeout=180m ./tests/...
+test-cloud: generate test-cloud-nogen
+
+.PHONY: test-cloud-nogen
+test-cloud-nogen:
+	go test -tags=integration_cloud,embedexpiry -count=1 -v -timeout=180m ./tests/...
+
+## The Aerospike Cloud tier (`aerolab cloud ...`) is separate from test-cloud on
+## purpose: it provisions billable managed clusters through the Aerospike Cloud
+## API, so it has to be startable on its own rather than riding along with the
+## AWS/GCP backend suites. It needs AEROSPIKE_CLOUD_KEY / AEROSPIKE_CLOUD_SECRET
+## plus AWS credentials for the region it peers into (AEROLAB_ASCLOUD_REGION,
+## default us-west-2); tests skip when the API credentials are absent.
+## The timeout is large because the managed service sets the pace: create can
+## take an hour to provision and peer, delete blocks until the cluster is
+## decommissioned, and this budget has to cover both plus the update between
+## them. Going over it kills the test binary mid-flight, which leaves a billable
+## cluster running, so it is deliberately generous rather than tight.
+.PHONY: test-aerospike-cloud
+test-aerospike-cloud: generate test-aerospike-cloud-nogen
+
+.PHONY: test-aerospike-cloud-nogen
+test-aerospike-cloud-nogen:
+	go test -tags=integration_aerospike_cloud,embedexpiry -count=1 -v -timeout=240m ./tests/...
 
 ## actual code
 
 OS := $(shell uname -o)
 CPU := $(shell uname -m)
-ver:=$(shell bash -c 'V=$$(git branch --show-current); if [[ $$V == v* ]]; then printf $${V:1} > VERSION.md; fi; cat VERSION.md')
+## Evaluated on every make invocation, including the test targets. The rewrite is
+## conditional on the contents actually changing so that concurrently started
+## makes (tests/everything.sh runs four) do not truncate the file under each
+## other's `cat`.
+ver:=$(shell bash -c 'V=$$(git branch --show-current); if [[ $$V == v* ]] && [[ "$$(cat VERSION.md 2>/dev/null)" != "$${V:1}" ]]; then printf $${V:1} > VERSION.md; fi; cat VERSION.md')
 define _amddebscript
 ver=$(cat VERSION.md)
 cat <<EOF > bin/deb/DEBIAN/control

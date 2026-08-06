@@ -319,7 +319,7 @@ func (tv *testVolume) testCreateTestInstance(t *testing.T) {
 		Owner:                 "test-owner",
 		Description:           "test-description",
 		BackendSpecificParams: params,
-	}, 2*time.Minute)
+	}, instanceReadyWait())
 	require.NoError(t, err)
 	require.Equal(t, insts.Instances.Count(), 1)
 	err = testBackend.RefreshChangedInventory()
@@ -501,7 +501,7 @@ func (tv *testVolume) testCreateTestInstanceWithAttachedVolume(t *testing.T) {
 		Owner:                 "test-owner",
 		Description:           "test-description",
 		BackendSpecificParams: params,
-	}, 2*time.Minute)
+	}, instanceReadyWait())
 	require.NoError(t, err)
 	require.Equal(t, insts.Instances.Count(), 1)
 	err = testBackend.RefreshChangedInventory()

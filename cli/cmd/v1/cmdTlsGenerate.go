@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -412,15 +413,37 @@ func (c *TlsGenerateCmd) fixMeshConfig(instances backends.InstanceList, logger *
 	return hasErr
 }
 
+var networkStanzaRe = regexp.MustCompile(`^\s*network\s*\{`)
+
+// tlsStanza is the network-level tls definition naming the certificates that
+// uploadCertificates places on each node.
+func (c *TlsGenerateCmd) tlsStanza() string {
+	dir := "/etc/aerospike/ssl/" + c.TlsName
+	return fmt.Sprintf("\ttls %s {\n\t\tcert-file %s/cert.pem\n\t\tkey-file %s/key.pem\n\t\tca-file %s/%s.pem\n\t}\n",
+		c.TlsName, dir, dir, dir, c.CaName)
+}
+
 // updateMeshConfig modifies the config to use TLS for mesh
 func (c *TlsGenerateCmd) updateMeshConfig(config string, nodeIPs []string) string {
 	var newConfig strings.Builder
 	scanner := bufio.NewScanner(strings.NewReader(config))
 
+	// The heartbeat stanza below refers to the certificate by tls-name, which
+	// aerospike can only resolve against a matching `tls <name>` stanza in the
+	// network stanza. Without it the node aborts on startup with "failed to
+	// resolve heartbeat tls-name" and the whole cluster stays down.
+	tlsStanzaRe := regexp.MustCompile(`(?m)^\s*tls\s+` + regexp.QuoteMeta(c.TlsName) + `\s*\{`)
+	needTLSStanza := !tlsStanzaRe.MatchString(config)
+
 	for scanner.Scan() {
 		line := scanner.Text()
 
-		if strings.Contains(line, "port 3002") && !strings.Contains(line, "tls-port") {
+		if needTLSStanza && networkStanzaRe.MatchString(line) {
+			newConfig.WriteString(line)
+			newConfig.WriteString("\n")
+			newConfig.WriteString(c.tlsStanza())
+			needTLSStanza = false
+		} else if strings.Contains(line, "port 3002") && !strings.Contains(line, "tls-port") {
 			// Replace with TLS port and mesh seeds
 			newConfig.WriteString("\t\t\ttls-port 3012\n")
 			fmt.Fprintf(&newConfig, "\t\t\ttls-name %s\n", c.TlsName) //nolint:errcheck

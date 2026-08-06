@@ -21,35 +21,43 @@ func TestDockerOSMatrix(t *testing.T) {
 	if os.Getenv("AEROLAB_FEATURES_FILE") == "" {
 		t.Skip("set AEROLAB_FEATURES_FILE to run the OS matrix test (Enterprise images require a feature key)")
 	}
-	c := newDockerCLI(t)
+	parent := newDockerCLI(t)
 	asVer := getenvDefault("AEROLAB_E2E_ASVER", "8.*")
 
 	// The Docker tier of runostest (excludes amazon/arm which are AWS-only).
-	// minAsVer, where set, is the first Aerospike server release that ships
-	// packages for that distro. Those entries are skipped unless
-	// AEROLAB_E2E_ASVER names a concrete version that satisfies it, so a
-	// wildcard selector cannot fail the matrix on an OS with no build yet.
-	matrix := []struct{ distro, version, minAsVer string }{
-		{"ubuntu", "26.04", "8.1.3"},
-		{"ubuntu", "24.04", ""},
-		{"ubuntu", "22.04", ""},
-		{"ubuntu", "20.04", ""},
-		{"centos", "10", ""},
-		{"centos", "9", ""},
-		{"centos", "8", ""},
-		{"rocky", "10", ""},
-		{"rocky", "9", ""},
-		{"rocky", "8", ""},
-		{"debian", "13", ""},
-		{"debian", "12", ""},
-		{"debian", "11", ""},
+	//
+	// minAsVer is the first Aerospike server release that ships packages for
+	// that distro; droppedAsVer is the first release that stopped shipping them.
+	// Entries outside the range are skipped unless AEROLAB_E2E_ASVER names a
+	// concrete version that provably falls inside it, so a wildcard selector
+	// cannot fail the matrix on a distro the selected server has no build for.
+	matrix := []struct{ distro, version, minAsVer, droppedAsVer string }{
+		{"ubuntu", "26.04", "8.1.3", ""},
+		{"ubuntu", "24.04", "", ""},
+		{"ubuntu", "22.04", "", ""},
+		{"ubuntu", "20.04", "", "8.0"},
+		{"centos", "10", "", ""},
+		{"centos", "9", "", ""},
+		{"centos", "8", "", ""},
+		{"rocky", "10", "", ""},
+		{"rocky", "9", "", ""},
+		{"rocky", "8", "", ""},
+		{"debian", "13", "", ""},
+		{"debian", "12", "", ""},
+		{"debian", "11", "", "8.0"},
 	}
 
 	for _, m := range matrix {
 		m := m
 		t.Run(m.distro+"-"+m.version, func(t *testing.T) {
+			// Rebind the runner: a Fatalf against the parent's *testing.T would
+			// abort the whole matrix instead of just this entry.
+			c := parent.withT(t)
 			if m.minAsVer != "" && !asVerAtLeast(asVer, m.minAsVer) {
 				t.Skipf("%s %s needs aerospike server %s or later; set AEROLAB_E2E_ASVER to run it (current: %s)", m.distro, m.version, m.minAsVer, asVer)
+			}
+			if m.droppedAsVer != "" && !asVerBelow(asVer, m.droppedAsVer) {
+				t.Skipf("%s %s has no aerospike server build from %s onwards; set AEROLAB_E2E_ASVER to an earlier version to run it (current: %s)", m.distro, m.version, m.droppedAsVer, asVer)
 			}
 			name := uniqueClusterName()
 			t.Cleanup(func() {
@@ -63,29 +71,48 @@ func TestDockerOSMatrix(t *testing.T) {
 }
 
 // asVerAtLeast reports whether the Aerospike version selector definitely
-// resolves to min or newer. A selector containing a wildcard could resolve to
-// anything in its range, so it is reported as not satisfying the minimum.
+// resolves to min or newer.
 func asVerAtLeast(selector string, min string) bool {
-	if strings.ContainsAny(selector, "*?") {
-		return false
-	}
+	cmp, known := compareAsVer(selector, min)
+	return known && cmp >= 0
+}
+
+// asVerBelow reports whether the Aerospike version selector definitely resolves
+// to something older than bound.
+func asVerBelow(selector string, bound string) bool {
+	cmp, known := compareAsVer(selector, bound)
+	return known && cmp < 0
+}
+
+// compareAsVer compares an Aerospike version selector against a concrete
+// version component by component, reporting -1, 0 or 1 like strings.Compare.
+//
+// The second return value is false when the selector is too vague to decide: a
+// wildcard resolves to anything within its range, so once one is reached the
+// ordering is only known if an earlier component already settled it.
+func compareAsVer(selector string, other string) (int, bool) {
 	sel := strings.Split(selector, ".")
-	want := strings.Split(min, ".")
+	want := strings.Split(other, ".")
 	for i := range want {
 		if i >= len(sel) {
-			return false
+			// The selector is shorter and has matched so far, so it spans both
+			// sides of other: "8" covers 8.0 as well as 8.1.
+			return 0, false
 		}
 		s, err := strconv.Atoi(sel[i])
 		if err != nil {
-			return false
+			return 0, false
 		}
 		w, err := strconv.Atoi(want[i])
 		if err != nil {
-			return false
+			return 0, false
 		}
 		if s != w {
-			return s > w
+			if s > w {
+				return 1, true
+			}
+			return -1, true
 		}
 	}
-	return true
+	return 0, true
 }

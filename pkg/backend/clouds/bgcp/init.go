@@ -48,6 +48,11 @@ type b struct {
 	createInstanceCount *counters.Int
 	hostKeys            *sshexec.HostKeyStore
 	hostKeysStrict      bool
+	// Guard the refresh of the on-disk pricing caches, so that concurrent
+	// callers that all miss the cache do not each walk the whole billing
+	// catalog.
+	instanceTypesFetch sync.Mutex
+	volumePricesFetch  sync.Mutex
 }
 
 func init() {
@@ -155,8 +160,12 @@ func (s *b) setConfigRegions() error {
 		return err
 	}
 	if err != nil {
-		// file does not exist
-		s.log.Detail("setConfigRegions: %s does not exist, not parsing", regionsFile)
+		// No file means nothing is enabled. This backend is a process-global
+		// singleton, so leaving s.regions as-is would carry regions over from a
+		// previously configured root dir. EnableZones writes the file
+		// synchronously, so the file is the source of truth.
+		s.log.Detail("setConfigRegions: %s does not exist, clearing enabled regions", regionsFile)
+		s.regions = nil
 		return nil
 	}
 	// read

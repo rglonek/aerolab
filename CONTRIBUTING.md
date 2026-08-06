@@ -13,7 +13,8 @@ Quick reference (run from the repo root):
 | `make test` | unit + mock (hermetic) | nothing |
 | `make test-cover` | unit + mock with coverage | nothing |
 | `make test-docker` | Docker integration (`integration_docker`) | a running Docker daemon |
-| `make test-cloud` | cloud integration (`integration_cloud`) | real AWS/GCP + Aerospike Cloud creds |
+| `make test-cloud` | cloud integration (`integration_cloud`) | real AWS/GCP creds |
+| `make test-aerospike-cloud` | Aerospike Cloud (`integration_aerospike_cloud`) | Aerospike Cloud API creds + AWS; provisions billable clusters |
 
 Guidelines:
 
@@ -24,6 +25,9 @@ Guidelines:
   skip cleanly when Docker is unavailable.
 - Tests requiring real cloud credentials go behind the `integration_cloud`
   build tag and must skip unless their required environment variables are set.
+- Tests driving the Aerospike Cloud API go behind
+  `integration_aerospike_cloud` instead, so a cloud-backend run cannot
+  provision a billable managed cluster as a side effect.
 - Use the `pkg/backend/backendtest` doubles (`FakeBackend`, `FakeCloud`,
   fixtures) rather than talking to real cloud SDKs in unit tests.
 - Run `make test` (and, where relevant, `make test-docker`) before opening a PR.

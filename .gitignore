@@ -4,3 +4,11 @@
 .vscode
 .idea
 /cloud/
+
+# test output: scratch dirs and generated TLS material from the e2e/installer
+# suites, plus the logs of an ad-hoc `make test-*` run.
+# tests/log/ is deliberately NOT ignored: `tests/everything.sh` writes there and
+# the results are committed with the code they exercised.
+/tests/**/dockertest/
+/tests/**/CA/
+/test-*.log

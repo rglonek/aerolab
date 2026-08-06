@@ -38,6 +38,7 @@ require (
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/charmbracelet/x/term v0.2.2
 	github.com/cockroachdb/pebble/v2 v2.1.6
+	github.com/containerd/errdefs v1.0.0
 	github.com/creasty/defaults v1.8.0
 	github.com/docker/docker v28.5.2+incompatible
 	github.com/docker/go-connections v0.8.1
@@ -119,7 +120,6 @@ require (
 	github.com/cockroachdb/swiss v0.0.0-20251224182025-b0f6560f979b // indirect
 	github.com/cockroachdb/tokenbucket v0.0.0-20250429170803-42689b6311bb // indirect
 	github.com/coder/websocket v1.8.15 // indirect
-	github.com/containerd/errdefs v1.0.0 // indirect
 	github.com/containerd/errdefs/pkg v0.3.0 // indirect
 	github.com/containerd/log v0.1.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect

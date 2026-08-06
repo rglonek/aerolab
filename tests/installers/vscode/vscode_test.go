@@ -3,55 +3,31 @@
 package vscode_test
 
 import (
-	"fmt"
-	"os"
-	"os/exec"
 	"testing"
 
 	"github.com/aerospike/aerolab/pkg/utils/installers/vscode"
 	"github.com/aerospike/aerolab/tests/installers/installertest"
-	"github.com/lithammer/shortuuid"
 	"github.com/stretchr/testify/require"
 )
 
 func TestVscodeLatestUbuntu24(t *testing.T) {
 	installertest.RequireDocker(t)
-	os.RemoveAll("dockertest")
-	defer os.RemoveAll("dockertest")
-	os.MkdirAll("dockertest", 0755) //nolint:errcheck
 
 	script, err := vscode.GetLinuxInstallScript(false, false, nil, nil, nil, nil, false, nil, "/root", "root")
 	require.NoError(t, err)
 	require.NotNil(t, script)
 	require.NotEmpty(t, script)
 
-	img := "amd64/ubuntu:24.04"
-	uuid := shortuuid.New()
-	err = os.WriteFile(fmt.Sprintf("dockertest/%s.sh", uuid), script, 0755)
-	require.NoError(t, err)
-	out, err := exec.Command("docker", "run", "-v", "./dockertest:/mnt", "--rm", "-i", "--name", uuid, img, "/bin/bash", "-c", fmt.Sprintf("echo 'x' && ls /mnt && chmod +x /mnt/%s.sh && /mnt/%s.sh", uuid, uuid)).CombinedOutput()
-	_ = out
-	//fmt.Println(string(out))
-	require.NoError(t, err)
+	installertest.RunScriptInImage(t, "{arch}/ubuntu:24.04", script)
 }
 
 func TestVscodeLatestCentos8(t *testing.T) {
 	installertest.RequireDocker(t)
-	os.RemoveAll("dockertest")
-	defer os.RemoveAll("dockertest")
-	os.MkdirAll("dockertest", 0755) //nolint:errcheck
 
 	script, err := vscode.GetLinuxInstallScript(false, false, new("testpw"), new("0.0.0.0:8080"), []string{"golang.go"}, []string{"some-does-not-exist"}, true, new("/opt"), "/root", "root")
 	require.NoError(t, err)
 	require.NotNil(t, script)
 	require.NotEmpty(t, script)
 
-	img := "quay.io/centos/amd64:stream8"
-	uuid := shortuuid.New()
-	err = os.WriteFile(fmt.Sprintf("dockertest/%s.sh", uuid), script, 0755)
-	require.NoError(t, err)
-	out, err := exec.Command("docker", "run", "-v", "./dockertest:/mnt", "--rm", "-i", "--name", uuid, img, "/bin/bash", "-c", fmt.Sprintf("echo 'x' && ls /mnt && chmod +x /mnt/%s.sh && /mnt/%s.sh", uuid, uuid)).CombinedOutput()
-	_ = out
-	//fmt.Println(string(out))
-	require.NoError(t, err)
+	installertest.RunScriptInImage(t, "quay.io/centos/{arch}:stream8", script)
 }

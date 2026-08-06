@@ -196,6 +196,24 @@ else
     echo "AcceptEnv is already set to AEROLAB_*"
 fi
 
+# The RHEL 10 family ships `ExecStart=/usr/sbin/sshd -D $OPTIONS` together with
+# an empty OPTIONS in /etc/sysconfig/sshd. Real systemd drops an expansion that
+# resolves to nothing, but the container systemd shim substitutes it as a literal
+# empty argv entry, so sshd exits immediately with `Extra argument ""` and the
+# instance never becomes reachable. Drop the reference when there is nothing to
+# expand; anything sshd actually needs is configured in sshd_config above.
+echo "Checking sshd unit for an empty \$OPTIONS expansion"
+if [ -z "$(. /etc/sysconfig/sshd 2>/dev/null; printf '%s' "${OPTIONS}")" ]; then
+    for unit in /etc/systemd/system/sshd.service /usr/lib/systemd/system/sshd.service /lib/systemd/system/sshd.service; do
+        [ -f "$unit" ] || continue
+        if grep -E -q '^ExecStart=.*\$\{?OPTIONS\}?' "$unit"; then
+            echo "Removing empty \$OPTIONS expansion from $unit"
+            sed -i -E 's|^(ExecStart=.*)[[:space:]]+\$\{?OPTIONS\}?[[:space:]]*$|\1|' "$unit" || exit 1
+            REBOOT=1
+        fi
+    done
+fi
+
 # if REBOOT is set, restart sshd
 if [ $BUILDING -eq 1 ]; then
     echo "Initial building, not rebooting. Enabling sshd for autostart"

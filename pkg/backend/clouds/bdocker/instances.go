@@ -5,19 +5,14 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"crypto/rand"
-	"crypto/rsa"
-	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
-	"encoding/pem"
 	"errors"
 	"fmt"
 	"io"
 	"maps"
 	"os"
 	"path"
-	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -25,6 +20,7 @@ import (
 	"time"
 
 	"github.com/aerospike/aerolab/pkg/backend/backends"
+	"github.com/aerospike/aerolab/pkg/backend/clouds/sshkey"
 	"github.com/aerospike/aerolab/pkg/sshexec"
 	"github.com/aerospike/aerolab/pkg/utils/parallelize"
 	"github.com/aerospike/aerolab/pkg/utils/structtags"
@@ -42,7 +38,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/lithammer/shortuuid"
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
-	"golang.org/x/crypto/ssh"
 )
 
 type CreateInstanceParams struct {
@@ -849,12 +844,15 @@ func (s *b) InstancesAssignFirewalls(instances backends.InstanceList, fw backend
 }
 
 func (s *b) InstancesRemoveFirewalls(instances backends.InstanceList, fw backends.FirewallList) error {
-	log := s.log.WithPrefix("InstancesRemoveFirewalls: job=" + shortuuid.New() + " ")
-	log.Detail("Start")
-	defer log.Detail("End")
+	// checked before touching s.log: this backend is registered at init time and
+	// only initialized if it is enabled, so a no-instance call can arrive on a
+	// zero-value receiver whose logger is still nil.
 	if len(instances) == 0 {
 		return nil
 	}
+	log := s.log.WithPrefix("InstancesRemoveFirewalls: job=" + shortuuid.New() + " ")
+	log.Detail("Start")
+	defer log.Detail("End")
 	return errors.New("not implemented")
 }
 
@@ -960,54 +958,10 @@ func (s *b) CreateInstances(input *backends.CreateInstanceInput, waitDur time.Du
 	}
 
 	// resolve SSHKeyName
-	sshKeyPath := filepath.Join(s.sshKeysDir, s.project)
-
-	// if key does not exist in docker, create it
-	var publicKeyBytes []byte
-	if _, err := os.Stat(sshKeyPath); os.IsNotExist(err) {
-		log.Detail("SSH key %s does not exist, creating it", sshKeyPath)
-		// generate new SSH key pair
-		privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
-		if err != nil {
-			return nil, fmt.Errorf("failed to generate private key: %v", err)
-		}
-
-		// encode public key
-		publicKey, err := ssh.NewPublicKey(&privateKey.PublicKey)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create public key: %v", err)
-		}
-		publicKeyBytes = ssh.MarshalAuthorizedKey(publicKey)
-
-		// save private key to file
-		privateKeyBytes := pem.EncodeToMemory(&pem.Block{
-			Type:  "RSA PRIVATE KEY",
-			Bytes: x509.MarshalPKCS1PrivateKey(privateKey),
-		})
-
-		if _, err := os.Stat(s.sshKeysDir); os.IsNotExist(err) {
-			err = os.MkdirAll(s.sshKeysDir, 0700)
-			if err != nil {
-				return nil, fmt.Errorf("failed to create ssh keys directory: %v", err)
-			}
-		}
-
-		err = os.WriteFile(sshKeyPath, privateKeyBytes, 0600)
-		if err != nil {
-			return nil, fmt.Errorf("failed to save private key: %v", err)
-		}
-
-		err = os.WriteFile(sshKeyPath+".pub", publicKeyBytes, 0600)
-		if err != nil {
-			return nil, fmt.Errorf("failed to save public key: %v", err)
-		}
-	} else {
-		publicKeyBytes, err = os.ReadFile(sshKeyPath + ".pub")
-		if err != nil {
-			return nil, fmt.Errorf("failed to read public key: %v", err)
-		}
+	publicKeyBytes, err := sshkey.Ensure(s.sshKeysDir, s.project, log)
+	if err != nil {
+		return nil, err
 	}
-	publicKeyBytes = bytes.Trim(publicKeyBytes, "\n\r\t ")
 
 	// if image is public, check if we have a custom build already; if not: make one
 	// we need to track who is building the image, so that if another CreateInstances is already building this particular image, we should just wait for it to finish

@@ -1,20 +1,14 @@
 package bgcp
 
 import (
-	"bytes"
 	"context"
-	"crypto/rand"
-	"crypto/rsa"
 	"crypto/sha256"
-	"crypto/x509"
 	"encoding/json"
-	"encoding/pem"
 	"errors"
 	"fmt"
 	maps0 "maps"
 	"os"
 	"path"
-	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -26,13 +20,13 @@ import (
 	"github.com/aerospike/aerolab/pkg/backend/backends"
 	"github.com/aerospike/aerolab/pkg/backend/clouds/bgcp/connect"
 	"github.com/aerospike/aerolab/pkg/backend/clouds/bgcp/iap"
+	"github.com/aerospike/aerolab/pkg/backend/clouds/sshkey"
 	"github.com/aerospike/aerolab/pkg/sshexec"
 	"github.com/aerospike/aerolab/pkg/utils/parallelize"
 	"github.com/aerospike/aerolab/pkg/utils/structtags"
 	"github.com/google/uuid"
 	"github.com/lithammer/shortuuid"
 	"github.com/rglonek/logger"
-	"golang.org/x/crypto/ssh"
 	"golang.org/x/exp/maps"
 	dns "google.golang.org/api/dns/v1"
 	"google.golang.org/api/iterator"
@@ -876,6 +870,13 @@ func (s *b) InstancesStart(instances backends.InstanceList, waitDur time.Duratio
 		for _, inst := range instances {
 			inst.InstanceState = backends.LifeCycleStateRunning
 		}
+		// A stopped instance has no ephemeral external IP and gets a new one on
+		// start, so the addresses on these records are stale. Without this,
+		// IP.Routable() falls back to the internal address and the probe can
+		// never succeed from outside the VPC.
+		if err := s.refreshInstanceIPs(ctx, client, instances, log); err != nil {
+			return err
+		}
 		log.Detail("Waiting for instances to be ssh-ready")
 		sshReady := waitForSSHReady(s, instances, waitDur-time.Since(startedAt), log)
 		if !sshReady {
@@ -886,6 +887,40 @@ func (s *b) InstancesStart(instances backends.InstanceList, waitDur time.Duratio
 	retWait.Wait()
 	return reterr
 }
+
+// refreshInstanceIPs re-reads the external and internal addresses of the given
+// instances from GCP and updates the records in place.
+func (s *b) refreshInstanceIPs(ctx context.Context, client *compute.InstancesClient, instances backends.InstanceList, log *logger.Logger) error {
+	log.Detail("Refreshing instance IP addresses")
+	for _, inst := range instances {
+		current, err := client.Get(ctx, &computepb.GetInstanceRequest{
+			Instance: inst.InstanceID,
+			Project:  s.credentials.Project,
+			Zone:     inst.ZoneName,
+		})
+		if err != nil {
+			return err
+		}
+		if len(current.GetNetworkInterfaces()) == 0 {
+			continue
+		}
+		netIntf := current.GetNetworkInterfaces()[0]
+		inst.IP.Private = netIntf.GetNetworkIP()
+		inst.IP.Public = ""
+		if len(netIntf.GetAccessConfigs()) > 0 {
+			inst.IP.Public = netIntf.GetAccessConfigs()[0].GetNatIP()
+		}
+	}
+	return nil
+}
+
+// sshReadyProbeTimeout bounds one ssh-readiness probe (dial plus handshake).
+// Over an IAP tunnel a healthy connect takes a couple of seconds, while an
+// instance whose sshd is not up yet is only reported unreachable ("code 4003")
+// after about thirty. This sits between the two on purpose: high enough that a
+// slow but working connect is never cut short, low enough that probing a
+// booting VM does not spend the caller's whole wait budget on a few attempts.
+const sshReadyProbeTimeout = 15 * time.Second
 
 // waitForSSHReady polls each instance via a lightweight `ls /` exec until all
 // respond successfully or the budget runs out. Returns true when every instance
@@ -906,7 +941,7 @@ func waitForSSHReady(s *b, instances backends.InstanceList, budget time.Duration
 		out := s.InstancesExec(instances, &backends.ExecInput{
 			Username:        "root",
 			ParallelThreads: parallel,
-			ConnectTimeout:  5 * time.Second,
+			ConnectTimeout:  sshReadyProbeTimeout,
 			ExecDetail: sshexec.ExecDetail{
 				Command:        []string{"ls", "/"},
 				SessionTimeout: 10 * time.Second,
@@ -1173,12 +1208,15 @@ func (s *b) InstancesAssignFirewalls(instances backends.InstanceList, fw backend
 }
 
 func (s *b) InstancesRemoveFirewalls(instances backends.InstanceList, fw backends.FirewallList) error {
-	log := s.log.WithPrefix("InstancesRemoveFirewalls: job=" + shortuuid.New() + " ")
-	log.Detail("Start")
-	defer log.Detail("End")
+	// checked before touching s.log: this backend is registered at init time and
+	// only initialized if it is enabled, so a no-instance call can arrive on a
+	// zero-value receiver whose logger is still nil.
 	if len(instances) == 0 {
 		return nil
 	}
+	log := s.log.WithPrefix("InstancesRemoveFirewalls: job=" + shortuuid.New() + " ")
+	log.Detail("Start")
+	defer log.Detail("End")
 	defer s.invalidateCacheFunc(backends.CacheInvalidateInstance)
 
 	cli, err := connect.GetClient(s.credentials, log.WithPrefix("AUTH: "))
@@ -1731,54 +1769,10 @@ func (s *b) CreateInstances(input *backends.CreateInstanceInput, waitDur time.Du
 	defer client.Close()
 
 	// resolve SSHKeyName
-	sshKeyPath := filepath.Join(s.sshKeysDir, s.project)
-
-	// if key does not exist in gcp, create it
-	var publicKeyBytes []byte
-	if _, err := os.Stat(sshKeyPath); os.IsNotExist(err) {
-		log.Detail("SSH key %s does not exist, creating it", sshKeyPath)
-		// generate new SSH key pair
-		privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
-		if err != nil {
-			return nil, fmt.Errorf("failed to generate private key: %v", err)
-		}
-
-		// encode public key
-		publicKey, err := ssh.NewPublicKey(&privateKey.PublicKey)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create public key: %v", err)
-		}
-		publicKeyBytes = ssh.MarshalAuthorizedKey(publicKey)
-
-		// save private key to file
-		privateKeyBytes := pem.EncodeToMemory(&pem.Block{
-			Type:  "RSA PRIVATE KEY",
-			Bytes: x509.MarshalPKCS1PrivateKey(privateKey),
-		})
-
-		if _, err := os.Stat(s.sshKeysDir); os.IsNotExist(err) {
-			err = os.MkdirAll(s.sshKeysDir, 0700)
-			if err != nil {
-				return nil, fmt.Errorf("failed to create ssh keys directory: %v", err)
-			}
-		}
-
-		err = os.WriteFile(sshKeyPath, privateKeyBytes, 0600)
-		if err != nil {
-			return nil, fmt.Errorf("failed to save private key: %v", err)
-		}
-
-		err = os.WriteFile(sshKeyPath+".pub", publicKeyBytes, 0600)
-		if err != nil {
-			return nil, fmt.Errorf("failed to save public key: %v", err)
-		}
-	} else {
-		publicKeyBytes, err = os.ReadFile(sshKeyPath + ".pub")
-		if err != nil {
-			return nil, fmt.Errorf("failed to read public key: %v", err)
-		}
+	publicKeyBytes, err := sshkey.Ensure(s.sshKeysDir, s.project, log)
+	if err != nil {
+		return nil, err
 	}
-	publicKeyBytes = bytes.Trim(publicKeyBytes, "\n\r\t ")
 
 	// Create instances
 	// userdata read from embedded file
@@ -2047,7 +2041,7 @@ func (s *b) CreateInstances(input *backends.CreateInstanceInput, waitDur time.Du
 		out := output.Instances.Exec(&backends.ExecInput{
 			Username:        backendSpecificParams.Image.Username,
 			ParallelThreads: input.ParallelSSHThreads,
-			ConnectTimeout:  5 * time.Second,
+			ConnectTimeout: sshReadyProbeTimeout,
 			ExecDetail: sshexec.ExecDetail{
 				Command: []string{"ls", "/"},
 			},

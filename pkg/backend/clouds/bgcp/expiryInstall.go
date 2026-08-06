@@ -304,16 +304,21 @@ func (s *b) deployFunctionBucketCode(ctx context.Context, projectID, region stri
 	log.Detail("Start (region=%s)", region)
 	defer log.Detail("End (region=%s)", region)
 
-	// Get credentials
-	log.Detail("Getting credentials")
-	cli, err := connect.GetCredentials(s.credentials, log.WithPrefix("AUTH: "))
+	// Create Storage client.
+	//
+	// Unlike the gRPC clients (scheduler, functions, run), storage.NewClient
+	// injects its own option.WithHTTPClient before handing the option set to
+	// raw.NewService, and that combination rejects option.WithQuotaProject
+	// outright ("WithHTTPClient is incompatible with QuotaProject"). Since a
+	// quota project is required whenever the credentials carry no project of
+	// their own, pass the already-authenticated HTTP client instead: it sends
+	// the same X-Goog-User-Project header through its transport.
+	log.Detail("Creating Cloud Storage client")
+	httpClient, err := connect.GetClient(s.credentials, log.WithPrefix("AUTH: "))
 	if err != nil {
 		return fmt.Errorf("failed to get credentials: %w", err)
 	}
-
-	// Create Storage client
-	log.Detail("Creating Cloud Storage client")
-	client, err := storage.NewClient(ctx, option.WithCredentials(cli), connect.QuotaProjectOption(cli, s.credentials.Project))
+	client, err := storage.NewClient(ctx, option.WithHTTPClient(httpClient))
 	if err != nil {
 		return fmt.Errorf("failed to create storage client: %w", err)
 	}

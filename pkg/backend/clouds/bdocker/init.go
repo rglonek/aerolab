@@ -144,8 +144,12 @@ func (s *b) setConfigRegions() error {
 		return err
 	}
 	if err != nil {
-		// file does not exist
-		s.log.Detail("setConfigRegions: %s does not exist, not parsing", regionsFile)
+		// No file means nothing is enabled. This backend is a process-global
+		// singleton, so leaving s.regions as-is would carry regions over from a
+		// previously configured root dir. EnableZones writes the file
+		// synchronously, so the file is the source of truth.
+		s.log.Detail("setConfigRegions: %s does not exist, clearing enabled regions", regionsFile)
+		s.regions = nil
 		return nil
 	}
 	// read

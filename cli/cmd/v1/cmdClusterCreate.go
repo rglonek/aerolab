@@ -372,6 +372,12 @@ func (c *ClusterCreateCmd) CreateCluster(system *System, inventory *backends.Inv
 				Timeout:            10,
 				NoVacuum:           c.NoVacuumOnFail,
 				DryRun:             c.PriceOnly,
+				// Struct-tag defaults are applied by the flag parser, which
+				// never sees this literal; without these the template build
+				// would run with MaxRetries 0 and give up on the first
+				// transient SSH failure, unlike `aerolab template create`.
+				MaxRetries: c.MaxRetries,
+				RetrySleep: c.RetrySleep,
 			}
 			_, err := tpl.CreateTemplate(system, inventory, logger.WithPrefix("[template.create] "), nil)
 			return err
