@@ -51,6 +51,13 @@ func (s *b) SetHostKeyPolicy(store *sshexec.HostKeyStore, strict bool) {
 	s.hostKeysStrict = strict
 }
 
+// SetIdentity is a no-op: docker containers are reached over the local docker
+// socket, so there is no cloud firewall to lock to a caller address.
+func (s *b) SetIdentity(identity *backends.Identity) {}
+
+// EnsureCallerAccess is a no-op for the same reason as SetIdentity.
+func (s *b) EnsureCallerAccess(instances backends.InstanceList) {}
+
 // applyHostKeyPolicy points an SSH client config at the host key store so the
 // connection is verified against the key previously learned for this instance.
 func (s *b) applyHostKeyPolicy(clientConf *sshexec.ClientConf, i *backends.Instance) {

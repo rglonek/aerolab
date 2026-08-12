@@ -2,11 +2,8 @@ package cmd
 
 import (
 	"bufio"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -16,6 +13,7 @@ import (
 	"unicode"
 
 	"github.com/aerospike/aerolab/pkg/termutil"
+	"github.com/aerospike/aerolab/pkg/utils/callerip"
 	"github.com/aerospike/aerolab/pkg/utils/choice"
 	"github.com/aerospike/aerolab/pkg/utils/shutdown"
 	"golang.org/x/term"
@@ -87,50 +85,21 @@ func parsePortRange(port string) (string, int, int, error) {
 	return protocol, from, to, nil
 }
 
-/*
-func getip2_old() string {
-	type IP struct {
-		Query string
+// resolveFirewallCidrs turns a user-supplied --ip value into canonical CIDRs,
+// discovering the caller's public address when the value is left at its
+// 'discover-caller-ip' default.
+func resolveFirewallCidrs(value string) ([]string, error) {
+	if strings.TrimSpace(value) == "" || value == callerip.DiscoverKeyword {
+		return callerip.Resolve()
 	}
-	req, err := http.Get("http://ip-api.com/json/")
+	cidrs, err := callerip.ParseList(value)
 	if err != nil {
-		return err.Error()
+		return nil, err
 	}
-	defer req.Body.Close()
-
-	body, err := io.ReadAll(req.Body)
-	if err != nil {
-		return err.Error()
+	if len(cidrs) == 0 {
+		return callerip.Resolve()
 	}
-
-	var ip IP
-	json.Unmarshal(body, &ip)
-
-	return ip.Query
-}
-*/
-
-func getip2() string {
-	req, err := http.Get("https://api.ipify.org?format=json")
-	if err != nil {
-		return err.Error()
-	}
-	defer req.Body.Close()
-
-	body, err := io.ReadAll(req.Body)
-	if err != nil {
-		return err.Error()
-	}
-
-	type ret struct {
-		IP string `json:"ip"`
-	}
-
-	var ip ret
-	//nolint:errcheck
-	json.Unmarshal(body, &ip)
-
-	return ip.IP
+	return cidrs, nil
 }
 
 func IsInteractive() bool {

@@ -69,7 +69,7 @@ type WebUICmd struct {
 	ShowMaxHistory   int `long:"show-max-history" default:"100" description:"show only this amount of completed historical items max"`
 
 	// Firewall
-	UniqueFirewalls bool `long:"unique-firewalls" description:"for multi-user hosted mode: enable per-username firewalls"`
+	UniqueFirewalls bool `long:"unique-firewalls" hidden:"true" webhidden:"true" description:"deprecated: per-username firewalls are always used"`
 
 	// AGI
 	AgiStrictTls bool `long:"agi-strict-tls" description:"when performing inventory lookup, expect valid AGI certificates"`
@@ -197,7 +197,7 @@ func (c *WebUICmd) Execute(args []string) error {
 	// Set non-interactive mode for all command executions
 	os.Setenv("AEROLAB_NONINTERACTIVE", "1")
 	if c.UniqueFirewalls {
-		os.Setenv("AEROLAB_UNIQUE_FIREWALLS", "1")
+		system.Logger.Warn("--unique-firewalls is deprecated: AeroLab always names firewalls per user now")
 	}
 
 	c.system = system

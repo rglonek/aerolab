@@ -70,6 +70,7 @@ type Cloud interface {
 	// basics
 	SetConfig(configDir string, credentials *clouds.Credentials, project string, sshKeyDir string, log *logger.Logger, aerolabVersion string, workDir string, invalidateCacheFunc func(names ...string) error, listAllProjects bool) error
 	SetHostKeyPolicy(store *sshexec.HostKeyStore, strict bool)
+	SetIdentity(identity *Identity)
 	SetInventory(networks NetworkList, firewalls FirewallList, instances InstanceList, volumes VolumeList, images ImageList)
 	ListEnabledZones() ([]string, error)
 	ListAvailableZones() ([]string, error)
@@ -111,6 +112,11 @@ type Cloud interface {
 	InstancesGetSSHKeyPath(instances InstanceList) []string
 	InstancesAssignFirewalls(instances InstanceList, fw FirewallList) error
 	InstancesRemoveFirewalls(instances InstanceList, fw FirewallList) error
+	// EnsureCallerAccess makes sure the caller's own firewall exists, allows
+	// the caller's current source addresses, and is attached to the given
+	// instances. It is additive: firewalls belonging to other users are never
+	// detached. It is best-effort and must not fail the caller's command.
+	EnsureCallerAccess(instances InstanceList)
 	InstancesUpdateHostsFile(instances InstanceList, hostsEntries []string, parallelSSHThreads int) error
 	// actions on multiple volumes
 	VolumesAddTags(volumes VolumeList, tags map[string]string, waitDur time.Duration) error

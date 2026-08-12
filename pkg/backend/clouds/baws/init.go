@@ -41,6 +41,15 @@ type b struct {
 	createInstanceCount *counters.Int
 	hostKeys            *sshexec.HostKeyStore
 	hostKeysStrict      bool
+	identity            *backends.Identity
+	// Serialize the ensure-then-create of per-user default security groups so
+	// concurrent callers do not race each other into a duplicate group.
+	defaultFWCreateLock sync.Mutex
+	// Serialize caller-access checks, and remember the VPCs whose ingress has
+	// already been reconciled: the caller's address is resolved once per
+	// process, so it cannot drift underneath us.
+	callerAccessLock  sync.Mutex
+	callerAccessReady map[string]bool
 	// Guard the refresh of the on-disk pricing caches. The Pricing API is a
 	// single low-TPS global endpoint, so concurrent callers that all miss the
 	// cache must not each start their own full pagination.
@@ -55,6 +64,10 @@ func init() {
 func (s *b) SetHostKeyPolicy(store *sshexec.HostKeyStore, strict bool) {
 	s.hostKeys = store
 	s.hostKeysStrict = strict
+}
+
+func (s *b) SetIdentity(identity *backends.Identity) {
+	s.identity = identity
 }
 
 // applyHostKeyPolicy points an SSH client config at the host key store so the

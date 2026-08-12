@@ -17,17 +17,18 @@ func Test30_Firewalls(t *testing.T) {
 	t.Run("setup", testSetup)
 	fw := &fwTest{}
 	fw.findNetwork(t)
-	t.Run("inventory empty", testInventoryEmpty)                        // ensure inventory is empty
-	t.Run("create firewall", fw.testCreateFirewall)                     // create a new firewall
-	t.Run("update firewall", fw.testUpdateFirewall)                     // update firewall settings
-	t.Run("add tags", fw.testAddTagsFirewall)                           // add tags to the firewall
-	t.Run("remove tags", fw.testRemoveTagsFirewall)                     // remove tags from the firewall
-	t.Run("create test instance", fw.testCreateTestInstanceForFirewall) // create a test instance with the new firewall attached
-	t.Run("remove firewall", fw.testRemoveFirewallFromInstance)         // remove the new firewall from the test instance
-	t.Run("assign firewall", fw.testAssignFirewallToInstance)           // assign the new firewall to the test instance again
-	t.Run("delete test instance", fw.testDeleteTestInstanceForFirewall) // delete the test instance
-	t.Run("delete firewall", fw.testDeleteFirewall)                     // delete the firewall
-	t.Run("end inventory empty", testInventoryEmpty)                    // ensure inventory is empty again
+	t.Run("inventory empty", testInventoryEmpty)                                  // ensure inventory is empty
+	t.Run("create firewall", fw.testCreateFirewall)                               // create a new firewall
+	t.Run("update firewall", fw.testUpdateFirewall)                               // update firewall settings
+	t.Run("add tags", fw.testAddTagsFirewall)                                     // add tags to the firewall
+	t.Run("remove tags", fw.testRemoveTagsFirewall)                               // remove tags from the firewall
+	t.Run("create test instance", fw.testCreateTestInstanceForFirewall)           // create a test instance with the new firewall attached
+	t.Run("default firewall caller locked", fw.testDefaultFirewallIsCallerLocked) // the auto-created default firewall is per-user and caller-locked
+	t.Run("remove firewall", fw.testRemoveFirewallFromInstance)                   // remove the new firewall from the test instance
+	t.Run("assign firewall", fw.testAssignFirewallToInstance)                     // assign the new firewall to the test instance again
+	t.Run("delete test instance", fw.testDeleteTestInstanceForFirewall)           // delete the test instance
+	t.Run("delete firewall", fw.testDeleteFirewall)                               // delete the firewall
+	t.Run("end inventory empty", testInventoryEmpty)                              // ensure inventory is empty again
 }
 
 type fwTest struct {
@@ -200,6 +201,41 @@ func (fw *fwTest) testCreateTestInstanceForFirewall(t *testing.T) {
 		fwCount = 3
 	}
 	require.Len(t, inst.Describe()[0].Firewalls, fwCount)
+}
+
+// testDefaultFirewallIsCallerLocked checks that creating an instance produced a
+// per-user firewall which lets the caller in and nobody else.
+func (fw *fwTest) testDefaultFirewallIsCallerLocked(t *testing.T) {
+	require.NoError(t, setup(false))
+	if cloud == "docker" {
+		t.Skip("docker does not support firewalls")
+		return
+	}
+	require.NoError(t, testBackend.RefreshChangedInventory())
+
+	roleTag := baws.TAG_FIREWALL_ROLE
+	if cloud == "gcp" {
+		roleTag = bgcp.TAG_FIREWALL_ROLE
+	}
+	defaults := backends.FirewallList{}
+	for _, f := range testBackend.GetInventory().Firewalls.Describe() {
+		if f.Tags[roleTag] == backends.FirewallRoleDefault {
+			defaults = append(defaults, f)
+		}
+	}
+	require.NotEmpty(t, defaults, "instance creation should have produced a per-user default firewall")
+
+	for _, f := range defaults {
+		require.Equal(t, "test-owner", f.Owner)
+		sshRules := 0
+		for _, port := range f.Ports {
+			require.NotEqual(t, backends.AnyIPv4Cidr, port.SourceCidr, "firewall %s allows the whole internet in on %s:%d-%d", f.Name, port.Protocol, port.FromPort, port.ToPort)
+			if port.FromPort <= backends.SSHPort && port.ToPort >= backends.SSHPort && port.SourceCidr != "" {
+				sshRules++
+			}
+		}
+		require.NotZero(t, sshRules, "firewall %s does not allow the caller in on SSH", f.Name)
+	}
 }
 
 func (fw *fwTest) testRemoveFirewallFromInstance(t *testing.T) {

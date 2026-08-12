@@ -54,6 +54,10 @@ type FakeCloud struct {
 	StartedInstances    backends.InstanceList
 	HostKeyStore        *sshexec.HostKeyStore
 	HostKeyStrict       bool
+	Identity            *backends.Identity
+	// CallerAccessInstances records the instances the last EnsureCallerAccess
+	// call was asked to grant the caller access to.
+	CallerAccessInstances backends.InstanceList
 }
 
 func (f *FakeCloud) record(name string) {
@@ -104,6 +108,16 @@ func (f *FakeCloud) SetConfig(configDir string, credentials *clouds.Credentials,
 func (f *FakeCloud) SetHostKeyPolicy(store *sshexec.HostKeyStore, strict bool) {
 	f.record("SetHostKeyPolicy")
 	f.HostKeyStore, f.HostKeyStrict = store, strict
+}
+
+func (f *FakeCloud) SetIdentity(identity *backends.Identity) {
+	f.record("SetIdentity")
+	f.Identity = identity
+}
+
+func (f *FakeCloud) EnsureCallerAccess(instances backends.InstanceList) {
+	f.record("EnsureCallerAccess")
+	f.CallerAccessInstances = instances
 }
 
 func (f *FakeCloud) SetInventory(networks backends.NetworkList, firewalls backends.FirewallList, instances backends.InstanceList, volumes backends.VolumeList, images backends.ImageList) {

@@ -16,6 +16,12 @@ const (
 const (
 	TAG_FIREWALL_NAME_PREFIX          = "aerolab-"
 	TAG_FIREWALL_NAME_PREFIX_INTERNAL = "aerolab-i-"
+	// Per-user firewall rules carry their own prefixes so they can never
+	// collide with the shared rules older AeroLab versions created.
+	TAG_FIREWALL_NAME_PREFIX_OWNER          = "aerolab-o-"
+	TAG_FIREWALL_NAME_PREFIX_OWNER_INTERNAL = "aerolab-oi-"
+	TAG_FIREWALL_NAME_PREFIX_AGI            = "aerolab-agi-"
+	TAG_FIREWALL_NAME_PREFIX_OWNER_AGI      = "aerolab-oagi-"
 )
 
 const (
@@ -40,6 +46,12 @@ const (
 	TAG_AEROLAB_OWNER         = "aerolab-o"
 	TAG_AEROLAB_EXPIRES       = "aerolab-e"
 	TAG_AEROLAB_DESCRIPTION   = "aerolab-d"
+	// TAG_FIREWALL_ROLE records what an AeroLab-managed firewall rule is for,
+	// so rules can be found by metadata rather than by parsing their name.
+	TAG_FIREWALL_ROLE = "aerolab-fr"
+	// TAG_CALLER_LOCKED marks a rule whose source ranges AeroLab keeps in step
+	// with the caller's own address.
+	TAG_CALLER_LOCKED = "aerolab-cl"
 )
 
 // V7 migration-related constants
