@@ -6,7 +6,6 @@ import (
 	"context"
 	"github.com/aws/aws-sdk-go-v2/service/lambda/types"
 	"github.com/aws/smithy-go/middleware"
-	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
 // Updates a Lambda function's code. If code signing is enabled for the function,
@@ -100,9 +99,12 @@ type UpdateFunctionCodeInput struct {
 	// with a .zip file archive deployment package.
 	S3Key *string
 
-	// Specifies how the deployment package is stored. Use COPY (default) to upload a
-	// copy of your deployment package to Lambda. Use REFERENCE to have Lambda
-	// reference the deployment package from the specified Amazon S3 bucket.
+	// Specifies how the deployment package is stored. Valid values:
+	//
+	//   - COPY (default) – Uploads a copy of your deployment package to Lambda.
+	//
+	//   - REFERENCE – Lambda references the deployment package from the specified
+	//   Amazon S3 bucket.
 	S3ObjectStorageMode types.S3ObjectStorageMode
 
 	// For versioned objects, the version of the deployment package object to use.
@@ -321,9 +323,6 @@ func (c *Client) addOperationUpdateFunctionCodeMiddlewares(stack *middleware.Sta
 		return err
 	}
 
-	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
-		return err
-	}
 	if err = addComputeContentLength(stack); err != nil {
 		return err
 	}
@@ -336,19 +335,10 @@ func (c *Client) addOperationUpdateFunctionCodeMiddlewares(stack *middleware.Sta
 	if err = addRecordResponseTiming(stack, options); err != nil {
 		return err
 	}
-	if err = smithyhttp.AddErrorCloseResponseBodyMiddleware(stack); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
-		return err
-	}
 	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
 	if err = addOpUpdateFunctionCodeValidationMiddleware(stack); err != nil {
-		return err
-	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware(options.Region, "UpdateFunctionCode"), middleware.Before); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
