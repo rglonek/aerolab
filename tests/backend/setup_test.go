@@ -18,6 +18,7 @@ import (
 	"github.com/aerospike/aerolab/pkg/backend/backends"
 	"github.com/aerospike/aerolab/pkg/backend/clouds"
 	"github.com/aerospike/aerolab/pkg/backend/clouds/bgcp"
+	"github.com/aerospike/aerolab/pkg/utils/callerip"
 	"github.com/rglonek/logger"
 	"github.com/stretchr/testify/require"
 )
@@ -307,6 +308,13 @@ func setup(fresh bool) (err error) {
 			LogMillisecond:  true,
 			AerolabVersion:  aerolabVersion,
 			ListAllProjects: false,
+			// Behave like the CLI: instances get a per-user firewall locked to
+			// the address these tests run from, so the tests can SSH in.
+			Identity: &backends.Identity{
+				Owner:       "test-owner",
+				CallerCidrs: callerip.Resolve,
+				Autolock:    true,
+			},
 		},
 		false, []backends.BackendType{btype}, nil)
 	if err != nil {

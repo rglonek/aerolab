@@ -48,6 +48,12 @@ type b struct {
 	createInstanceCount *counters.Int
 	hostKeys            *sshexec.HostKeyStore
 	hostKeysStrict      bool
+	identity            *backends.Identity
+	// Serialize caller-access checks, and remember the networks whose ingress
+	// has already been reconciled: the caller's address is resolved once per
+	// process, so it cannot drift underneath us.
+	callerAccessLock  sync.Mutex
+	callerAccessReady map[string]bool
 	// Guard the refresh of the on-disk pricing caches, so that concurrent
 	// callers that all miss the cache do not each walk the whole billing
 	// catalog.
@@ -62,6 +68,10 @@ func init() {
 func (s *b) SetHostKeyPolicy(store *sshexec.HostKeyStore, strict bool) {
 	s.hostKeys = store
 	s.hostKeysStrict = strict
+}
+
+func (s *b) SetIdentity(identity *backends.Identity) {
+	s.identity = identity
 }
 
 // applyHostKeyPolicy points an SSH client config at the host key store so the

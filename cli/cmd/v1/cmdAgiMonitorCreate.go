@@ -14,7 +14,9 @@ import (
 
 	"github.com/aerospike/aerolab/pkg/backend/backends"
 	"github.com/aerospike/aerolab/pkg/backend/clouds/baws"
+	"github.com/aerospike/aerolab/pkg/backend/clouds/bgcp"
 	"github.com/aerospike/aerolab/pkg/sshexec"
+	"github.com/aerospike/aerolab/pkg/utils/callerip"
 	"github.com/aerospike/aerolab/pkg/utils/choice"
 	"github.com/aerospike/aerolab/pkg/utils/installers/aerolab"
 	"github.com/aerospike/aerolab/pkg/utils/scriptlog"
@@ -236,8 +238,8 @@ func (c *AgiMonitorCreateCmd) CreateMonitor(system *System, inventory *backends.
 // concurrently, the "already exists" error is ignored.
 //
 // The firewall name is VPC-specific:
-//   - AWS: AEROLAB_AGI_{project}_{vpc-id}
-//   - GCP: aerolab-agi-{vpc-name} (sanitized)
+//   - AWS: AEROLAB_AGI_{project}_{owner}_{vpc-id}
+//   - GCP: aerolab-oagi-{owner}-{vpc-name} (sanitized)
 //
 // Returns:
 //   - string: The firewall name that was created or found
@@ -250,20 +252,23 @@ func (c *AgiMonitorCreateCmd) ensureAGIFirewall(system *System, inventory *backe
 	}
 	vpc := networks.Describe()[0]
 
-	// Generate VPC-specific firewall name based on backend type
+	owner := c.Owner
+	if owner == "" {
+		owner = GetCurrentOwnerUser()
+	}
+
+	// Generate per-user, VPC-specific firewall name based on backend type
 	var firewallName string
 	switch backendType {
 	case "aws":
-		// AWS: AEROLAB_AGI_{project}_{vpc-id}
 		// Use AEROLAB_PROJECT env var (aerolab project), not Backend.Project (GCP project)
 		project := os.Getenv("AEROLAB_PROJECT")
 		if project == "" {
 			project = "default"
 		}
-		firewallName = "AEROLAB_AGI_" + project + "_" + vpc.NetworkId
+		firewallName = baws.AGIFirewallName(project, owner, vpc.NetworkId)
 	case "gcp":
-		// GCP: aerolab-agi-{vpc-name} (sanitized)
-		firewallName = sanitizeGCPName("aerolab-agi-" + vpc.Name)
+		firewallName = bgcp.AGIFirewallName(owner, vpc.Name)
 	default:
 		return "", fmt.Errorf("unsupported backend type for firewall: %s", backendType)
 	}
@@ -277,15 +282,19 @@ func (c *AgiMonitorCreateCmd) ensureAGIFirewall(system *System, inventory *backe
 
 	logger.Info("Creating %s firewall rule for AGI access (ports 80, 443)", firewallName)
 
-	// Create firewall rule for ports 80 and 443
+	// Ports 80 and 443 stay open to the world: AGI obtains its Let's Encrypt
+	// certificate over port 80 and its dashboards are shared by link.
 	_, err := system.Backend.CreateFirewall(&backends.CreateFirewallInput{
 		BackendType: backends.BackendType(backendType),
 		Name:        firewallName,
 		Description: "AeroLab AGI access (ports 80, 443)",
-		Owner:       c.Owner,
+		Owner:       owner,
+		Tags: map[string]string{
+			firewallRoleTagKey(backendType): backends.FirewallRoleAGI,
+		},
 		Ports: []*backends.Port{
-			{FromPort: 80, ToPort: 80, SourceCidr: "0.0.0.0/0", Protocol: backends.ProtocolTCP},
-			{FromPort: 443, ToPort: 443, SourceCidr: "0.0.0.0/0", Protocol: backends.ProtocolTCP},
+			{FromPort: 80, ToPort: 80, SourceCidr: callerip.AnyIPv4, Protocol: backends.ProtocolTCP},
+			{FromPort: 443, ToPort: 443, SourceCidr: callerip.AnyIPv4, Protocol: backends.ProtocolTCP},
 		},
 		Network: vpc,
 	}, time.Minute)

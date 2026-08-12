@@ -21,6 +21,12 @@ const (
 	TAG_DNS_REGION           = "AEROLAB_DNS_REGION"
 	TAG_CLUSTER_UUID         = "AEROLAB_CLUSTER_UUID"
 	TAG_FIREWALL_NAME_PREFIX = "AEROLAB_DEFAULT_"
+	// TAG_FIREWALL_ROLE records what an AeroLab-managed security group is for,
+	// so groups can be found by tag rather than by parsing their name.
+	TAG_FIREWALL_ROLE = "AEROLAB_FIREWALL_ROLE"
+	// TAG_FIREWALL_NAME_PREFIX_AGI prefixes the security groups serving AGI's
+	// web ports.
+	TAG_FIREWALL_NAME_PREFIX_AGI = "AEROLAB_AGI_"
 )
 
 // V7 migration-related constants

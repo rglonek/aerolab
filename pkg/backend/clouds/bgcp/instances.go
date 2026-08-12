@@ -1626,98 +1626,15 @@ func (s *b) CreateInstances(input *backends.CreateInstanceInput, waitDur time.Du
 	}
 	log.Detail("Found security groups: %v", securityGroupIds)
 
-	// default project-VPC firewall if it does not exist
-	err = func() error {
-		defaultFwName := sanitize(TAG_FIREWALL_NAME_PREFIX+vpc.Name, false)
-		defaultFwInternalName := sanitize(TAG_FIREWALL_NAME_PREFIX_INTERNAL+vpc.Name, false)
-		s.defaultFWCreateLock.Lock()
-		defer s.defaultFWCreateLock.Unlock()
-		getFirewalls := false
-		defer func() {
-			if getFirewalls {
-				_, err := s.GetFirewalls(s.networks)
-				if err != nil {
-					log.Error("Failed to refresh firewalls after creation: %v", err)
-				}
-			}
-		}()
-		if s.firewalls.WithName(defaultFwName).Count() == 0 {
-			getFirewalls = true
-			fw, err := s.CreateFirewall(&backends.CreateFirewallInput{
-				BackendType: backends.BackendTypeGCP,
-				Name:        defaultFwName,
-				Description: "AeroLab default project-VPC firewall",
-				Ports: []*backends.Port{
-					{
-						FromPort:   22,
-						ToPort:     22,
-						SourceCidr: "0.0.0.0/0",
-						SourceId:   "",
-						Protocol:   backends.ProtocolTCP,
-					},
-				},
-				Network: vpc,
-			}, waitDur)
-			if err != nil {
-				if strings.Contains(err.Error(), "already exists") {
-					// retrieve the existing firewall
-					_, err := s.GetFirewalls(s.networks)
-					if err != nil {
-						return err
-					}
-					defaultFw := s.firewalls.WithName(defaultFwName).Describe()[0]
-					securityGroupIds = append(securityGroupIds, defaultFw.Name)
-				} else {
-					return err
-				}
-			} else {
-				securityGroupIds = append(securityGroupIds, fw.Firewall.Name)
-			}
-		} else {
-			defaultFw := s.firewalls.WithName(defaultFwName).Describe()[0]
-			securityGroupIds = append(securityGroupIds, defaultFw.Name)
-		}
-		if s.firewalls.WithName(defaultFwInternalName).Count() == 0 {
-			getFirewalls = true
-			fw, err := s.CreateFirewall(&backends.CreateFirewallInput{
-				BackendType: backends.BackendTypeGCP,
-				Name:        defaultFwInternalName,
-				Description: "AeroLab default project-VPC internal firewall",
-				Ports: []*backends.Port{
-					{
-						FromPort:   -1,
-						ToPort:     -1,
-						SourceCidr: "",
-						SourceId:   "self",
-						Protocol:   backends.ProtocolAll,
-					},
-				},
-				Network: vpc,
-			}, waitDur)
-			if err != nil {
-				if strings.Contains(err.Error(), "already exists") {
-					// retrieve the existing firewall
-					_, err := s.GetFirewalls(s.networks)
-					if err != nil {
-						return err
-					}
-					defaultFw := s.firewalls.WithName(defaultFwInternalName).Describe()[0]
-					securityGroupIds = append(securityGroupIds, defaultFw.Name)
-				} else {
-					return err
-				}
-			} else {
-				securityGroupIds = append(securityGroupIds, fw.Firewall.Name)
-			}
-		} else {
-			defaultFw := s.firewalls.WithName(defaultFwInternalName).Describe()[0]
-			securityGroupIds = append(securityGroupIds, defaultFw.Name)
-		}
-		return nil
-	}()
+	// the caller's own firewall rules, locked to the caller's address, so that
+	// several people can share a project without opening SSH to everyone
+	owner := s.identity.OwnerOr(input.Owner)
+	callerFwNames, err := s.ensureCallerFirewalls(log, owner, vpc, waitDur)
 	if err != nil {
 		return nil, err
 	}
+	securityGroupIds = append(securityGroupIds, callerFwNames...)
+	s.warnOnOpenLegacyFirewall(log, vpc.Name)
 
 	// get prices
 	costPPH, costGB, err := s.CreateInstancesGetPrice(input)

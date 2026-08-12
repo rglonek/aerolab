@@ -116,12 +116,20 @@ aerolab config backend -t aws --check-access
 
 ## AWS-Specific Configuration
 
-Security groups are managed with `config aws`:
+Instances you create are attached to a security group of your own which allows
+SSH only from the address you are connecting from, so several people can share
+one account safely. AeroLab keeps that group in step with your address as you
+move between networks. See
+[per-user security groups](../commands/config.md#per-user-security-groups) for
+how to override the discovered address behind a NAT gateway or VPN, and how to
+turn the automatic handling off.
+
+Additional security groups are managed with `config aws`:
 
 ```bash
 aerolab config aws list-security-groups
 aerolab config aws create-security-groups -n aerolab-sg -p 3000-3005
-aerolab config aws lock-security-groups -n aerolab-sg
+aerolab config aws lock-security-groups -n aerolab-sg -i 203.0.113.7/32
 aerolab config aws delete-security-groups -n aerolab-sg
 ```
 

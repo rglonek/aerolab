@@ -154,12 +154,20 @@ aerolab config backend -t gcp --check-access
 
 ## GCP-Specific Configuration
 
-Firewall rules are managed with `config gcp`:
+Instances you create carry firewall rules of your own which allow SSH only from
+the address you are connecting from, so several people can share one project
+safely. AeroLab keeps those rules in step with your address as you move between
+networks. See
+[per-user firewall rules](../commands/config.md#per-user-firewall-rules) for how
+to override the discovered address behind a NAT gateway or VPN, and how to turn
+the automatic handling off.
+
+Additional firewall rules are managed with `config gcp`:
 
 ```bash
 aerolab config gcp list-firewall-rules
 aerolab config gcp create-firewall-rules -n aerolab-fw -p 3000-3005
-aerolab config gcp lock-firewall-rules -n aerolab-fw
+aerolab config gcp lock-firewall-rules -n aerolab-fw -i 203.0.113.7/32
 aerolab config gcp delete-firewall-rules -n aerolab-fw
 ```
 

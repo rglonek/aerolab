@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/aerospike/aerolab/pkg/backend/clouds"
+	"github.com/aerospike/aerolab/pkg/utils/callerip"
 	"github.com/bestmethod/inslice"
 	flags "github.com/rglonek/go-flags"
 )
@@ -29,6 +30,9 @@ type ConfigBackendCmd struct {
 	SkipPricing    bool           `long:"skip-pricing" description:"AWS/GCP: skip all cost/pricing lookups (billing/pricing APIs); instance-type and volume catalogs are still returned, just without prices. Useful under GCP Workload Identity Federation, where the billing API rejects federated tokens, or whenever the caller lacks pricing permissions"`
 
 	SSHStrictHostKey bool `long:"ssh-strict-host-key" description:"Refuse SSH connections when an instance presents a host key different to the one AeroLab remembers for it. When unset, a changed key is only logged as a warning and then relearned. See 'aerolab config host-keys'"`
+
+	FirewallCidr       string `long:"firewall-cidr" description:"AWS/GCP: comma-separated CIDRs which AeroLab-managed firewalls should allow inbound, instead of the discovered caller public IP. Use behind a NAT gateway or VPN, or when hosting the webui. Set to 0.0.0.0/0 to deliberately open access to everyone" default:""`
+	NoFirewallAutolock bool   `long:"no-firewall-autolock" description:"AWS/GCP: do not automatically create, re-lock and attach the per-user firewall when running commands against instances. Access must then be managed manually with 'config aws|gcp lock-security-groups'"`
 
 	AWSProfile     string `long:"aws.profile" description:"AWS: provide a profile to use; setting this ignores the AWS_PROFILE env variable"`
 	AWSNoPublicIps bool   `long:"aws.no-public-ip" description:"AWS: if set, aerolab will not request public IPs, and will operate on private IPs only"`
@@ -116,6 +120,13 @@ func (c *ConfigBackendCmd) Execute(args []string) error {
 		c.Arch = ""
 	}
 
+	// validate firewall-cidr
+	if c.FirewallCidr != "" {
+		if _, err := callerip.ParseList(c.FirewallCidr); err != nil {
+			return Error(fmt.Errorf("firewall-cidr: %w", err), system, []string{"config", "backend"}, c, args)
+		}
+	}
+
 	// map DockerRegistryRegion to DockerRegistryURL
 	switch strings.ToLower(c.DockerRegistryRegion) {
 	case "na":
@@ -167,6 +178,8 @@ func (c *ConfigBackendCmd) Execute(args []string) error {
 		fmt.Printf("Config.Backend.Region = %s\n", c.Region)
 		fmt.Printf("Config.Backend.AWSNoPublicIps = %v\n", c.AWSNoPublicIps)
 		fmt.Printf("Config.Backend.SkipPricing = %v\n", c.SkipPricing)
+		fmt.Printf("Config.Backend.FirewallCidr = %s\n", c.FirewallCidr)
+		fmt.Printf("Config.Backend.NoFirewallAutolock = %v\n", c.NoFirewallAutolock)
 	}
 	if c.Type == "gcp" {
 		fmt.Printf("Config.Backend.Project = %s\n", c.Project)
@@ -177,6 +190,8 @@ func (c *ConfigBackendCmd) Execute(args []string) error {
 		fmt.Printf("Config.Backend.GCPUseIAP = %v\n", c.GCPUseIAP)
 		fmt.Printf("Config.Backend.GCPAutoEnableServices = %v\n", c.GCPAutoEnableServices)
 		fmt.Printf("Config.Backend.SkipPricing = %v\n", c.SkipPricing)
+		fmt.Printf("Config.Backend.FirewallCidr = %s\n", c.FirewallCidr)
+		fmt.Printf("Config.Backend.NoFirewallAutolock = %v\n", c.NoFirewallAutolock)
 	}
 	if c.Type == "docker" && c.Arch != "" {
 		fmt.Printf("Config.Backend.Arch = %s\n", c.Arch)
@@ -305,6 +320,9 @@ func (c *ConfigBackendCmd) ExecTypeSet(system *System, args []string) error {
 		if !slices.Contains(webParams, "ssh-strict-host-key") {
 			c.SSHStrictHostKey = false
 		}
+		if !slices.Contains(webParams, "no-firewall-autolock") {
+			c.NoFirewallAutolock = false
+		}
 	} else {
 		if !slices.Contains(os.Args, "--check-access") {
 			c.CheckAccess = false
@@ -332,6 +350,9 @@ func (c *ConfigBackendCmd) ExecTypeSet(system *System, args []string) error {
 		}
 		if !slices.Contains(os.Args, "--ssh-strict-host-key") {
 			c.SSHStrictHostKey = false
+		}
+		if !slices.Contains(os.Args, "--no-firewall-autolock") {
+			c.NoFirewallAutolock = false
 		}
 	}
 

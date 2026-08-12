@@ -24,7 +24,9 @@ import (
 	"github.com/aerospike/aerolab/pkg/agi/ingest"
 	"github.com/aerospike/aerolab/pkg/backend/backends"
 	"github.com/aerospike/aerolab/pkg/backend/clouds/baws"
+	"github.com/aerospike/aerolab/pkg/backend/clouds/bgcp"
 	"github.com/aerospike/aerolab/pkg/sshexec"
+	"github.com/aerospike/aerolab/pkg/utils/callerip"
 	"github.com/aerospike/aerolab/pkg/utils/parallelize"
 	"github.com/aerospike/aerolab/pkg/utils/scriptlog"
 	"github.com/aerospike/aerolab/pkg/utils/shutdown"
@@ -3450,13 +3452,16 @@ func (c *AgiCreateCmd) ensureExpiryCleanupDNS(system *System, logger *logger.Log
 }
 
 // ensureAGIFirewall ensures the AGI firewall exists for the specified VPC, creating it if necessary.
-// The firewall allows inbound TCP traffic on ports 80 (HTTP) and 443 (HTTPS) from anywhere.
 // This function handles race conditions gracefully - if another process creates the firewall
 // concurrently, the "already exists" error is ignored.
 //
-// The firewall name is VPC-specific:
-//   - AWS: AEROLAB_AGI_{project}_{vpc-id}
-//   - GCP: aerolab-agi-{vpc-name} (sanitized)
+// SSH is restricted to the caller's own address, but ports 80 and 443 stay open
+// to the world: AGI obtains its Let's Encrypt certificate over port 80 and its
+// dashboards are shared by link with people on other networks.
+//
+// The firewall name is per user and VPC specific:
+//   - AWS: AEROLAB_AGI_{project}_{owner}_{vpc-id}
+//   - GCP: aerolab-oagi-{owner}-{vpc-name} (sanitized)
 //
 // Parameters:
 //   - system: The initialized system context
@@ -3475,20 +3480,23 @@ func (c *AgiCreateCmd) ensureAGIFirewall(system *System, inventory *backends.Inv
 	}
 	vpc := networks.Describe()[0]
 
-	// Generate VPC-specific firewall name based on backend type
+	owner := c.Owner
+	if owner == "" {
+		owner = GetCurrentOwnerUser()
+	}
+
+	// Generate per-user, VPC-specific firewall name based on backend type
 	var firewallName string
 	switch backendType {
 	case "aws":
-		// AWS: AEROLAB_AGI_{project}_{vpc-id}
 		// Use AEROLAB_PROJECT env var (aerolab project), not Backend.Project (GCP project)
 		project := os.Getenv("AEROLAB_PROJECT")
 		if project == "" {
 			project = "default"
 		}
-		firewallName = "AEROLAB_AGI_" + project + "_" + vpc.NetworkId
+		firewallName = baws.AGIFirewallName(project, owner, vpc.NetworkId)
 	case "gcp":
-		// GCP: aerolab-agi-{vpc-name} (sanitized)
-		firewallName = sanitizeGCPName("aerolab-agi-" + vpc.Name)
+		firewallName = bgcp.AGIFirewallName(owner, vpc.Name)
 	default:
 		return "", fmt.Errorf("unsupported backend type for firewall: %s", backendType)
 	}
@@ -3500,19 +3508,33 @@ func (c *AgiCreateCmd) ensureAGIFirewall(system *System, inventory *backends.Inv
 		return firewallName, nil
 	}
 
-	logger.Info("Creating %s firewall rule for AGI access (ports 22, 80, 443)", firewallName)
+	ports := []*backends.Port{
+		{FromPort: 80, ToPort: 80, SourceCidr: callerip.AnyIPv4, Protocol: backends.ProtocolTCP},
+		{FromPort: 443, ToPort: 443, SourceCidr: callerip.AnyIPv4, Protocol: backends.ProtocolTCP},
+	}
+	sshCidrs, err := callerip.Resolve()
+	if err != nil {
+		logger.Warn("Could not determine your public address, so %s will not allow SSH: %s", firewallName, err)
+	}
+	for _, cidr := range sshCidrs {
+		ports = append(ports, &backends.Port{FromPort: 22, ToPort: 22, SourceCidr: cidr, Protocol: backends.ProtocolTCP})
+	}
 
-	// Create firewall rule for ports 22 (SSH), 80, and 443
-	_, err := system.Backend.CreateFirewall(&backends.CreateFirewallInput{
+	sshFrom := "nowhere"
+	if len(sshCidrs) > 0 {
+		sshFrom = strings.Join(sshCidrs, ", ")
+	}
+	logger.Info("Creating %s firewall rule for AGI access (ports 80 and 443 public, SSH from %s)", firewallName, sshFrom)
+
+	_, err = system.Backend.CreateFirewall(&backends.CreateFirewallInput{
 		BackendType: backends.BackendType(backendType),
 		Name:        firewallName,
-		Description: "AeroLab AGI access (ports 22, 80, 443)",
-		Owner:       c.Owner,
-		Ports: []*backends.Port{
-			{FromPort: 22, ToPort: 22, SourceCidr: "0.0.0.0/0", Protocol: backends.ProtocolTCP},
-			{FromPort: 80, ToPort: 80, SourceCidr: "0.0.0.0/0", Protocol: backends.ProtocolTCP},
-			{FromPort: 443, ToPort: 443, SourceCidr: "0.0.0.0/0", Protocol: backends.ProtocolTCP},
+		Description: "AeroLab AGI access (ports 80, 443 public; SSH caller-locked)",
+		Owner:       owner,
+		Tags: map[string]string{
+			firewallRoleTagKey(backendType): backends.FirewallRoleAGI,
 		},
+		Ports:   ports,
 		Network: vpc,
 	}, time.Minute)
 	if err != nil {

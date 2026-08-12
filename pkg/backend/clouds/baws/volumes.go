@@ -810,19 +810,35 @@ func (s *b) AttachVolumes(volumes backends.VolumeList, instance *backends.Instan
 						}
 					}
 				}
-				// resolve default firewall that instances use in the given VPC
-				instanceDetail := getInstanceDetail(instance)
-				defaultFwName := TAG_FIREWALL_NAME_PREFIX + s.project + "_" + instanceDetail.NetworkID
-				fw := s.firewalls.WithName(defaultFwName).Describe()
-				if len(fw) == 0 {
-					reterr = errors.Join(reterr, fmt.Errorf("default security group for volume-network(vpc) %s not found", defaultFwName))
+				// the mount target has to accept NFS from the group the
+				// instance itself uses, which is that instance owner's group
+				fw, err := s.defaultFirewallForInstance(instance)
+				if err != nil {
+					reterr = errors.Join(reterr, err)
 					return
 				}
-				if len(fw) > 1 {
-					reterr = errors.Join(reterr, fmt.Errorf("multiple default security groups found for volume-network(vpc) %s", defaultFwName))
-					return
+				secGroupId := fw.FirewallID
+				if mountTargetExists && mountTargetID != "" {
+					// A mount target created by somebody else only accepts NFS
+					// from the groups it was given, so join one of those rather
+					// than expecting it to know about ours.
+					sgOut, sgErr := cli.DescribeMountTargetSecurityGroups(context.TODO(), &efs.DescribeMountTargetSecurityGroupsInput{
+						MountTargetId: aws.String(mountTargetID),
+					})
+					if sgErr != nil {
+						reterr = errors.Join(reterr, fmt.Errorf("failed to read the security groups of mount target %s: %w", mountTargetID, sgErr))
+						return
+					}
+					if len(sgOut.SecurityGroups) > 0 {
+						secGroupId = sgOut.SecurityGroups[0]
+						for _, group := range sgOut.SecurityGroups {
+							if slices.Contains(instanceDetail.FirewallIDs, group) {
+								secGroupId = group
+								break
+							}
+						}
+					}
 				}
-				secGroupId := fw[0].FirewallID
 				if !mountTargetExists {
 					// Wait for filesystem to be in Available state before creating mount target
 					log.Detail("zone=%s checking filesystem %s lifecycle state before creating mount target", zone, id.FileSystemId)

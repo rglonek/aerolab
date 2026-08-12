@@ -33,6 +33,8 @@ aerolab config backend -t docker
 | `-p, --key-path` | Custom SSH key path (default: `~/.config/aerolab`) |
 | `--ssh-strict-host-key` | Refuse to connect when an instance presents a different SSH host key than the one remembered (default: warn and relearn) |
 | `--skip-pricing` | AWS/GCP: skip all cost/pricing lookups. Instance-type and volume catalogs are still returned (needed for create), just without prices. Useful under GCP Workload Identity Federation (the billing API rejects federated tokens) or whenever the caller lacks pricing permissions |
+| `--firewall-cidr` | AWS/GCP: comma-separated source CIDRs AeroLab-managed firewalls should allow, instead of your discovered public IP. Use behind a NAT gateway or VPN, or when hosting the web UI. See [per-user security groups](#per-user-security-groups) |
+| `--no-firewall-autolock` | AWS/GCP: do not create, re-lock or attach your per-user firewall as a side effect of commands which touch instances |
 | `--check-access` | Check access to backend |
 
 ### Docker Backend
@@ -385,6 +387,49 @@ aerolab config docker prune-networks
 
 AWS-specific configuration commands.
 
+### Per-User Security Groups
+
+Every instance AeroLab creates is attached to a security group belonging to the
+user who created it, named `AEROLAB_DEFAULT_{project}_{owner}_{vpc-id}`. That
+group allows SSH only from the address you are connecting from, discovered by
+asking `api.ipify.org` what your public IP is. AeroLab never opens SSH to
+`0.0.0.0/0`.
+
+Because each user gets their own group, several people can share one AWS
+account without opening each other's instances up.
+
+Access is kept working for you automatically. Any command that touches an
+instance - `attach shell`, `files upload`, `aerospike start`, `instances start`
+and so on - first checks that your group allows the address you are on right
+now, and re-locks it if your address has changed. If the instance belongs to
+somebody else and your group is not on it, your group is added. Nothing is ever
+detached, so the other person keeps their access.
+
+Set an explicit source range when your traffic leaves through a NAT gateway or
+a VPN, or when you run the web UI on a server (where the discovered address
+would be the server's, not the browser user's):
+
+```bash
+aerolab config backend --firewall-cidr 203.0.113.0/24,198.51.100.7
+```
+
+The `AEROLAB_FIREWALL_CIDR` environment variable does the same thing for a
+single invocation. Set either to `0.0.0.0/0` to deliberately allow everyone.
+
+To turn the automatic firewall handling off entirely, for example in CI or
+under a least-privilege role which cannot modify security groups:
+
+```bash
+aerolab config backend --no-firewall-autolock
+# or, per invocation:
+AEROLAB_FIREWALL_AUTOLOCK=0 aerolab attach shell -n mydc
+```
+
+Security groups created by older AeroLab versions, named
+`AEROLAB_DEFAULT_{project}_{vpc-id}` without an owner, keep working for the
+instances already using them. AeroLab warns when one of them still allows SSH
+from the whole internet; restrict it with `lock-security-groups`.
+
 ### List Subnets
 
 List available subnets:
@@ -427,11 +472,24 @@ aerolab config aws create-security-groups -n my-sg -p 3000-3010
 
 ### Lock Security Groups
 
-Lock a security group to prevent deletion:
+Restrict ports of a security group to a single source address, revoking
+whatever else those ports allowed:
 
 ```bash
-aerolab config aws lock-security-groups -n my-sg
+# Re-lock your own per-user groups to the address you are on now
+aerolab config aws lock-security-groups
+
+# Lock a named group's SSH to a specific CIDR
+aerolab config aws lock-security-groups -n my-sg -i 203.0.113.7/32
+
+# Lock more than SSH
+aerolab config aws lock-security-groups -n my-sg -p 22 -p 3000-3005
 ```
+
+**Options:**
+- `-n, --name` - Security group to lock; left at its default, your own per-user groups are locked
+- `-i, --ip` - Source address to allow; defaults to discovering your public IP. A bare address is treated as a `/32`
+- `-p, --port` - Ports to restrict, repeatable; defaults to `22`
 
 ### Delete Security Groups
 
@@ -483,6 +541,23 @@ aerolab config aws expiry-remove
 
 GCP-specific configuration commands.
 
+### Per-User Firewall Rules
+
+Every instance AeroLab creates carries two network tags belonging to the user
+who created it: `aerolab-o-{owner}-{vpc}`, which allows SSH from the address
+that user is connecting from, and `aerolab-oi-{owner}-{vpc}`, which lets that
+user's instances talk to each other. AeroLab never opens SSH to `0.0.0.0/0`.
+
+Access is kept working automatically, exactly as described for
+[AWS](#per-user-security-groups): every command that touches an instance
+re-locks your rule to your current address, and adds your tag to instances
+created by other people without removing theirs. The same
+`--firewall-cidr`, `AEROLAB_FIREWALL_CIDR`, `--no-firewall-autolock` and
+`AEROLAB_FIREWALL_AUTOLOCK` settings apply.
+
+Rules created by older AeroLab versions, named `aerolab-{vpc}` and
+`aerolab-i-{vpc}`, keep working for the instances already tagged with them.
+
 ### List Firewall Rules
 
 List firewall rules:
@@ -514,11 +589,21 @@ aerolab config gcp create-firewall-rules -n my-fw -p 3000-3005
 
 ### Lock Firewall Rules
 
-Lock a firewall rule to prevent deletion:
+Restrict ports of a firewall rule to a single source address, revoking whatever
+else those ports allowed:
 
 ```bash
-aerolab config gcp lock-firewall-rules -n my-fw
+# Re-lock your own per-user rules to the address you are on now
+aerolab config gcp lock-firewall-rules
+
+# Lock a named rule's SSH to a specific CIDR
+aerolab config gcp lock-firewall-rules -n my-fw -i 203.0.113.7/32
 ```
+
+**Options:**
+- `-n, --name` - Firewall rule to lock; left at its default, your own per-user rules are locked
+- `-i, --ip` - Source address to allow; defaults to discovering your public IP. A bare address is treated as a `/32`
+- `-p, --port` - Ports to restrict, repeatable; defaults to `22`
 
 ### Delete Firewall Rules
 

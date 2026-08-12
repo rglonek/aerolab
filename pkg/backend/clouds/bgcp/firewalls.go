@@ -547,6 +547,22 @@ func (s *b) CreateFirewall(input *backends.CreateFirewallInput, waitDur time.Dur
 	}
 	defer client.Close()
 
+	// GCP treats an ingress rule with neither source ranges nor source tags as
+	// allowing the whole internet, so the sources go on the initial insert
+	// rather than waiting for the update below to narrow them.
+	srcCidr := []string{}
+	srcTags := []string{}
+	for _, port := range input.Ports {
+		if port.SourceCidr != "" {
+			srcCidr = append(srcCidr, port.SourceCidr)
+		}
+		if port.SourceId == "self" {
+			srcTags = append(srcTags, input.Name)
+		} else if port.SourceId != "" {
+			srcTags = append(srcTags, port.SourceId)
+		}
+	}
+
 	description := encodeToDescriptionField(m)
 	op, err := client.Insert(ctx, &computepb.InsertFirewallRequest{
 		Project: s.credentials.Project,
@@ -560,6 +576,8 @@ func (s *b) CreateFirewall(input *backends.CreateFirewallInput, waitDur time.Dur
 					Ports:      []string{"22"},
 				},
 			},
+			SourceRanges: srcCidr,
+			SourceTags:   srcTags,
 			TargetTags: []string{
 				input.Name,
 			},

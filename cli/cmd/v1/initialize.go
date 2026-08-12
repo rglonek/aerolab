@@ -488,6 +488,7 @@ func (i *Init) backend(s *System, pollInventoryHourly bool) error {
 		CustomSSHKeyPath: string(s.Opts.Config.Backend.SshKeyPath),
 		PollInterval:     i.Backend.PollInterval,
 		SSHStrictHostKey: s.Opts.Config.Backend.SSHStrictHostKey,
+		Identity:         s.callerIdentity(),
 	}
 	b, err := backend.New(project, config, i.Backend.PollInventoryHourly, backendList, i.ExistingInventory)
 	if err != nil {

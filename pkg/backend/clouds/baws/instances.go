@@ -26,7 +26,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/aws-sdk-go-v2/service/route53"
 	rtypes "github.com/aws/aws-sdk-go-v2/service/route53/types"
-	"github.com/aws/smithy-go"
 	"github.com/google/uuid"
 	"github.com/lithammer/shortuuid"
 )
@@ -1569,54 +1568,15 @@ func (s *b) CreateInstances(input *backends.CreateInstanceInput, waitDur time.Du
 	}
 	log.Detail("Found security groups: %v", firewallIds)
 
-	// default project-VPC firewall if it does not exist
-	defaultFwName := TAG_FIREWALL_NAME_PREFIX + s.project + "_" + vpc.NetworkId
-	if s.firewalls.WithName(defaultFwName).Count() == 0 {
-		fw, err := s.CreateFirewall(&backends.CreateFirewallInput{
-			BackendType: backends.BackendTypeAWS,
-			Name:        defaultFwName,
-			Description: "AeroLab default project-VPC firewall",
-			Ports: []*backends.Port{
-				{
-					FromPort:   22,
-					ToPort:     22,
-					SourceCidr: "0.0.0.0/0",
-					SourceId:   "",
-					Protocol:   backends.ProtocolTCP,
-				},
-				{
-					FromPort:   -1,
-					ToPort:     -1,
-					SourceCidr: "",
-					SourceId:   "self",
-					Protocol:   backends.ProtocolAll,
-				},
-			},
-			Network: vpc,
-		}, waitDur)
-		if err != nil {
-			var apiErr smithy.APIError
-			if errors.As(err, &apiErr) && apiErr.ErrorCode() == "InvalidGroup.Duplicate" {
-				// retrieve the existing firewall
-				_, err := s.GetFirewalls(s.networks)
-				if err != nil {
-					return nil, err
-				}
-				defaultFw := s.firewalls.WithName(defaultFwName).Describe()[0]
-				firewallIds[defaultFw.FirewallID] = defaultFw.Name
-				securityGroupIds = append(securityGroupIds, defaultFw.FirewallID)
-			} else {
-				return nil, err
-			}
-		} else {
-			firewallIds[fw.Firewall.FirewallID] = fw.Firewall.Name
-			securityGroupIds = append(securityGroupIds, fw.Firewall.FirewallID)
-		}
-	} else {
-		defaultFw := s.firewalls.WithName(defaultFwName).Describe()[0]
-		firewallIds[defaultFw.FirewallID] = defaultFw.Name
-		securityGroupIds = append(securityGroupIds, defaultFw.FirewallID)
+	// the caller's own security group, locked to the caller's address, so that
+	// several people can share an account without opening SSH to everyone
+	defaultFw, err := s.ensureCallerFirewall(log, s.identity.OwnerOr(input.Owner), vpc, waitDur)
+	if err != nil {
+		return nil, err
 	}
+	firewallIds[defaultFw.FirewallID] = defaultFw.Name
+	securityGroupIds = append(securityGroupIds, defaultFw.FirewallID)
+	s.warnOnOpenLegacyFirewall(log, vpc.NetworkId)
 
 	// parse disks into ec2.CreateInstancesInput so we know the definitions are fine and have a block device mapping done
 	blockDeviceMappings := []types.BlockDeviceMapping{}

@@ -608,7 +608,23 @@ func (v InstanceList) Stop(force bool, waitDur time.Duration) error {
 	return retErr
 }
 
+// ensureCallerAccess gives the caller a way in to these instances before we
+// try to use them: their own firewall is re-locked to the address they are
+// coming from now, and attached to any instance which does not carry it, such
+// as a cluster somebody else created. Nothing is ever detached, and a failure
+// here never stops the command that asked for it.
+func (v InstanceList) ensureCallerAccess() {
+	for _, c := range ListBackendTypes() {
+		instances := v.WithBackendType(c).Describe()
+		if len(instances) == 0 {
+			continue
+		}
+		cloudList[c].EnsureCallerAccess(instances)
+	}
+}
+
 func (v InstanceList) Start(waitDur time.Duration) error {
+	v.ensureCallerAccess()
 	var retErr error
 	wait := new(sync.WaitGroup)
 	for _, c := range ListBackendTypes() {
@@ -627,6 +643,7 @@ func (v InstanceList) Start(waitDur time.Duration) error {
 }
 
 func (v InstanceList) Exec(e *ExecInput) []*ExecOutput {
+	v.ensureCallerAccess()
 	var outs []*ExecOutput
 	wait := new(sync.WaitGroup)
 	for _, c := range ListBackendTypes() {
@@ -643,6 +660,7 @@ func (v InstanceList) Exec(e *ExecInput) []*ExecOutput {
 }
 
 func (v InstanceList) GetSftpConfig(username string) ([]*sshexec.ClientConf, error) {
+	v.ensureCallerAccess()
 	var outs []*sshexec.ClientConf
 	wait := new(sync.WaitGroup)
 	var nerr error
@@ -664,6 +682,7 @@ func (v InstanceList) GetSftpConfig(username string) ([]*sshexec.ClientConf, err
 }
 
 func (v InstanceList) GetSSHKeyPath() []string {
+	v.ensureCallerAccess()
 	var outs []string
 	wait := new(sync.WaitGroup)
 	for _, c := range ListBackendTypes() {

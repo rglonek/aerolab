@@ -6,14 +6,32 @@ import (
 	"fmt"
 	"io"
 	"os/exec"
+	"slices"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/aerospike/aerolab/pkg/backend/backends"
+	"github.com/aerospike/aerolab/pkg/backend/clouds/baws"
+	"github.com/aerospike/aerolab/pkg/backend/clouds/bgcp"
 	"github.com/aerospike/aerolab/pkg/utils/pager"
 	"github.com/aerospike/aerolab/pkg/utils/printer"
 	"github.com/jedib0t/go-pretty/v6/table"
 )
+
+// defaultFirewallNamePrefix is the value the security group commands default
+// their --name to. Left at the default, the lock command works on the caller's
+// own per-user groups instead.
+const defaultFirewallNamePrefix = "AeroLab"
+
+// firewallRoleTagKey returns the tag key each backend records a firewall's
+// role under.
+func firewallRoleTagKey(backendType string) string {
+	if backendType == "gcp" {
+		return bgcp.TAG_FIREWALL_ROLE
+	}
+	return baws.TAG_FIREWALL_ROLE
+}
 
 func ListSubnets(system *System, output string, tableTheme string, sortBy []string, backendType string, cmd []string, c any, args []string, inventory *backends.Inventory, out io.Writer, usePager bool, page *pager.Pager) error {
 	if system == nil {
@@ -249,7 +267,7 @@ func ListSecurityGroups(system *System, output string, tableTheme string, sortBy
 	return nil
 }
 
-func CreateSecurityGroups(system *System, namePrefix string, ip string, portList []string, vpc string, backendType string, cmd []string, c any, args []string, inventory *backends.Inventory) error {
+func CreateSecurityGroups(system *System, namePrefix string, ips []string, portList []string, vpc string, backendType string, cmd []string, c any, args []string, inventory *backends.Inventory) error {
 	if system == nil {
 		var err error
 		system, err = Initialize(&Init{InitBackend: true, UpgradeCheck: false, ExistingInventory: inventory}, cmd, c, args...)
@@ -277,13 +295,15 @@ func CreateSecurityGroups(system *System, namePrefix string, ip string, portList
 		if err != nil {
 			return err
 		}
-		ports = append(ports, &backends.Port{
-			FromPort:   from,
-			ToPort:     to,
-			SourceCidr: ip,
-			SourceId:   "",
-			Protocol:   protocol,
-		})
+		for _, ip := range ips {
+			ports = append(ports, &backends.Port{
+				FromPort:   from,
+				ToPort:     to,
+				SourceCidr: ip,
+				SourceId:   "",
+				Protocol:   protocol,
+			})
+		}
 	}
 	_, err := system.Backend.CreateFirewall(&backends.CreateFirewallInput{
 		BackendType: backends.BackendType(system.Opts.Config.Backend.Type),
@@ -320,7 +340,11 @@ func DeleteSecurityGroups(system *System, namePrefix string, all bool, backendTy
 	return fw.Delete(time.Minute)
 }
 
-func LockSecurityGroups(system *System, namePrefix string, ip string, portList []string, backendType string, cmd []string, c any, args []string, inventory *backends.Inventory) error {
+// LockSecurityGroups restricts the given ports of the named security groups to
+// the given source CIDRs, revoking whatever else those ports allowed. With no
+// name it locks the caller's own per-user groups, and with no ports it locks
+// SSH, which is the case that matters after a caller's address changes.
+func LockSecurityGroups(system *System, namePrefix string, ips []string, portList []string, backendType string, cmd []string, c any, args []string, inventory *backends.Inventory) error {
 	if system == nil {
 		var err error
 		system, err = Initialize(&Init{InitBackend: true, UpgradeCheck: false, ExistingInventory: inventory}, cmd, c, args...)
@@ -331,26 +355,109 @@ func LockSecurityGroups(system *System, namePrefix string, ip string, portList [
 	if system.Opts.Config.Backend.Type != backendType {
 		return errors.New("this command is only available for AWS/GCP backend types; selected backend does not match command constraints")
 	}
+	if len(ips) == 0 {
+		return errors.New("no source address to lock the security groups to")
+	}
 	inv := system.Backend.GetInventory()
-	fw := inv.Firewalls.WithName(namePrefix)
-	if fw == nil || fw.Count() == 0 {
+	var fw backends.FirewallList
+	if namePrefix != "" && namePrefix != defaultFirewallNamePrefix {
+		fw = inv.Firewalls.WithName(namePrefix).Describe()
+	} else {
+		fw = callerDefaultFirewalls(inv, backendType)
+		if len(fw) == 0 {
+			// Nothing of ours to lock; fall back to the literal name so an
+			// explicit '-n AeroLab' still works.
+			fw = inv.Firewalls.WithName(namePrefix).Describe()
+		}
+	}
+	if len(fw) == 0 {
 		return errors.New("no security groups found")
 	}
+	if len(portList) == 0 {
+		portList = []string{strconv.Itoa(backends.SSHPort)}
+	}
+
 	ports := backends.PortsIn{}
 	for _, port := range portList {
 		protocol, from, to, err := parsePortRange(port)
 		if err != nil {
 			return err
 		}
-		ports = append(ports, &backends.PortIn{
-			Port: backends.Port{
-				FromPort:   from,
-				ToPort:     to,
-				SourceCidr: ip,
-				SourceId:   "",
-				Protocol:   protocol,
-			},
-		})
+		// Drop whatever these ports allow today, other than the addresses we
+		// are about to (re)authorise.
+		for _, group := range fw {
+			for _, existing := range group.Ports {
+				if existing.SourceCidr == "" || existing.Protocol != protocol || existing.FromPort != from || existing.ToPort != to {
+					continue
+				}
+				if slices.Contains(ips, existing.SourceCidr) || hasPortIn(ports, protocol, from, to, existing.SourceCidr) {
+					continue
+				}
+				ports = append(ports, &backends.PortIn{
+					Port: backends.Port{
+						FromPort:   from,
+						ToPort:     to,
+						SourceCidr: existing.SourceCidr,
+						Protocol:   protocol,
+					},
+					Action: backends.PortActionDelete,
+				})
+			}
+		}
+		for _, ip := range ips {
+			ports = append(ports, &backends.PortIn{
+				Port: backends.Port{
+					FromPort:   from,
+					ToPort:     to,
+					SourceCidr: ip,
+					SourceId:   "",
+					Protocol:   protocol,
+				},
+				Action: backends.PortActionAdd,
+			})
+		}
+	}
+	for _, group := range fw {
+		system.Logger.Info("Locking %s ports %s to %s", group.Name, strings.Join(portList, ","), strings.Join(ips, ","))
 	}
 	return fw.Update(ports, time.Minute)
+}
+
+// hasPortIn reports whether a rule for this protocol, port range and source is
+// already in the update.
+func hasPortIn(ports backends.PortsIn, protocol string, from int, to int, cidr string) bool {
+	for _, port := range ports {
+		if port.Protocol == protocol && port.FromPort == from && port.ToPort == to && port.SourceCidr == cidr {
+			return true
+		}
+	}
+	return false
+}
+
+// callerDefaultFirewalls returns the per-user groups AeroLab manages for the
+// current user.
+func callerDefaultFirewalls(inv *backends.Inventory, backendType string) backends.FirewallList {
+	roleTag := firewallRoleTagKey(backendType)
+	sanitize := sanitizeOwnerFor(backendType)
+	owner := sanitize(GetCurrentOwnerUser())
+	out := backends.FirewallList{}
+	for _, fw := range inv.Firewalls.Describe() {
+		if fw.Tags[roleTag] != backends.FirewallRoleDefault {
+			continue
+		}
+		if sanitize(fw.Owner) != owner {
+			continue
+		}
+		out = append(out, fw)
+	}
+	return out
+}
+
+// sanitizeOwnerFor returns the way the given backend folds a username, so a
+// group tagged 'firstlast' is still recognised as belonging to 'First.Last'.
+func sanitizeOwnerFor(backendType string) func(string) string {
+	if backendType == "gcp" {
+		return bgcp.SanitizeOwner
+	}
+	return baws.SanitizeOwner
 }

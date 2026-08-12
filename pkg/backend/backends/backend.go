@@ -28,6 +28,9 @@ type Config struct {
 	// host key that differs from the remembered one. When false, the mismatch
 	// is logged as a warning and the new key is learned.
 	SSHStrictHostKey bool `yaml:"sshStrictHostKey" json:"sshStrictHostKey"`
+	// Identity describes the caller for the purposes of per-user, caller-IP
+	// locked firewalls. Leaving it unset disables that handling.
+	Identity *Identity `yaml:"-" json:"-"`
 }
 
 type cacheMetadata struct {
@@ -188,6 +191,7 @@ func InternalNew(project string, c *Config, pollInventoryHourly bool, enabledBac
 			return nil, err
 		}
 		cloud.SetHostKeyPolicy(hostKeys, c.SSHStrictHostKey)
+		cloud.SetIdentity(c.Identity)
 	}
 	b.cache = &cache.Cache{
 		Enabled: b.config.Cache,

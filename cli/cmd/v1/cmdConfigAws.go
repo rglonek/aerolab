@@ -58,10 +58,10 @@ type CreateSecGroupsCmd struct {
 }
 
 type LockSecGroupsCmd struct {
-	NamePrefix string   `short:"n" long:"name" description:"Name prefix to use for the firewall" default:"AeroLab"`
+	NamePrefix string   `short:"n" long:"name" description:"Name of the security group to lock; left at the default, your own per-user security groups are locked" default:"AeroLab"`
 	IP         string   `short:"i" long:"ip" description:"set the IP mask to allow access, eg 0.0.0.0/0 or 1.2.3.4/32 or 10.11.12.13" default:"discover-caller-ip"`
 	VPC        string   `short:"v" long:"vpc" description:"VPC to handle sec groups for; default: default-VPC" default:""`
-	Ports      []string `short:"p" long:"port" description:"ports to open, can be specified multiple times, ex: 3000-3005 or tcp:3000-3005 or udp:3000"`
+	Ports      []string `short:"p" long:"port" description:"ports to restrict to the given IP, can be specified multiple times, ex: 3000-3005 or tcp:3000-3005 or udp:3000; default: 22"`
 	NoDefaults bool     `short:"d" long:"no-defaults" hidden:"true" webhidden:"true" description:"this no longer applies"` // NOTE: obsolete, but kept for backwards compatibility
 	Help       HelpCmd  `command:"help" subcommands-optional:"true" description:"Print help"`
 }
@@ -108,14 +108,12 @@ func (c *CreateSecGroupsCmd) Execute(args []string) error {
 	}
 	system.Logger.Info("Running %s", strings.Join(cmd, "."))
 
-	if c.IP == "discover-caller-ip" {
-		c.IP = getip2()
-	}
-	if !strings.Contains(c.IP, "/") {
-		c.IP = c.IP + "/32"
+	ips, err := resolveFirewallCidrs(c.IP)
+	if err != nil {
+		return Error(err, system, cmd, c, args)
 	}
 	defer UpdateDiskCache(system)()
-	err = CreateSecurityGroups(system, c.NamePrefix, c.IP, c.Ports, c.VPC, "aws", cmd, c, args, system.Backend.GetInventory())
+	err = CreateSecurityGroups(system, c.NamePrefix, ips, c.Ports, c.VPC, "aws", cmd, c, args, system.Backend.GetInventory())
 	if err != nil {
 		return Error(err, system, cmd, c, args)
 	}
@@ -150,8 +148,12 @@ func (c *LockSecGroupsCmd) Execute(args []string) error {
 	}
 	system.Logger.Info("Running %s", strings.Join(cmd, "."))
 
+	ips, err := resolveFirewallCidrs(c.IP)
+	if err != nil {
+		return Error(err, system, cmd, c, args)
+	}
 	defer UpdateDiskCache(system)()
-	err = LockSecurityGroups(system, c.NamePrefix, c.IP, c.Ports, "aws", cmd, c, args, system.Backend.GetInventory())
+	err = LockSecurityGroups(system, c.NamePrefix, ips, c.Ports, "aws", cmd, c, args, system.Backend.GetInventory())
 	if err != nil {
 		return Error(err, system, cmd, c, args)
 	}

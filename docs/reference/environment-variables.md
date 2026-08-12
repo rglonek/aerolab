@@ -21,6 +21,8 @@ Aerolab supports several environment variables for configuration and behavior co
 | `AEROLAB_SIMPLE_MODE` | FILEPATH | Path to a simple mode config file that overrides which commands/parameters are visible in simple mode |
 | `AEROLAB_FORCE_SIMPLE_MODE` | true | Enforce simple mode: blocked commands cannot be run, blocked parameters cannot be changed from defaults |
 | `AEROLAB_SKIP_NAT_CHECK` | 1 | GCP only. Bypass the Cloud NAT pre-check that blocks `--gcp.no-public-ip` creates when no Cloud NAT covers the target subnet. Set when egress is provided through VPN, VPC peering, an internal proxy, or another mechanism aerolab cannot detect via `compute.routers.list` |
+| `AEROLAB_FIREWALL_CIDR` | CIDR[,CIDR] | AWS/GCP only. Source ranges AeroLab-managed firewalls should allow, instead of the public IP discovered from `api.ipify.org` |
+| `AEROLAB_FIREWALL_AUTOLOCK` | 0 | AWS/GCP only. If set to `0`/`false`/`no`/`off`, aerolab will not create, re-lock or attach your per-user firewall as a side effect of commands which touch instances |
 | `AEROLAB_ARTIFACTS_URL` | URL | Alternative source for Aerospike server install artifacts. Set to a JFrog Artifactory base URL (e.g. `https://<org>.jfrog.io`) to fetch pre-release/dev builds via the JFrog API, or to a plain HTTP mirror of `download.aerospike.com` |
 | `AEROLAB_ARTIFACTS_AUTH` | CREDENTIALS | Credentials for `AEROLAB_ARTIFACTS_URL` when it points at JFrog. Accepts a bearer token, a `Bearer ...`/`Basic ...` header value, a JFrog API key, or `user:pass` |
 
@@ -324,6 +326,51 @@ aerolab cluster create -n iaptest -c 2 --gcp.no-public-ip ...
 - Egress is provided through Cloud VPN, VPC peering through a transit VPC, an internal HTTP proxy, or a hand-rolled NAT VM — none of which `compute.routers.list` can see
 - The caller's service account lacks `compute.routers.list` permission and you accept the risk that NAT may be missing (the check itself soft-fails on API errors and lets the create proceed in this case, but the env var is the explicit way to silence it)
 - Air-gapped environments where image-baked dependencies make outbound internet unnecessary
+
+## AEROLAB_FIREWALL_CIDR
+
+AWS and GCP only. AeroLab gives each user their own security group / firewall rule and allows SSH into instances only from that user's own address, which it discovers by asking `api.ipify.org` for the public IP. This variable replaces that discovery with source ranges you specify.
+
+Accepts a comma-separated list. A bare address is treated as a `/32`; IPv6 is not accepted. Setting it to `0.0.0.0/0` deliberately allows the whole internet.
+
+### Example
+
+```bash
+export AEROLAB_FIREWALL_CIDR=203.0.113.0/24,198.51.100.7
+aerolab cluster create -n mydc -c 2
+```
+
+### Use Cases
+
+- Your traffic leaves through a NAT gateway or VPN, so the address the instance sees is not stable or not the one ipify reports
+- You run `aerolab webui` on a server, where the discovered address is the server's rather than the browser user's
+- The machine has no route to `api.ipify.org`
+
+Persist it instead with `aerolab config backend --firewall-cidr 203.0.113.0/24`.
+
+## AEROLAB_FIREWALL_AUTOLOCK
+
+AWS and GCP only. Commands which touch instances - `attach shell`, `files upload`, `aerospike start`, `instances start` and the rest - first make sure your per-user firewall exists, allows the address you are on now, and is attached to the instances in question. Set this variable to `0` to skip all of that.
+
+Nothing else changes: instances you create still get a caller-locked group, but it is not re-locked or attached on later commands, so a moved IP or somebody else's cluster will simply refuse the connection.
+
+### Values
+
+- `0`, `false`, `no`, or `off` — skip the automatic firewall handling
+- unset / any other value — handling is enabled
+
+### Example
+
+```bash
+AEROLAB_FIREWALL_AUTOLOCK=0 aerolab attach shell -n mydc
+```
+
+### Use Cases
+
+- CI runners using a role which cannot modify security groups, where the failed attempt only adds noise
+- Firewalls managed externally by a platform team
+
+Persist it instead with `aerolab config backend --no-firewall-autolock`.
 
 ## AEROLAB_ARTIFACTS_URL
 
