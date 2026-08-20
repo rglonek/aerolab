@@ -167,6 +167,9 @@ func (c *DataInsertCmd) insert8(args []string, log *logger.Logger) error {
 			}
 			for partition := range strings.SplitSeq(partitionInfo["partition-info"], ";") {
 				partitionSplit := strings.Split(partition, ":")
+				if len(partitionSplit) < 7 {
+					continue
+				}
 				if partitionSplit[0] == c.Namespace && partitionSplit[4] == "0" {
 					if strings.EqualFold(node.GetName(), partitionSplit[6]) {
 						pNo, err := strconv.Atoi(partitionSplit[1])
