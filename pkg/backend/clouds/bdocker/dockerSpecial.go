@@ -6,14 +6,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/netip"
 	"strings"
 
 	"github.com/aerospike/aerolab/pkg/backend/backends"
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/filters"
-	"github.com/docker/docker/api/types/image"
-	"github.com/docker/docker/api/types/network"
 	"github.com/lithammer/shortuuid"
+	"github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/network"
+	"github.com/moby/moby/client"
 )
 
 func (s *b) DockerCreateNetwork(region string, name string, driver string, subnet string, mtu string) error {
@@ -33,13 +33,17 @@ func (s *b) DockerCreateNetwork(region string, name string, driver string, subne
 	}
 	var ipam *network.IPAM
 	if subnet != "" {
+		prefix, err := netip.ParsePrefix(subnet)
+		if err != nil {
+			return fmt.Errorf("invalid subnet %q: %w", subnet, err)
+		}
 		ipam = &network.IPAM{
 			Config: []network.IPAMConfig{
-				{Subnet: subnet},
+				{Subnet: prefix},
 			},
 		}
 	}
-	_, err = cli.NetworkCreate(context.Background(), name, network.CreateOptions{
+	_, err = cli.NetworkCreate(context.Background(), name, client.NetworkCreateOptions{
 		Driver:     driver,
 		IPAM:       ipam,
 		Options:    options,
@@ -60,7 +64,7 @@ func (s *b) DockerDeleteNetwork(region string, name string) error {
 	if err != nil {
 		return err
 	}
-	err = cli.NetworkRemove(context.Background(), name)
+	_, err = cli.NetworkRemove(context.Background(), name, client.NetworkRemoveOptions{})
 	if err != nil {
 		return err
 	}
@@ -76,7 +80,7 @@ func (s *b) DockerPruneNetworks(region string) error {
 	if err != nil {
 		return err
 	}
-	_, err = cli.NetworksPrune(context.Background(), filters.NewArgs())
+	_, err = cli.NetworkPrune(context.Background(), client.NetworkPruneOptions{})
 	if err != nil {
 		return err
 	}
@@ -98,13 +102,13 @@ func (s *b) DockerLoadImage(region string, reader io.Reader, projectLabels map[s
 	if err != nil {
 		return fmt.Errorf("docker image load: %w", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Close()
 
 	// Parse load response to find the loaded image reference.
 	// Docker returns JSON objects like {"stream":"Loaded image: name:tag\n"}
 	// Podman may return {"stream":"Loaded image(s): sha256:...\n"}
 	var loadedRef string
-	scanner := bufio.NewScanner(resp.Body)
+	scanner := bufio.NewScanner(resp)
 	for scanner.Scan() {
 		line := scanner.Text()
 		var msg struct {
@@ -156,14 +160,16 @@ func (s *b) DockerLoadImage(region string, reader io.Reader, projectLabels map[s
 
 	// Create a temporary container from the loaded image (no start needed)
 	log.Detail("Creating temp container for re-label")
-	tempContainer, err := cli.ContainerCreate(context.Background(), &container.Config{
-		Image: inspectRef,
-	}, nil, nil, nil, "")
+	tempContainer, err := cli.ContainerCreate(context.Background(), client.ContainerCreateOptions{
+		Config: &container.Config{
+			Image: inspectRef,
+		},
+	})
 	if err != nil {
 		return fmt.Errorf("create temp container: %w", err)
 	}
 	defer func() {
-		cli.ContainerRemove(context.Background(), tempContainer.ID, container.RemoveOptions{Force: true}) //nolint:errcheck
+		cli.ContainerRemove(context.Background(), tempContainer.ID, client.ContainerRemoveOptions{Force: true}) //nolint:errcheck
 	}()
 
 	// Commit the container with corrected labels
@@ -172,11 +178,11 @@ func (s *b) DockerLoadImage(region string, reader io.Reader, projectLabels map[s
 		commitRef = "localhost/" + finalName
 	}
 	log.Detail("Committing with corrected labels as %s", commitRef)
-	_, err = cli.ContainerCommit(context.Background(), tempContainer.ID, container.CommitOptions{
+	_, err = cli.ContainerCommit(context.Background(), tempContainer.ID, client.ContainerCommitOptions{
 		Reference: commitRef,
 		Comment:   "Template loaded from registry",
 		Author:    "aerolab",
-		Pause:     false,
+		NoPause:   true,
 		Config: &container.Config{
 			Labels:     mergedLabels,
 			Entrypoint: inspectData.Config.Entrypoint,
@@ -193,7 +199,7 @@ func (s *b) DockerLoadImage(region string, reader io.Reader, projectLabels map[s
 	// Remove the original loaded image (the committed one replaces it)
 	if inspectRef != commitRef {
 		log.Detail("Removing original loaded image %s", inspectRef)
-		cli.ImageRemove(context.Background(), inspectData.ID, image.RemoveOptions{Force: true, PruneChildren: true}) //nolint:errcheck
+		cli.ImageRemove(context.Background(), inspectData.ID, client.ImageRemoveOptions{Force: true, PruneChildren: true}) //nolint:errcheck
 	}
 
 	return nil

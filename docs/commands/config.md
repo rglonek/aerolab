@@ -391,9 +391,10 @@ AWS-specific configuration commands.
 
 Every instance AeroLab creates is attached to a security group belonging to the
 user who created it, named `AEROLAB_DEFAULT_{project}_{owner}_{vpc-id}`. That
-group allows SSH only from the address you are connecting from, discovered by
-asking `api.ipify.org` what your public IP is. AeroLab never opens SSH to
-`0.0.0.0/0`.
+group allows every port from the address you are connecting from, discovered by
+asking `api.ipify.org` what your public IP is, and allows instances that share
+the group to talk to each other on every port. AeroLab never opens the group
+to `0.0.0.0/0`.
 
 Because each user gets their own group, several people can share one AWS
 account without opening each other's instances up.
@@ -476,20 +477,20 @@ Restrict ports of a security group to a single source address, revoking
 whatever else those ports allowed:
 
 ```bash
-# Re-lock your own per-user groups to the address you are on now
+# Re-lock your own per-user groups to the address you are on now (all ports)
 aerolab config aws lock-security-groups
 
 # Lock a named group's SSH to a specific CIDR
-aerolab config aws lock-security-groups -n my-sg -i 203.0.113.7/32
+aerolab config aws lock-security-groups -n my-sg -i 203.0.113.7/32 -p 22
 
-# Lock more than SSH
+# Lock specific ports
 aerolab config aws lock-security-groups -n my-sg -p 22 -p 3000-3005
 ```
 
 **Options:**
 - `-n, --name` - Security group to lock; left at its default, your own per-user groups are locked
 - `-i, --ip` - Source address to allow; defaults to discovering your public IP. A bare address is treated as a `/32`
-- `-p, --port` - Ports to restrict, repeatable; defaults to `22`
+- `-p, --port` - Ports to restrict, repeatable; defaults to `all`
 
 ### Delete Security Groups
 
@@ -544,9 +545,10 @@ GCP-specific configuration commands.
 ### Per-User Firewall Rules
 
 Every instance AeroLab creates carries two network tags belonging to the user
-who created it: `aerolab-o-{owner}-{vpc}`, which allows SSH from the address
-that user is connecting from, and `aerolab-oi-{owner}-{vpc}`, which lets that
-user's instances talk to each other. AeroLab never opens SSH to `0.0.0.0/0`.
+who created it: `aerolab-o-{owner}-{vpc}`, which allows every port from the
+address that user is connecting from, and `aerolab-oi-{owner}-{vpc}`, which lets
+that user's instances talk to each other on every port. AeroLab never opens
+those rules to `0.0.0.0/0`.
 
 Access is kept working automatically, exactly as described for
 [AWS](#per-user-security-groups): every command that touches an instance
@@ -593,17 +595,17 @@ Restrict ports of a firewall rule to a single source address, revoking whatever
 else those ports allowed:
 
 ```bash
-# Re-lock your own per-user rules to the address you are on now
+# Re-lock your own per-user rules to the address you are on now (all ports)
 aerolab config gcp lock-firewall-rules
 
 # Lock a named rule's SSH to a specific CIDR
-aerolab config gcp lock-firewall-rules -n my-fw -i 203.0.113.7/32
+aerolab config gcp lock-firewall-rules -n my-fw -i 203.0.113.7/32 -p 22
 ```
 
 **Options:**
 - `-n, --name` - Firewall rule to lock; left at its default, your own per-user rules are locked
 - `-i, --ip` - Source address to allow; defaults to discovering your public IP. A bare address is treated as a `/32`
-- `-p, --port` - Ports to restrict, repeatable; defaults to `22`
+- `-p, --port` - Ports to restrict, repeatable; defaults to `all`
 
 ### Delete Firewall Rules
 

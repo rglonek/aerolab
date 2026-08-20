@@ -329,7 +329,7 @@ aerolab cluster create -n iaptest -c 2 --gcp.no-public-ip ...
 
 ## AEROLAB_FIREWALL_CIDR
 
-AWS and GCP only. AeroLab gives each user their own security group / firewall rule and allows SSH into instances only from that user's own address, which it discovers by asking `api.ipify.org` for the public IP. This variable replaces that discovery with source ranges you specify.
+AWS and GCP only. AeroLab gives each user their own security group / firewall rule and allows every port into instances from that user's own address, which it discovers by asking `api.ipify.org` for the public IP. This variable replaces that discovery with source ranges you specify.
 
 Accepts a comma-separated list. A bare address is treated as a `/32`; IPv6 is not accepted. Setting it to `0.0.0.0/0` deliberately allows the whole internet.
 

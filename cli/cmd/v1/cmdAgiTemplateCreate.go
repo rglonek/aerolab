@@ -270,7 +270,7 @@ func (c *AgiTemplateCreateCmd) CreateTemplate(system *System, inventory *backend
 	// Determine instance type based on architecture
 	awsInstanceType := "t3.medium"
 	gcpInstanceType := "e2-standard-2"
-	if c.Arch == "arm64" {
+	if isARMArch(c.Arch) {
 		awsInstanceType = "t4g.medium"
 		gcpInstanceType = "t2a-standard-2"
 	}

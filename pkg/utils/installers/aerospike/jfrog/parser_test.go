@@ -203,6 +203,22 @@ func TestMatchTools(t *testing.T) {
 	}
 }
 
+func TestDebArchAliases(t *testing.T) {
+	cases := map[string]string{
+		"amd64":   "x86_64",
+		"x86_64":  "x86_64",
+		"arm64":   "aarch64",
+		"aarch64": "aarch64",
+		"AMD64":   "x86_64",
+		"ARM64":   "aarch64",
+	}
+	for in, want := range cases {
+		if got := debArch(in); got != want {
+			t.Errorf("debArch(%q)=%q, want %q", in, got, want)
+		}
+	}
+}
+
 func TestEditionFromInput(t *testing.T) {
 	cases := []struct {
 		in          string

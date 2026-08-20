@@ -135,19 +135,31 @@ func (s *b) GetFirewalls(networks backends.NetworkList) (backends.FirewallList, 
 				prot = backends.ProtocolUDP
 			case "icmp":
 				prot = backends.ProtocolICMP
+			case "all", "-1":
+				prot = backends.ProtocolAll
 			default:
 				continue
 			}
-			for _, ipRange := range perm.GetPorts() {
-				fromPort := 0
-				toPort := 0
-				if strings.Contains(ipRange, "-") {
-					parts := strings.Split(ipRange, "-")
-					fromPort, _ = strconv.Atoi(parts[0])
-					toPort, _ = strconv.Atoi(parts[1])
-				} else {
-					fromPort, _ = strconv.Atoi(ipRange)
-					toPort = fromPort
+			portSpecs := perm.GetPorts()
+			if len(portSpecs) == 0 {
+				// No port list means every port of this protocol (or every
+				// protocol, when Allowed is "all").
+				portSpecs = []string{""}
+			}
+			for _, ipRange := range portSpecs {
+				fromPort := -1
+				toPort := -1
+				if ipRange != "" {
+					fromPort = 0
+					toPort = 0
+					if strings.Contains(ipRange, "-") {
+						parts := strings.Split(ipRange, "-")
+						fromPort, _ = strconv.Atoi(parts[0])
+						toPort, _ = strconv.Atoi(parts[1])
+					} else {
+						fromPort, _ = strconv.Atoi(ipRange)
+						toPort = fromPort
+					}
 				}
 				for _, srcIP := range pair.GetSourceRanges() {
 					ports = append(ports, &backends.PortOut{

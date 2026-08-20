@@ -17,8 +17,65 @@ import (
 	"github.com/rglonek/sbs"
 	"github.com/xi2/xz"
 
-	"github.com/nwaples/rardecode"
+	"github.com/nwaples/rardecode/v2"
 )
+
+// safeJoinLocal resolves an archive entry name against destDir and
+// guarantees the result stays inside it.
+//
+// Entry names are attacker-controlled (S3/SFTP ingest, nested
+// collectinfo archives), so an entry such as "../../etc/cron.d/evil"
+// would otherwise be an arbitrary file write and a path to RCE.
+func safeJoinLocal(destDir, entryName string) (string, error) {
+	name := strings.TrimSpace(entryName)
+	if name == "" {
+		return "", fmt.Errorf("archive entry has an empty name")
+	}
+	// Archives use forward slashes; normalise Windows-style separators
+	// so they cannot smuggle a traversal past the checks below.
+	name = strings.ReplaceAll(name, "\\", "/")
+	if path.IsAbs(name) {
+		return "", fmt.Errorf("archive entry %q uses an absolute path", entryName)
+	}
+	for _, elem := range strings.Split(name, "/") {
+		if elem == ".." {
+			return "", fmt.Errorf("archive entry %q escapes the destination directory", entryName)
+		}
+	}
+
+	cleanDest := filepath.Clean(destDir)
+	rel := filepath.FromSlash(path.Clean(name))
+	if rel == "." || rel == string(os.PathSeparator) {
+		return "", fmt.Errorf("archive entry %q resolves to the destination directory itself", entryName)
+	}
+	if filepath.IsAbs(rel) {
+		return "", fmt.Errorf("archive entry %q uses an absolute path", entryName)
+	}
+	target := filepath.Join(cleanDest, rel)
+	sep := string(os.PathSeparator)
+	if target != cleanDest && !strings.HasPrefix(target, cleanDest+sep) {
+		return "", fmt.Errorf("archive entry %q escapes the destination directory", entryName)
+	}
+	return target, nil
+}
+
+func archiveModeUnsafe(mode os.FileMode) bool {
+	return mode&(os.ModeSymlink|os.ModeDevice|os.ModeNamedPipe|os.ModeSocket) != 0
+}
+
+func refuseExistingSymlink(target string) error {
+	fi, err := os.Lstat(target)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	if fi.Mode()&os.ModeSymlink != 0 {
+		return fmt.Errorf("%s: refusing to overwrite a symlink", target)
+	}
+	return nil
+}
 
 func unbz2(sourceFile string, destFile string) error {
 	fd, err := os.Open(sourceFile)
@@ -130,13 +187,13 @@ func unzip(src string, dest string) ([]string, error) {
 	defer r.Close()
 
 	for _, f := range r.File {
+		if archiveModeUnsafe(f.Mode()) {
+			continue
+		}
 
-		// Store filename/path for returning and using later on
-		fpath := filepath.Join(dest, f.Name)
-
-		// Check for ZipSlip. More Info: http://bit.ly/2MsjAWE
-		if !strings.HasPrefix(fpath, filepath.Clean(dest)+string(os.PathSeparator)) {
-			return filenames, fmt.Errorf("%s: illegal file path", fpath)
+		fpath, err := safeJoinLocal(dest, f.Name)
+		if err != nil {
+			return filenames, err
 		}
 
 		filenames = append(filenames, fpath)
@@ -152,8 +209,11 @@ func unzip(src string, dest string) ([]string, error) {
 		if err = os.MkdirAll(filepath.Dir(fpath), os.ModePerm); err != nil {
 			return filenames, err
 		}
+		if err = refuseExistingSymlink(fpath); err != nil {
+			return filenames, err
+		}
 
-		outFile, err := os.OpenFile(fpath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
+		outFile, err := os.OpenFile(fpath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode().Perm())
 		if err != nil {
 			return filenames, err
 		}
@@ -213,17 +273,21 @@ func untar(dst string, r io.Reader) error {
 			continue
 		}
 
-		// the target location where the dir/file should be created
-		target := filepath.Join(dst, header.Name)
+		// Links/devices are skipped before join so a symlink named
+		// "../evil" cannot fail (or plant) the rest of a legitimate archive.
+		switch header.Typeflag {
+		case tar.TypeDir, tar.TypeReg:
+		default:
+			continue
+		}
 
-		// the following switch could also be done using fi.Mode(), not sure if there
-		// a benefit of using one vs. the other.
-		// fi := header.FileInfo()
+		target, err := safeJoinLocal(dst, header.Name)
+		if err != nil {
+			return err
+		}
 
-		// check the file type
 		switch header.Typeflag {
 
-		// if its a dir and it doesn't exist create it
 		case tar.TypeDir:
 			if _, err := os.Stat(target); err != nil {
 				if err := os.MkdirAll(target, 0755); err != nil {
@@ -239,7 +303,10 @@ func untar(dst string, r io.Reader) error {
 					return err
 				}
 			}
-			f, err := os.OpenFile(target, os.O_CREATE|os.O_RDWR, os.FileMode(header.Mode))
+			if err := refuseExistingSymlink(target); err != nil {
+				return err
+			}
+			f, err := os.OpenFile(target, os.O_CREATE|os.O_RDWR, os.FileMode(header.Mode).Perm())
 			if err != nil {
 				return err
 			}
@@ -259,7 +326,7 @@ func untar(dst string, r io.Reader) error {
 
 func unrar(src string, dst string) error {
 
-	tr, err := rardecode.OpenReader(src, "")
+	tr, err := rardecode.OpenReader(src)
 	if err != nil {
 		return err
 	}
@@ -283,27 +350,27 @@ func unrar(src string, dst string) error {
 			continue
 		}
 
-		// the target location where the dir/file should be created
-		target := filepath.Join(dst, header.Name)
+		if archiveModeUnsafe(header.Mode()) {
+			continue
+		}
 
-		// the following switch could also be done using fi.Mode(), not sure if there
-		// a benefit of using one vs. the other.
-		// fi := header.FileInfo()
+		target, err := safeJoinLocal(dst, header.Name)
+		if err != nil {
+			return err
+		}
 
-		// check the file type
 		if header.IsDir {
-
-			// if its a dir and it doesn't exist create it
 			if _, err := os.Stat(target); err != nil {
 				if err := os.MkdirAll(target, 0755); err != nil {
 					return err
 				}
 			}
-
-			// if it's a file create it
 		} else {
-			targetDir, _ := path.Split(target)
+			targetDir := filepath.Dir(target)
 			if err := os.MkdirAll(targetDir, 0755); err != nil {
+				return err
+			}
+			if err := refuseExistingSymlink(target); err != nil {
 				return err
 			}
 			f, err := os.OpenFile(target, os.O_CREATE|os.O_RDWR, os.FileMode(0644))

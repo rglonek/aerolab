@@ -230,7 +230,12 @@ func (fw *fwTest) testDefaultFirewallIsCallerLocked(t *testing.T) {
 		sshRules := 0
 		for _, port := range f.Ports {
 			require.NotEqual(t, backends.AnyIPv4Cidr, port.SourceCidr, "firewall %s allows the whole internet in on %s:%d-%d", f.Name, port.Protocol, port.FromPort, port.ToPort)
-			if port.FromPort <= backends.SSHPort && port.ToPort >= backends.SSHPort && port.SourceCidr != "" {
+			if port.SourceCidr == "" {
+				continue
+			}
+			allPorts := port.Protocol == backends.ProtocolAll || port.Protocol == "all"
+			coversSSH := port.FromPort <= backends.SSHPort && port.ToPort >= backends.SSHPort
+			if allPorts || coversSSH {
 				sshRules++
 			}
 		}

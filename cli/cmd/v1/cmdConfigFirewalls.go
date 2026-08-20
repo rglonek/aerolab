@@ -7,7 +7,6 @@ import (
 	"io"
 	"os/exec"
 	"slices"
-	"strconv"
 	"strings"
 	"time"
 
@@ -143,7 +142,7 @@ func ListSubnets(system *System, output string, tableTheme string, sortBy []stri
 			}
 		}
 		fmt.Fprintln(out, t.RenderTable(new("NETWORKS"), header, rows)) //nolint:errcheck
-		fmt.Fprintln(out, "") //nolint:errcheck
+		fmt.Fprintln(out, "")                                           //nolint:errcheck
 	}
 	return nil
 }
@@ -262,7 +261,7 @@ func ListSecurityGroups(system *System, output string, tableTheme string, sortBy
 			}
 		}
 		fmt.Fprintln(out, t.RenderTable(new("FIREWALLS"), header, rows)) //nolint:errcheck
-		fmt.Fprintln(out, "") //nolint:errcheck
+		fmt.Fprintln(out, "")                                            //nolint:errcheck
 	}
 	return nil
 }
@@ -343,7 +342,7 @@ func DeleteSecurityGroups(system *System, namePrefix string, all bool, backendTy
 // LockSecurityGroups restricts the given ports of the named security groups to
 // the given source CIDRs, revoking whatever else those ports allowed. With no
 // name it locks the caller's own per-user groups, and with no ports it locks
-// SSH, which is the case that matters after a caller's address changes.
+// all protocols, matching the per-user autolock default.
 func LockSecurityGroups(system *System, namePrefix string, ips []string, portList []string, backendType string, cmd []string, c any, args []string, inventory *backends.Inventory) error {
 	if system == nil {
 		var err error
@@ -374,7 +373,7 @@ func LockSecurityGroups(system *System, namePrefix string, ips []string, portLis
 		return errors.New("no security groups found")
 	}
 	if len(portList) == 0 {
-		portList = []string{strconv.Itoa(backends.SSHPort)}
+		portList = []string{"all"}
 	}
 
 	ports := backends.PortsIn{}
@@ -384,21 +383,31 @@ func LockSecurityGroups(system *System, namePrefix string, ips []string, portLis
 			return err
 		}
 		// Drop whatever these ports allow today, other than the addresses we
-		// are about to (re)authorise.
+		// are about to (re)authorise. Protocol-all is compared in canonical
+		// form so AWS's omitted (zero) ports still match FromPort -1.
+		want := backends.CanonicalCallerRule(backends.CallerRule{Protocol: protocol, FromPort: from, ToPort: to})
 		for _, group := range fw {
 			for _, existing := range group.Ports {
-				if existing.SourceCidr == "" || existing.Protocol != protocol || existing.FromPort != from || existing.ToPort != to {
+				if existing.SourceCidr == "" {
 					continue
 				}
-				if slices.Contains(ips, existing.SourceCidr) || hasPortIn(ports, protocol, from, to, existing.SourceCidr) {
+				have := backends.CanonicalCallerRule(backends.CallerRule{
+					Protocol: existing.Protocol,
+					FromPort: existing.FromPort,
+					ToPort:   existing.ToPort,
+				})
+				if have.Protocol != want.Protocol || have.FromPort != want.FromPort || have.ToPort != want.ToPort {
+					continue
+				}
+				if slices.Contains(ips, existing.SourceCidr) || hasPortIn(ports, existing.Protocol, existing.FromPort, existing.ToPort, existing.SourceCidr) {
 					continue
 				}
 				ports = append(ports, &backends.PortIn{
 					Port: backends.Port{
-						FromPort:   from,
-						ToPort:     to,
+						FromPort:   existing.FromPort,
+						ToPort:     existing.ToPort,
 						SourceCidr: existing.SourceCidr,
-						Protocol:   protocol,
+						Protocol:   existing.Protocol,
 					},
 					Action: backends.PortActionDelete,
 				})

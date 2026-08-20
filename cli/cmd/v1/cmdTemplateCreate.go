@@ -177,7 +177,7 @@ func (c *TemplateCreateCmd) CreateTemplate(system *System, inventory *backends.I
 			return "", fmt.Errorf("could not get files: %s", err)
 		}
 		arch := aerospike.ArchitectureTypeX86_64
-		if c.Arch == "arm64" {
+		if isARMArch(c.Arch) {
 			arch = aerospike.ArchitectureTypeAARCH64
 		}
 		osName := aerospike.OSName(c.Distro)
@@ -300,7 +300,7 @@ func (c *TemplateCreateCmd) CreateTemplate(system *System, inventory *backends.I
 	// determine instance type based on architecture
 	awsInstanceType := "t3.medium"
 	gcpInstanceType := "e2-standard-2"
-	if c.Arch == "arm64" {
+	if isARMArch(c.Arch) {
 		awsInstanceType = "t4g.medium"
 		gcpInstanceType = "t2a-standard-2"
 	}

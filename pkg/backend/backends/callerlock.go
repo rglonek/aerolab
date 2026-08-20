@@ -23,8 +23,9 @@ const FirewallRoleInternal = "internal"
 // FirewallRoleAGI marks a firewall serving AGI's web ports.
 const FirewallRoleAGI = "agi"
 
-// SSHPort is the port the caller must be able to reach in order to work with
-// an instance at all.
+// SSHPort is the well-known SSH port. It is still used by tools that talk
+// about SSH specifically (legacy warnings, integration checks), but the
+// per-user caller firewall now opens every port, not only this one.
 const SSHPort = 22
 
 // AnyIPv4Cidr allows the whole internet in. AeroLab never selects it on its
@@ -49,12 +50,36 @@ type CallerRule struct {
 
 // String renders the rule for logging.
 func (r CallerRule) String() string {
+	r = CanonicalCallerRule(r)
+	if r.Protocol == ProtocolAll && r.FromPort == -1 {
+		return fmt.Sprintf("all from %s", r.Cidr)
+	}
 	return fmt.Sprintf("%s:%d-%d from %s", r.Protocol, r.FromPort, r.ToPort, r.Cidr)
 }
 
-// CallerSSHPorts is the minimum a caller needs to reach an instance.
+// CallerSSHPorts is the historical SSH-only set. Prefer CallerAllPorts for
+// the per-user default firewall.
 func CallerSSHPorts() []CallerPort {
 	return []CallerPort{{Protocol: ProtocolTCP, FromPort: SSHPort, ToPort: SSHPort}}
+}
+
+// CallerAllPorts opens every protocol and port from the caller. The per-user
+// firewall is already locked to the caller's address, so listing individual
+// service ports (AMS 3000, Grafana 8080, and the rest) is unnecessary.
+func CallerAllPorts() []CallerPort {
+	return []CallerPort{{Protocol: ProtocolAll, FromPort: -1, ToPort: -1}}
+}
+
+// CanonicalCallerRule folds equivalent "all protocols" encodings onto one
+// shape. AWS describes protocol -1 with omitted (zero) ports; GCP and our
+// create path use FromPort/ToPort -1.
+func CanonicalCallerRule(r CallerRule) CallerRule {
+	if r.Protocol == ProtocolAll || r.Protocol == "all" {
+		r.Protocol = ProtocolAll
+		r.FromPort = -1
+		r.ToPort = -1
+	}
+	return r
 }
 
 // BuildCallerRules expands port ranges across source CIDRs, producing the full
@@ -63,12 +88,12 @@ func BuildCallerRules(ports []CallerPort, cidrs []string) []CallerRule {
 	rules := []CallerRule{}
 	for _, port := range ports {
 		for _, cidr := range cidrs {
-			rule := CallerRule{
+			rule := CanonicalCallerRule(CallerRule{
 				Protocol: port.Protocol,
 				FromPort: port.FromPort,
 				ToPort:   port.ToPort,
 				Cidr:     cidr,
-			}
+			})
 			if !slices.Contains(rules, rule) {
 				rules = append(rules, rule)
 			}
@@ -84,14 +109,22 @@ func BuildCallerRules(ports []CallerPort, cidrs []string) []CallerRule {
 func DiffCallerRules(existing []CallerRule, desired []CallerRule) (add []CallerRule, remove []CallerRule) {
 	add = []CallerRule{}
 	remove = []CallerRule{}
-	for _, want := range desired {
-		if !slices.Contains(existing, want) && !slices.Contains(add, want) {
-			add = append(add, want)
+	have := make([]CallerRule, 0, len(existing))
+	for _, r := range existing {
+		have = append(have, CanonicalCallerRule(r))
+	}
+	want := make([]CallerRule, 0, len(desired))
+	for _, r := range desired {
+		want = append(want, CanonicalCallerRule(r))
+	}
+	for _, w := range want {
+		if !slices.Contains(have, w) && !slices.Contains(add, w) {
+			add = append(add, w)
 		}
 	}
-	for _, have := range existing {
-		if !slices.Contains(desired, have) && !slices.Contains(remove, have) {
-			remove = append(remove, have)
+	for _, h := range have {
+		if !slices.Contains(want, h) && !slices.Contains(remove, h) {
+			remove = append(remove, h)
 		}
 	}
 	return add, remove

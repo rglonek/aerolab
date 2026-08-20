@@ -9,17 +9,19 @@ on:
 jobs:
     build-and-release:
         runs-on: macos-14
+        env:
+          VERSION: ${{ inputs.VERSION }}
         steps:
           - name: "Git checkout"
             uses: actions/checkout@v3
           - name: "Patch release date"
             run: |
               RET=0
-              grep '_Release Date: Month Day, Year_' CHANGELOG/${{inputs.VERSION}}.md || RET=1
+              grep '_Release Date: Month Day, Year_' "CHANGELOG/${VERSION}.md" || RET=1
               if [ $RET -eq 0 ]
               then
                 NDATE=$(date "+%B %d, %Y")
-                sed -i.bak "s/_Release Date: Month Day, Year_/_${NDATE}_/g" CHANGELOG/${{inputs.VERSION}}.md
+                sed -i.bak "s/_Release Date: Month Day, Year_/_${NDATE}_/g" "CHANGELOG/${VERSION}.md"
               fi
           - name: Send mail
             uses: dawidd6/action-send-mail@v3
@@ -41,4 +43,4 @@ jobs:
                 SLACK_CHANNEL: ${{ secrets.RELEASE_SLACK_CHANNEL }}
                 SLACK_TOKEN: ${{ secrets.SLACK_TOKEN }}
             run: |
-              curl -d "text=https://github.com/aerospike/aerolab/releases/tag/${{inputs.VERSION}}" -d "channel=${SLACK_CHANNEL}" -H "Authorization: Bearer ${SLACK_TOKEN}" -X POST https://slack.com/api/chat.postMessage || exit 0
+              curl -d "text=https://github.com/aerospike/aerolab/releases/tag/${VERSION}" -d "channel=${SLACK_CHANNEL}" -H "Authorization: Bearer ${SLACK_TOKEN}" -X POST https://slack.com/api/chat.postMessage || exit 0

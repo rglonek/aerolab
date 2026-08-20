@@ -88,11 +88,11 @@ func TestCallerCidrReconciliationOnAddressChange(t *testing.T) {
 	if got := ownedCallerCidrs(fw); len(got) != 1 || got[0] != "203.0.113.7/32" {
 		t.Fatalf("ownedCallerCidrs = %v, want the current address", got)
 	}
-	if equalStringSets(ownedCallerCidrs(fw), []string{"192.0.2.9/32"}) {
-		t.Error("a moved address should be seen as a change")
+	if callerAllowsAllProtocols(fw) {
+		t.Error("an SSH-only rule should not count as all-ports")
 	}
 
-	applyCallerCidrsToInventory(fw, []string{"192.0.2.9/32", "198.51.100.0/24"})
+	applyCallerAllPortsToInventory(fw, []string{"192.0.2.9/32", "198.51.100.0/24"})
 	got := ownedCallerCidrs(fw)
 	if len(got) != 2 || got[0] != "192.0.2.9/32" || got[1] != "198.51.100.0/24" {
 		t.Errorf("after applying, source ranges = %v, want both new addresses", got)
@@ -101,9 +101,12 @@ func TestCallerCidrReconciliationOnAddressChange(t *testing.T) {
 		t.Errorf("the rule now has %d ports, want one per address", len(fw.Ports))
 	}
 	for _, port := range fw.Ports {
-		if port.FromPort != 22 || port.ToPort != 22 || port.Protocol != backends.ProtocolTCP {
-			t.Errorf("port %v lost its shape while its source was replaced", port.Port)
+		if port.FromPort != -1 || port.ToPort != -1 || port.Protocol != backends.ProtocolAll {
+			t.Errorf("port %v should have been widened to all protocols", port.Port)
 		}
+	}
+	if !callerAllowsAllProtocols(fw) {
+		t.Error("after widening, the rule should allow all protocols")
 	}
 }
 

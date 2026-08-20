@@ -151,10 +151,10 @@ func (s *b) ensureDefaultFirewall(owner string, vpc *backends.Network, cidrs []s
 	ports := []*backends.Port{}
 	for _, cidr := range cidrs {
 		ports = append(ports, &backends.Port{
-			FromPort:   backends.SSHPort,
-			ToPort:     backends.SSHPort,
+			FromPort:   -1,
+			ToPort:     -1,
 			SourceCidr: cidr,
-			Protocol:   backends.ProtocolTCP,
+			Protocol:   backends.ProtocolAll,
 		})
 	}
 	out, err := s.CreateFirewall(&backends.CreateFirewallInput{
@@ -199,7 +199,7 @@ func (s *b) ensureDefaultFirewall(owner string, vpc *backends.Network, cidrs []s
 func (s *b) ensureCallerFirewalls(log logWarner, owner string, vpc *backends.Network, waitDur time.Duration) ([]string, error) {
 	cidrs, err := s.callerCidrs()
 	if err != nil {
-		log.Warn("Could not determine your public address, so your firewall rule allows no inbound SSH yet: %s", err)
+		log.Warn("Could not determine your public address, so your firewall rule allows no inbound access yet: %s", err)
 		log.Warn("Open access with: aerolab config gcp lock-firewall-rules -n %s -i <your-cidr>", DefaultFirewallName(owner, vpc.Name))
 		cidrs = nil
 	}
@@ -298,17 +298,47 @@ func ownedCallerCidrs(fw *backends.Firewall) []string {
 	return cidrs
 }
 
+// callerAllowsAllProtocols reports whether every CIDR-sourced rule on the
+// firewall already opens every protocol, matching CallerAllPorts.
+func callerAllowsAllProtocols(fw *backends.Firewall) bool {
+	sawCIDR := false
+	for _, port := range fw.Ports {
+		if port.SourceCidr == "" {
+			continue
+		}
+		sawCIDR = true
+		rule := backends.CanonicalCallerRule(backends.CallerRule{
+			Protocol: port.Protocol,
+			FromPort: port.FromPort,
+			ToPort:   port.ToPort,
+		})
+		if rule.Protocol != backends.ProtocolAll || rule.FromPort != -1 {
+			return false
+		}
+	}
+	return sawCIDR
+}
+
 // reconcileCallerIngress makes a caller-locked rule allow exactly the given
-// source addresses. GCP has no per-range annotation, so the whole source range
-// list of the rule is replaced; only rules AeroLab created for a single user
-// are ever passed in here.
+// source addresses on every protocol. GCP has no per-range annotation, so the
+// whole source range list of the rule is replaced; only rules AeroLab created
+// for a single user are ever passed in here. Allowed is patched as well so a
+// rule created as SSH-only is widened on the next autolock.
 func (s *b) reconcileCallerIngress(fw *backends.Firewall, cidrs []string) error {
 	existing := ownedCallerCidrs(fw)
-	if equalStringSets(existing, cidrs) {
+	needsCidrs := !equalStringSets(existing, cidrs)
+	needsPorts := !callerAllowsAllProtocols(fw)
+	if !needsCidrs && !needsPorts {
 		return nil
 	}
 	log := s.log.WithPrefix("reconcileCallerIngress: job=" + shortuuid.New() + " ")
-	log.Info("Allowing %s into %s (was %s)", strings.Join(cidrs, ", "), fw.Name, strings.Join(existing, ", "))
+	if needsPorts && needsCidrs {
+		log.Info("Allowing all ports from %s into %s (was %s on a narrower port set)", strings.Join(cidrs, ", "), fw.Name, strings.Join(existing, ", "))
+	} else if needsPorts {
+		log.Info("Widening %s to all ports from %s", fw.Name, strings.Join(cidrs, ", "))
+	} else {
+		log.Info("Allowing %s into %s (was %s)", strings.Join(cidrs, ", "), fw.Name, strings.Join(existing, ", "))
+	}
 	cli, err := connect.GetClient(s.credentials, log.WithPrefix("AUTH: "))
 	if err != nil {
 		return err
@@ -321,51 +351,50 @@ func (s *b) reconcileCallerIngress(fw *backends.Firewall, cidrs []string) error 
 	}
 	defer client.Close()
 	defer s.invalidateCacheFunc(backends.CacheInvalidateFirewall) //nolint:errcheck
+	all := "all"
 	op, err := client.Patch(ctx, &computepb.PatchFirewallRequest{
 		Firewall: fw.Name,
 		Project:  s.credentials.Project,
 		FirewallResource: &computepb.Firewall{
 			Name:         &fw.Name,
 			SourceRanges: cidrs,
+			Allowed: []*computepb.Allowed{
+				{IPProtocol: &all},
+			},
 		},
 	})
 	if err != nil {
-		return fmt.Errorf("could not update source ranges on %s: %w", fw.Name, err)
+		return fmt.Errorf("could not update caller access on %s: %w", fw.Name, err)
 	}
 	waitCtx, cancel := context.WithTimeout(ctx, time.Minute)
 	defer cancel()
 	if err := op.Wait(waitCtx); err != nil {
-		return fmt.Errorf("could not update source ranges on %s: %w", fw.Name, err)
+		return fmt.Errorf("could not update caller access on %s: %w", fw.Name, err)
 	}
-	applyCallerCidrsToInventory(fw, cidrs)
+	applyCallerAllPortsToInventory(fw, cidrs)
 	return nil
 }
 
-// applyCallerCidrsToInventory mirrors an applied change onto the cached
+// applyCallerAllPortsToInventory mirrors an applied change onto the cached
 // firewall, so a second call in the same process does not repeat the work.
-func applyCallerCidrsToInventory(fw *backends.Firewall, cidrs []string) {
+func applyCallerAllPortsToInventory(fw *backends.Firewall, cidrs []string) {
 	ports := backends.PortsOut{}
-	seen := map[string]bool{}
 	for _, port := range fw.Ports {
 		if port.SourceCidr == "" {
 			ports = append(ports, port)
-			continue
-		}
-		if seen[portShape(port)] {
-			continue
-		}
-		seen[portShape(port)] = true
-		for _, cidr := range cidrs {
-			replacement := *port
-			replacement.SourceCidr = cidr
-			ports = append(ports, &replacement)
 		}
 	}
+	for _, cidr := range cidrs {
+		ports = append(ports, &backends.PortOut{
+			Port: backends.Port{
+				FromPort:   -1,
+				ToPort:     -1,
+				SourceCidr: cidr,
+				Protocol:   backends.ProtocolAll,
+			},
+		})
+	}
 	fw.Ports = ports
-}
-
-func portShape(port *backends.PortOut) string {
-	return fmt.Sprintf("%s/%d/%d", port.Protocol, port.FromPort, port.ToPort)
 }
 
 func equalStringSets(a []string, b []string) bool {
@@ -429,19 +458,28 @@ func (s *b) EnsureCallerAccess(instances backends.InstanceList) {
 			continue
 		}
 		vpc := vpcs[0]
-		fw, err := s.ensureDefaultFirewall(s.identity.Owner, vpc, cidrs, time.Minute)
-		if err != nil {
-			log.Warn("Could not prepare your firewall rule in %s: %s", vpc.Name, err)
-			continue
-		}
+		var names []string
 		if !s.callerAccessReady[vpcID] {
-			if err := s.reconcileCallerIngress(fw, cidrs); err != nil {
-				log.Warn("Could not update your firewall rule %s: %s", fw.Name, err)
-			} else {
-				s.callerAccessReady[vpcID] = true
+			var err error
+			names, err = s.ensureCallerFirewalls(log, s.identity.Owner, vpc, time.Minute)
+			if err != nil {
+				log.Warn("Could not prepare your firewall rules in %s: %s", vpc.Name, err)
+				continue
+			}
+			s.callerAccessReady[vpcID] = true
+		} else {
+			names = []string{
+				DefaultFirewallName(s.identity.Owner, vpc.Name),
+				DefaultInternalFirewallName(s.identity.Owner, vpc.Name),
 			}
 		}
-		s.attachCallerFirewall(log, fw, vpcInstances)
+		for _, name := range names {
+			fws := s.firewalls.WithName(name).Describe()
+			if len(fws) == 0 {
+				continue
+			}
+			s.attachCallerFirewall(log, fws[0], vpcInstances)
+		}
 	}
 }
 

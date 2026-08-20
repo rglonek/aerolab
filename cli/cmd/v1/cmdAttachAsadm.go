@@ -14,7 +14,7 @@ import (
 type AttachAsadmCmd struct {
 	ClusterName     TypeClusterName        `short:"n" long:"name" description:"Cluster name" default:"asd"`
 	Node            TypeNodesPlusAllOption `short:"l" long:"nodes" description:"Node to attach to (or comma-separated list, when using '-- ...'). Example: 'attach shell --nodes=all -- /some/command' will execute command on all nodes" default:"1"`
-	Detach          bool                   `short:"d" long:"detach" description:"detach the process stdin - will not kill process on CTRL+C; it is up to the process to detach stdout/err"`
+	Detach          bool                   `short:"d" long:"detach" description:"detach stdin and skip allocating a PTY (implies --no-terminal); will not kill the process on CTRL+C; background jobs survive when the session ends"`
 	Parallel        bool                   `short:"p" long:"parallel" description:"enable parallel execution across all machines"`
 	ParallelThreads int                    `short:"t" long:"threads" description:"Number of parallel threads to use for the execution" default:"10"`
 	Env             []string               `short:"e" long:"env" description:"Environment variables to set, as k=v"`

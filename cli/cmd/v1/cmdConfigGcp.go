@@ -119,7 +119,7 @@ type LockFirewallCmd struct {
 	NamePrefix string   `short:"n" long:"name" description:"Name of the firewall rule to lock; left at the default, your own per-user firewall rules are locked" default:"AeroLab"`
 	IP         string   `short:"i" long:"ip" description:"set the IP mask to allow access, eg 0.0.0.0/0 or 1.2.3.4/32 or 10.11.12.13" default:"discover-caller-ip"`
 	VPC        string   `short:"v" long:"vpc" description:"VPC to handle sec groups for; default: default-VPC" default:""`
-	Ports      []string `short:"p" long:"port" description:"ports to restrict to the given IP, can be specified multiple times, ex: 3000-3005 or tcp:3000-3005 or udp:3000; default: 22"`
+	Ports      []string `short:"p" long:"port" description:"ports to restrict to the given IP, can be specified multiple times, ex: 3000-3005 or tcp:3000-3005 or udp:3000 or all; default: all"`
 	NoDefaults bool     `short:"d" long:"no-defaults" hidden:"true" webhidden:"true" description:"this no longer applies"` // NOTE: obsolete, but kept for backwards compatibility
 	Help       HelpCmd  `command:"help" subcommands-optional:"true" description:"Print help"`
 }

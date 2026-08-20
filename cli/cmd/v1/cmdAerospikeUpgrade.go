@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -252,21 +251,7 @@ func (c *AerospikeUpgradeCmd) getInstallScript(version *aerospike.Version, insta
 	if err != nil {
 		return nil, fmt.Errorf("could not get files: %w", err)
 	}
-	// Get the install script (download=true, install=true, upgrade=true)
-	arch := aerospike.ArchitectureTypeUnknown
-	switch instance.Architecture {
-	case backends.ArchitectureNative:
-		switch runtime.GOARCH {
-		case "amd64":
-			arch = aerospike.ArchitectureTypeX86_64
-		case "arm64":
-			arch = aerospike.ArchitectureTypeAARCH64
-		}
-	case backends.ArchitectureX8664:
-		arch = aerospike.ArchitectureTypeX86_64
-	case backends.ArchitectureARM64:
-		arch = aerospike.ArchitectureTypeAARCH64
-	}
+	arch := aerospikeArch(instance.Architecture)
 	logger.Detail("Architecture: %s, OS Name: %s, OS Version: %s", arch, instance.OperatingSystem.Name, instance.OperatingSystem.Version)
 	installScript, err := files.GetInstallScript(
 		arch,

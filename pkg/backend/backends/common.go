@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"runtime"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -299,10 +300,10 @@ func (a Architecture) String() string {
 }
 
 func (a *Architecture) FromString(s string) error {
-	switch s {
-	case "amd64":
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "amd64", "x86_64", "x86-64":
 		*a = ArchitectureX8664
-	case "arm64":
+	case "arm64", "aarch64":
 		*a = ArchitectureARM64
 	case "native", "default":
 		*a = ArchitectureNative
@@ -310,6 +311,20 @@ func (a *Architecture) FromString(s string) error {
 		return fmt.Errorf("unknown architecture: %s", s)
 	}
 	return nil
+}
+
+// IsARM reports whether this architecture is ARM64, including a native
+// host whose GOARCH is arm64. Distros report the same CPU as either
+// arm64 or aarch64; both map here.
+func (a Architecture) IsARM() bool {
+	switch a {
+	case ArchitectureARM64:
+		return true
+	case ArchitectureNative:
+		return runtime.GOARCH == "arm64"
+	default:
+		return false
+	}
 }
 
 func (a Architecture) MarshalJSON() ([]byte, error) {

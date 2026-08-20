@@ -14,11 +14,10 @@ import (
 
 	"github.com/aerospike/aerolab/pkg/backend/backends"
 	cerrdefs "github.com/containerd/errdefs"
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/filters"
-	"github.com/docker/docker/api/types/image"
-	"github.com/docker/docker/api/types/strslice"
 	"github.com/lithammer/shortuuid"
+	"github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/image"
+	"github.com/moby/moby/client"
 	"gopkg.in/yaml.v3"
 
 	_ "embed"
@@ -123,15 +122,14 @@ func (s *b) GetImages() (backends.ImageList, error) {
 				errsLock.Unlock()
 				return
 			}
-			f := filters.NewArgs()
+			f := make(client.Filters)
 			if !s.listAllProjects {
 				f.Add("label", TAG_PUBLIC_TEMPLATE+"=true")
 			}
-			out, err := cli.ImageList(context.Background(), image.ListOptions{
-				SharedSize:     true,
-				Manifests:      true,
-				ContainerCount: true,
-				Filters:        f,
+			out, err := cli.ImageList(context.Background(), client.ImageListOptions{
+				SharedSize: true,
+				Manifests:  true,
+				Filters:    f,
 			})
 			if err != nil {
 				errsLock.Lock()
@@ -157,7 +155,7 @@ func (s *b) GetImages() (backends.ImageList, error) {
 						}
 						imageName := ImageNaming(distro, version, arch)
 						var sdImg *image.Summary
-						for _, img := range out {
+						for _, img := range out.Items {
 							// if arch, distro, version match, set sdImg
 							if img.Labels[TAG_ARCHITECTURE] == archString && img.Labels[TAG_OS_NAME] == distro && img.Labels[TAG_OS_VERSION] == version && img.Labels[TAG_PUBLIC_NAME] == imageName {
 								sdImg = &img
@@ -209,15 +207,14 @@ func (s *b) GetImages() (backends.ImageList, error) {
 				errsLock.Unlock()
 				return
 			}
-			f := filters.NewArgs()
+			f := make(client.Filters)
 			if !s.listAllProjects {
 				f.Add("label", TAG_AEROLAB_PROJECT+"="+s.project)
 			}
-			out, err := cli.ImageList(context.Background(), image.ListOptions{
-				SharedSize:     true,
-				Manifests:      true,
-				ContainerCount: true,
-				Filters:        f,
+			out, err := cli.ImageList(context.Background(), client.ImageListOptions{
+				SharedSize: true,
+				Manifests:  true,
+				Filters:    f,
 			})
 			if err != nil {
 				errsLock.Lock()
@@ -225,7 +222,7 @@ func (s *b) GetImages() (backends.ImageList, error) {
 				errsLock.Unlock()
 				return
 			}
-			for _, image := range out {
+			for _, image := range out.Items {
 				if image.Labels[TAG_AEROLAB_VERSION] == "" {
 					continue
 				}
@@ -348,7 +345,7 @@ func (s *b) ImagesDelete(images backends.ImageList, waitDur time.Duration) error
 				}
 				removed[removeId] = true
 				golog.Detail("Deregistering Image")
-				_, err = cli.ImageRemove(context.Background(), removeId, image.RemoveOptions{
+				_, err = cli.ImageRemove(context.Background(), removeId, client.ImageRemoveOptions{
 					Force:         true,
 					PruneChildren: true,
 				})
@@ -450,12 +447,12 @@ func (s *b) CreateImage(input *backends.CreateImageInput, waitDur time.Duration)
 	if s.isPodman[input.Instance.ZoneName] {
 		nname = "localhost/" + nname
 	}
-	cr, err := cli.ContainerCommit(context.Background(), input.Instance.InstanceID, container.CommitOptions{
+	cr, err := cli.ContainerCommit(context.Background(), input.Instance.InstanceID, client.ContainerCommitOptions{
 		Reference: nname,             // resulting full-name, as in name:tag
 		Comment:   input.Description, // could be used as description
 		Author:    "aerolab",         // should be owner or aerolab
 		Changes:   []string{},        // dockerfile style tweaks, like ENV, CMD, EXPOSE
-		Pause:     true,              // whether to pause the container before committing, should be true, always
+		NoPause:   false,             // always pause the container before committing
 		Config: &container.Config{
 			User: "root", // ex 1001 or nobody; need more explanation
 			Env: []string{
@@ -467,14 +464,14 @@ func (s *b) CreateImage(input *backends.CreateImageInput, waitDur time.Duration)
 				"AEROLAB_OWNER=" + input.Owner,
 				"AEROLAB_NAME=" + input.Name,
 			}, // KEY=value list of env vars to bake into the image
-			Cmd:             nil,                                                     // dockerfile CMD
-			WorkingDir:      "/root",                                                 // WORKDIR
-			Entrypoint:      strslice.StrSlice{"/usr/local/bin/init-docker-systemd"}, // dockerfile ENTRYPOINT
-			NetworkDisabled: false,                                                   // if true, zero network access
-			Labels:          tags,                                                    // all our tags and labels
-			StopSignal:      "SIGTERM",                                               // custom stop signal, default SIGTERM
-			StopTimeout:     nil,                                                     // how long to wait on stop before deciding to forcefully kill the container processes
-			Shell:           nil,                                                     // default shell, default is /bin/sh
+			Cmd:             nil,                                            // dockerfile CMD
+			WorkingDir:      "/root",                                        // WORKDIR
+			Entrypoint:      []string{"/usr/local/bin/init-docker-systemd"}, // dockerfile ENTRYPOINT
+			NetworkDisabled: false,                                          // if true, zero network access
+			Labels:          tags,                                           // all our tags and labels
+			StopSignal:      "SIGTERM",                                      // custom stop signal, default SIGTERM
+			StopTimeout:     nil,                                            // how long to wait on stop before deciding to forcefully kill the container processes
+			Shell:           nil,                                            // default shell, default is /bin/sh
 		},
 	})
 	if err != nil {

@@ -234,11 +234,19 @@ func (c *WebUICmd) Execute(args []string) error {
 	// browses the filesystem. With auth disabled, the loopback bind is the only
 	// thing keeping that off the network, so refuse the combination outright.
 	loopbackBind := isLoopbackListenAddr(c.ListenAddr)
-	if !loopbackBind && !c.isBasicAuth && !c.isTokenAuth {
+	noAuth := !c.isBasicAuth && !c.isTokenAuth
+	if !loopbackBind && noAuth {
 		if !c.InsecureAllowRemoteNoAuth {
 			return Error(fmt.Errorf("refusing to listen on %s with --auth=none: the Web UI grants full command execution and root shell access to anyone who can reach it. Use --auth=basic (with --basic-pass) or --auth=token (with --token-path), bind to a loopback address such as 127.0.0.1:3333, or pass --insecure-allow-remote-noauth if you genuinely intend to expose it", c.ListenAddr), system, cmd, c, args)
 		}
 		system.Logger.Warn("SECURITY: listening on %s with authentication disabled; anyone who can reach this port has full command execution and root shell access", c.ListenAddr)
+	}
+	// The default listener is loopback with --auth=none, which is only safe
+	// because nothing off this machine can reach it. Say so, so that the bind
+	// address is not mistaken for a configuration error when the UI cannot be
+	// reached from another host.
+	if loopbackBind && noAuth {
+		system.Logger.Warn("Binding to %s, using no authentication; only this machine can reach the Web UI. To listen on a network-reachable address, set --listen and enable --auth=basic (with --basic-pass) or --auth=token (with --token-path)", c.ListenAddr)
 	}
 	if !loopbackBind {
 		if !c.HTTPS && (c.isBasicAuth || c.isTokenAuth) {

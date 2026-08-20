@@ -21,8 +21,7 @@ import (
 	"github.com/aerospike/aerolab/pkg/utils/choice"
 	"github.com/aerospike/aerolab/pkg/utils/parallelize"
 	"github.com/aerospike/aerolab/pkg/utils/scriptlog"
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/strslice"
+	"github.com/moby/moby/api/types/container"
 	"github.com/rglonek/go-flags"
 	"github.com/rglonek/logger"
 	"golang.org/x/term"
@@ -754,15 +753,15 @@ func (c *InstancesCreateCmd) CreateInstances(system *System, inventory *backends
 		NetworkPlacement:  dockerNetworkPlacement,
 		Disks:             c.Docker.Disks,
 		Firewalls:         c.Docker.ExposePorts,
-		Cmd:               strslice.StrSlice{},
+		Cmd:               []string{},
 		StopTimeout:       c.Docker.StopTimeout,
-		CapAdd:            strslice.StrSlice{},
-		CapDrop:           strslice.StrSlice{},
-		DNS:               strslice.StrSlice{},
-		DNSOptions:        strslice.StrSlice{},
-		DNSSearch:         strslice.StrSlice{},
+		CapAdd:            []string{},
+		CapDrop:           []string{},
+		DNS:               []string{},
+		DNSOptions:        []string{},
+		DNSSearch:         []string{},
 		Privileged:        c.Docker.Privileged,
-		SecurityOpt:       strslice.StrSlice{},
+		SecurityOpt:       []string{},
 		Tmpfs:             map[string]string{},
 		RestartPolicy:     c.Docker.RestartPolicy,
 		MaxRestartRetries: c.Docker.MaxRestartRetries,
@@ -773,8 +772,8 @@ func (c *InstancesCreateCmd) CreateInstances(system *System, inventory *backends
 			Memory:     ramBytes,
 			MemorySwap: swapBytes,
 		},
-		MaskedPaths:       strslice.StrSlice{},
-		ReadonlyPaths:     strslice.StrSlice{},
+		MaskedPaths:       []string{},
+		ReadonlyPaths:     []string{},
 		SkipSshReadyCheck: !dockerImageFromOfficial,
 		RegistryUser:      c.Docker.RegistryUser,
 		RegistryPass:      c.Docker.RegistryPass,

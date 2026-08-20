@@ -22,7 +22,7 @@ type InstancesAttachCmd struct {
 	NoTerminal      bool                `long:"no-terminal" description:"Do not use a terminal"`
 	Out             flags.Filename      `long:"stdout" description:"Path output file to redirect stdout to"`
 	Err             flags.Filename      `long:"stderr" description:"Path output file to redirect stderr to (only works if --no-terminal is specified, otherwise all output goes to stdout)"`
-	Detach          bool                `long:"detach" description:"detach the process stdin - will not kill process on CTRL+C; it is up to the process to detach stdout/err"`
+	Detach          bool                `long:"detach" description:"detach stdin and skip allocating a PTY (implies --no-terminal); will not kill the process on CTRL+C; background jobs survive when the session ends"`
 	Filters         InstancesListFilter `group:"Filters" namespace:"filter"`
 	Help            AttachHelpCmd       `command:"help" subcommands-optional:"true" description:"Print help"`
 }
@@ -51,7 +51,7 @@ func (c *InstancesAttachCmd) Execute(args []string) error {
 }
 
 // if c.Out or c.Err is set, it will redirect stdout/stderr to the file, ignoring the stdout/stderr parameters
-// if c.Detach is set, stdin will be nil, and the prameter will be ignored
+// if c.Detach is set, stdin will be nil and no PTY is allocated (implies --no-terminal)
 func (c *InstancesAttachCmd) AttachInstances(system *System, inventory *backends.Inventory, args []string, stdin io.ReadCloser, stdout io.Writer, stderr io.Writer) (output []*backends.ExecOutput, err error) {
 	if system == nil {
 		var err error
@@ -130,6 +130,9 @@ func (c *InstancesAttachCmd) AttachInstances(system *System, inventory *backends
 
 	if c.Detach {
 		stdin = nil
+		// Match v7: --detach used a non-PTY RunCommands path. A PTY hangup
+		// on channel close sends SIGHUP and kills background jobs.
+		c.NoTerminal = true
 	}
 	if c.Out != "" {
 		out, err := os.OpenFile(string(c.Out), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)

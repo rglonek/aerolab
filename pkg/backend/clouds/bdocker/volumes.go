@@ -10,9 +10,9 @@ import (
 
 	"github.com/aerospike/aerolab/pkg/backend/backends"
 	"github.com/aerospike/aerolab/pkg/utils/structtags"
-	"github.com/docker/docker/api/types/filters"
-	"github.com/docker/docker/api/types/volume"
 	"github.com/lithammer/shortuuid"
+	"github.com/moby/moby/api/types/volume"
+	"github.com/moby/moby/client"
 )
 
 type CreateVolumeParams struct {
@@ -46,18 +46,18 @@ func (s *b) GetVolumes() (backends.VolumeList, error) {
 				errs = errors.Join(errs, err)
 				return
 			}
-			f := filters.NewArgs()
+			f := make(client.Filters)
 			if !s.listAllProjects {
 				f.Add("label", TAG_AEROLAB_PROJECT+"="+s.project)
 			}
-			out, err := cli.VolumeList(context.Background(), volume.ListOptions{
+			out, err := cli.VolumeList(context.Background(), client.VolumeListOptions{
 				Filters: f,
 			})
 			if err != nil {
 				errs = errors.Join(errs, err)
 				return
 			}
-			for _, vol := range out.Volumes {
+			for _, vol := range out.Items {
 				if vol.Labels[TAG_AEROLAB_VERSION] == "" {
 					continue
 				}
@@ -101,7 +101,7 @@ func (s *b) GetVolumes() (backends.VolumeList, error) {
 						CreateTime:     createTime,
 					},
 					BackendSpecific: &VolumeDetail{
-						Docker: vol,
+						Docker: &vol,
 					},
 				})
 				ilock.Unlock()
@@ -167,7 +167,7 @@ func (s *b) DeleteVolumes(volumes backends.VolumeList, fw backends.FirewallList,
 				return
 			}
 			for _, id := range ids {
-				err = cli.VolumeRemove(ctx, id, true)
+				_, err = cli.VolumeRemove(ctx, id, client.VolumeRemoveOptions{Force: true})
 				if err != nil {
 					reterr = errors.Join(reterr, err)
 					return
@@ -255,7 +255,7 @@ func (s *b) CreateVolume(input *backends.CreateVolumeInput) (output *backends.Cr
 	if backendSpecificParams.Driver != "" {
 		driver = backendSpecificParams.Driver
 	}
-	out, err := cli.VolumeCreate(context.Background(), volume.CreateOptions{
+	out, err := cli.VolumeCreate(context.Background(), client.VolumeCreateOptions{
 		Driver:     driver,
 		DriverOpts: map[string]string{},
 		Labels:     tagsIn,
@@ -281,7 +281,7 @@ func (s *b) CreateVolume(input *backends.CreateVolumeInput) (output *backends.Cr
 			Tags:                tagsIn,
 			Encrypted:           false,
 			Expires:             input.Expires,
-			DiskType:            driver + "-" + out.Scope,
+			DiskType:            driver + "-" + out.Volume.Scope,
 			State:               backends.VolumeStateAvailable,
 			DeleteOnTermination: false,
 			AttachedTo:          []string{},
@@ -291,7 +291,7 @@ func (s *b) CreateVolume(input *backends.CreateVolumeInput) (output *backends.Cr
 				CreateTime:     time.Now(),
 			},
 			BackendSpecific: &VolumeDetail{
-				Docker: &out,
+				Docker: &out.Volume,
 			},
 		},
 	}, nil

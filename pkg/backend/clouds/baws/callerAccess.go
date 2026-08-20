@@ -159,8 +159,8 @@ func (s *b) findLegacyDefaultFirewall(vpcID string) *backends.Firewall {
 
 // ensureDefaultFirewall returns the caller's own security group for the given
 // VPC, creating it if it does not exist yet. The group allows the caller's
-// current source addresses in on SSH, and allows instances that share the
-// group to talk to each other on every port.
+// current source addresses in on every port, and allows instances that share
+// the group to talk to each other on every port.
 func (s *b) ensureDefaultFirewall(owner string, vpc *backends.Network, waitDur time.Duration) (*backends.Firewall, error) {
 	owner = SanitizeOwner(owner)
 	if owner == "" {
@@ -170,6 +170,9 @@ func (s *b) ensureDefaultFirewall(owner string, vpc *backends.Network, waitDur t
 	defer s.defaultFWCreateLock.Unlock()
 
 	if fw := s.findDefaultFirewall(owner, vpc.NetworkId); fw != nil {
+		if err := s.ensureSelfIngress(fw); err != nil {
+			return nil, err
+		}
 		return fw, nil
 	}
 
@@ -206,10 +209,63 @@ func (s *b) ensureDefaultFirewall(owner string, vpc *backends.Network, waitDur t
 		if fw == nil {
 			return nil, fmt.Errorf("security group %s exists but could not be read back", name)
 		}
+		if err := s.ensureSelfIngress(fw); err != nil {
+			return nil, err
+		}
 		return fw, nil
 	}
 	s.firewalls = append(s.firewalls, out.Firewall)
 	return out.Firewall, nil
+}
+
+// hasSelfAllIngress reports whether the group already allows every protocol
+// from its own ID (or the "self" placeholder used at create time).
+func hasSelfAllIngress(fw *backends.Firewall) bool {
+	for _, port := range fw.Ports {
+		if port.Protocol != backends.ProtocolAll && port.Protocol != "all" {
+			continue
+		}
+		if port.SourceId == fw.FirewallID || port.SourceId == "self" {
+			return true
+		}
+	}
+	return false
+}
+
+// ensureSelfIngress adds an all-protocols rule sourced from the group itself
+// when one is missing, so instances sharing the group can reach each other.
+func (s *b) ensureSelfIngress(fw *backends.Firewall) error {
+	if hasSelfAllIngress(fw) {
+		return nil
+	}
+	cli, err := getEc2Client(s.credentials, &fw.ZoneName)
+	if err != nil {
+		return err
+	}
+	perm := types.IpPermission{
+		IpProtocol: aws.String(backends.ProtocolAll),
+		UserIdGroupPairs: []types.UserIdGroupPair{
+			{GroupId: aws.String(fw.FirewallID)},
+		},
+	}
+	_, err = cli.AuthorizeSecurityGroupIngress(context.TODO(), &ec2.AuthorizeSecurityGroupIngressInput{
+		GroupId:       aws.String(fw.FirewallID),
+		IpPermissions: []types.IpPermission{perm},
+	})
+	if err != nil && !isDuplicateIngressRule(err) {
+		return fmt.Errorf("could not authorize self-ingress on %s: %w", fw.Name, err)
+	}
+	defer s.invalidateCacheFunc(backends.CacheInvalidateFirewall) //nolint:errcheck
+	fw.Ports = append(fw.Ports, &backends.PortOut{
+		Port: backends.Port{
+			FromPort: -1,
+			ToPort:   -1,
+			SourceId: fw.FirewallID,
+			Protocol: backends.ProtocolAll,
+		},
+		BackendSpecific: perm,
+	})
+	return nil
 }
 
 // ensureCallerFirewall returns the caller's own security group for a VPC with
@@ -226,14 +282,14 @@ func (s *b) ensureCallerFirewall(log logWarner, owner string, vpc *backends.Netw
 	}
 	cidrs, err := s.callerCidrs()
 	if err != nil {
-		log.Warn("Could not determine your public address, so %s allows no inbound SSH yet: %s", fw.Name, err)
+		log.Warn("Could not determine your public address, so %s allows no inbound access yet: %s", fw.Name, err)
 		log.Warn("Open access with: aerolab config aws lock-security-groups -n %s -i <your-cidr>", fw.Name)
 		return fw, nil
 	}
 	if len(cidrs) == 0 {
 		return fw, nil
 	}
-	if err := s.reconcileCallerIngress(fw, backends.CallerSSHPorts(), cidrs); err != nil {
+	if err := s.reconcileCallerIngress(fw, backends.CallerAllPorts(), cidrs); err != nil {
 		return nil, err
 	}
 	return fw, nil
@@ -326,9 +382,8 @@ func (s *b) reconcileCallerIngress(fw *backends.Firewall, ports []backends.Calle
 func callerIpPermissions(rules []backends.CallerRule) []types.IpPermission {
 	perms := make([]types.IpPermission, 0, len(rules))
 	for _, rule := range rules {
-		perms = append(perms, types.IpPermission{
-			FromPort:   aws.Int32(int32(rule.FromPort)),
-			ToPort:     aws.Int32(int32(rule.ToPort)),
+		rule = backends.CanonicalCallerRule(rule)
+		perm := types.IpPermission{
 			IpProtocol: aws.String(rule.Protocol),
 			IpRanges: []types.IpRange{
 				{
@@ -336,7 +391,13 @@ func callerIpPermissions(rules []backends.CallerRule) []types.IpPermission {
 					Description: aws.String(backends.CallerRuleDescription),
 				},
 			},
-		})
+		}
+		// Protocol -1 (all) must not carry a port range; EC2 rejects it.
+		if rule.Protocol != backends.ProtocolAll {
+			perm.FromPort = aws.Int32(int32(rule.FromPort))
+			perm.ToPort = aws.Int32(int32(rule.ToPort))
+		}
+		perms = append(perms, perm)
 	}
 	return perms
 }
@@ -449,7 +510,7 @@ func (s *b) EnsureCallerAccess(instances backends.InstanceList) {
 			continue
 		}
 		if !s.callerAccessReady[vpcID] {
-			if err := s.reconcileCallerIngress(fw, backends.CallerSSHPorts(), cidrs); err != nil {
+			if err := s.reconcileCallerIngress(fw, backends.CallerAllPorts(), cidrs); err != nil {
 				log.Warn("Could not update your security group %s: %s", fw.Name, err)
 			} else {
 				s.callerAccessReady[vpcID] = true

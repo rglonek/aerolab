@@ -4,12 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net/netip"
 	"sync"
 	"time"
 
 	"github.com/aerospike/aerolab/pkg/backend/backends"
-	"github.com/docker/docker/api/types/network"
 	"github.com/lithammer/shortuuid"
+	"github.com/moby/moby/client"
 )
 
 type NetworkDetails struct {
@@ -49,6 +50,25 @@ func GetNetworkDetails(net *backends.Network) *NetworkDetails {
 	return net.BackendSpecific.(*NetworkDetails)
 }
 
+// prefixString renders a CIDR the way the Docker API used to hand it to us: a
+// dotted-quad string, or empty when the daemon reported no value. The zero
+// netip.Prefix stringifies to "invalid Prefix", which would leak into subnet
+// IDs and CIDR fields.
+func prefixString(p netip.Prefix) string {
+	if !p.IsValid() {
+		return ""
+	}
+	return p.String()
+}
+
+// addrString is prefixString for a bare address.
+func addrString(a netip.Addr) string {
+	if !a.IsValid() {
+		return ""
+	}
+	return a.String()
+}
+
 func (s *b) GetNetworks() (backends.NetworkList, error) {
 	log := s.log.WithPrefix("GetNetworks: job=" + shortuuid.New() + " ")
 	log.Detail("Start")
@@ -69,15 +89,15 @@ func (s *b) GetNetworks() (backends.NetworkList, error) {
 				errs = errors.Join(errs, err)
 				return
 			}
-			out, err := cli.NetworkList(context.Background(), network.ListOptions{})
+			out, err := cli.NetworkList(context.Background(), client.NetworkListOptions{})
 			if err != nil {
 				errs = errors.Join(errs, err)
 				return
 			}
-			for _, network := range out {
+			for _, network := range out.Items {
 				cidr := ""
 				if len(network.IPAM.Config) > 0 {
-					cidr = network.IPAM.Config[0].Subnet
+					cidr = prefixString(network.IPAM.Config[0].Subnet)
 				}
 				description := ""
 				if val, ok := network.Labels["description"]; ok {
@@ -89,13 +109,14 @@ func (s *b) GetNetworks() (backends.NetworkList, error) {
 				}
 				subnets := backends.SubnetList{}
 				for i, subnet := range network.IPAM.Config {
+					subnetID := prefixString(subnet.Subnet) + "-" + addrString(subnet.Gateway)
 					subnets = append(subnets, &backends.Subnet{
 						BackendType:      backends.BackendTypeDocker,
-						Name:             subnet.Subnet + "-" + subnet.Gateway,
-						Description:      subnet.IPRange,
-						SubnetId:         subnet.Subnet + "-" + subnet.Gateway,
+						Name:             subnetID,
+						Description:      prefixString(subnet.IPRange),
+						SubnetId:         subnetID,
 						NetworkId:        network.ID,
-						Cidr:             subnet.Subnet,
+						Cidr:             prefixString(subnet.Subnet),
 						ZoneName:         zone,
 						ZoneID:           zone,
 						Owner:            owner,

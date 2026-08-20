@@ -12,6 +12,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/aerospike/aerolab/pkg/backend/backends"
 	"github.com/aerospike/aerolab/pkg/termutil"
 	"github.com/aerospike/aerolab/pkg/utils/callerip"
 	"github.com/aerospike/aerolab/pkg/utils/choice"
@@ -58,13 +59,20 @@ type aerospikeVersionSelectorCmd struct {
 	aerospikeVersionCmd
 }
 
-// string format: [protocol:]from[-to]
+// string format: [protocol:]from[-to], or "all" for every protocol and port
 func parsePortRange(port string) (string, int, int, error) {
+	port = strings.TrimSpace(port)
+	if port == "all" || port == "-1" {
+		return backends.ProtocolAll, -1, -1, nil
+	}
 	protocol := "tcp"
 	parts := strings.Split(port, ":")
 	if len(parts) > 1 {
 		protocol = parts[0]
 		port = parts[1]
+	}
+	if protocol == "all" {
+		return backends.ProtocolAll, -1, -1, nil
 	}
 	parts = strings.Split(port, "-")
 	if len(parts) == 1 {

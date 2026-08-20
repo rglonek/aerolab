@@ -14,6 +14,7 @@ import (
 	"github.com/aerospike/aerolab/pkg/sshexec"
 	"github.com/aerospike/aerolab/pkg/utils/counters"
 	"github.com/aerospike/aerolab/pkg/utils/file"
+	"github.com/moby/moby/client"
 	"github.com/rglonek/logger"
 )
 
@@ -129,8 +130,15 @@ func (s *b) testPodman(region string) bool {
 	if err != nil {
 		return false
 	}
-	version, err := cli.ServerVersion(context.Background())
+	version, err := cli.ServerVersion(context.Background(), client.ServerVersionOptions{})
 	if err != nil {
+		// The Moby client refuses to negotiate below API 1.44 (Docker Engine
+		// 25+). Podman only advertises that from 5.8 onwards, so an older
+		// Podman fails here and would silently be treated as Docker.
+		if strings.Contains(err.Error(), "is not supported by this client") {
+			s.log.Warn("DOCKER: region=%s rejected API version negotiation (%v); Docker Engine 25+ or a Podman that advertises Docker API 1.44+ is required", region, err)
+			return false
+		}
 		s.log.Warn("DOCKER: testing whether podman or docker is used for region=%s, error=%v", region, err)
 		return false
 	}

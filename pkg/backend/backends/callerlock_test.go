@@ -16,6 +16,28 @@ func TestBuildCallerRules(t *testing.T) {
 	}
 }
 
+func TestBuildCallerRulesAllPorts(t *testing.T) {
+	got := BuildCallerRules(CallerAllPorts(), []string{"1.2.3.4/32", "10.0.0.0/8"})
+	want := []CallerRule{
+		{Protocol: ProtocolAll, FromPort: -1, ToPort: -1, Cidr: "1.2.3.4/32"},
+		{Protocol: ProtocolAll, FromPort: -1, ToPort: -1, Cidr: "10.0.0.0/8"},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("BuildCallerRules() = %v, want %v", got, want)
+	}
+}
+
+func TestCanonicalCallerRuleFoldsAwsDescribeShape(t *testing.T) {
+	got := CanonicalCallerRule(CallerRule{Protocol: ProtocolAll, FromPort: 0, ToPort: 0, Cidr: "1.2.3.4/32"})
+	want := CallerRule{Protocol: ProtocolAll, FromPort: -1, ToPort: -1, Cidr: "1.2.3.4/32"}
+	if got != want {
+		t.Errorf("CanonicalCallerRule() = %v, want %v", got, want)
+	}
+	if CanonicalCallerRule(CallerRule{Protocol: "all", FromPort: -1, ToPort: -1, Cidr: "1.2.3.4/32"}) != want {
+		t.Error("CanonicalCallerRule should fold GCP protocol \"all\" onto ProtocolAll")
+	}
+}
+
 func TestBuildCallerRulesDeduplicates(t *testing.T) {
 	got := BuildCallerRules(CallerSSHPorts(), []string{"1.2.3.4/32", "1.2.3.4/32"})
 	if len(got) != 1 {
@@ -72,6 +94,24 @@ func TestDiffCallerRules(t *testing.T) {
 				{Protocol: ProtocolTCP, FromPort: 3000, ToPort: 3010, Cidr: "1.2.3.4/32"},
 			},
 			wantRemove: []CallerRule{ssh("1.2.3.4/32")},
+		},
+		{
+			name:     "widening SSH to all ports replaces the SSH rule",
+			existing: []CallerRule{ssh("1.2.3.4/32")},
+			desired:  BuildCallerRules(CallerAllPorts(), []string{"1.2.3.4/32"}),
+			wantAdd: []CallerRule{
+				{Protocol: ProtocolAll, FromPort: -1, ToPort: -1, Cidr: "1.2.3.4/32"},
+			},
+			wantRemove: []CallerRule{ssh("1.2.3.4/32")},
+		},
+		{
+			name: "AWS describe of protocol -1 (zero ports) matches create shape",
+			existing: []CallerRule{
+				{Protocol: ProtocolAll, FromPort: 0, ToPort: 0, Cidr: "1.2.3.4/32"},
+			},
+			desired:    BuildCallerRules(CallerAllPorts(), []string{"1.2.3.4/32"}),
+			wantAdd:    []CallerRule{},
+			wantRemove: []CallerRule{},
 		},
 		{
 			name:       "nothing desired revokes everything we own",
