@@ -25,6 +25,10 @@ func (i *Ingest) enumDir(dirPath string) (map[string]*EnumFile, error) {
 			log.Printf("DETAIL: enum: got error on walk: %s", err)
 			return err
 		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			log.Printf("WARN: enum: skipping symlink: %s", filePath)
+			return nil
+		}
 		if info.IsDir() {
 			log.Printf("DETAIL: enum: isDir: %s", filePath)
 			return nil

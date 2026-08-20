@@ -45,7 +45,7 @@ func (i *Ingest) ProcessCollectInfo() error {
 		if err != nil {
 			return err
 		}
-		if info.IsDir() {
+		if !info.Mode().IsRegular() {
 			return nil
 		}
 		fn := strings.Split(info.Name(), "_")
@@ -70,7 +70,7 @@ func (i *Ingest) ProcessCollectInfo() error {
 		if err != nil {
 			return err
 		}
-		if info.IsDir() {
+		if !info.Mode().IsRegular() {
 			return nil
 		}
 		foundFiles[filePath] = &CfFile{
@@ -86,6 +86,12 @@ func (i *Ingest) ProcessCollectInfo() error {
 	log.Printf("DEBUG: ProcessCollectInfo: merging lists")
 	i.progress.Lock()
 	maps.Copy(foundFiles, i.progress.CollectinfoProcessor.Files)
+	for filePath := range foundFiles {
+		if err := regularFileInsideRoot(i.config.Directories.CollectInfo, filePath); err != nil {
+			log.Printf("WARN: ProcessCollectInfo: skipping path outside collectinfo dir or not a regular file: %s: %s", filePath, err)
+			delete(foundFiles, filePath)
+		}
+	}
 	i.progress.CollectinfoProcessor.Files = make(map[string]*CfFile)
 	maps.Copy(i.progress.CollectinfoProcessor.Files, foundFiles)
 	i.progress.CollectinfoProcessor.changed = true
@@ -222,6 +228,14 @@ func (i *Ingest) processCollectInfoFile(filePath string, cf *CfFile, logs map[st
 		ipToNode: make(map[string][]string),
 	}
 	log.Printf("DETAIL: processCollectInfoFile: Reading tgz contents of %s", filePath)
+	if err := regularFileInsideRoot(i.config.Directories.CollectInfo, filePath); err != nil {
+		i.progress.Lock()
+		cf.ProcessingAttempted = true
+		cf.RenameAttempted = true
+		i.progress.CollectinfoProcessor.changed = true
+		i.progress.Unlock()
+		return "", fmt.Errorf("unsafe collectinfo path: %w", err)
+	}
 	err := i.processCollectInfoFileRead(filePath, cf, ct)
 	if err != nil {
 		i.progress.Lock()
@@ -266,26 +280,33 @@ func (i *Ingest) processCollectInfoFile(filePath string, cf *CfFile, logs map[st
 			nodeId := clusterNodeId[1]
 			if nnodes, ok := logs[cluster]; ok {
 				if prefix, ok := nnodes[strings.ToLower(nodeId)]; ok {
-					fdir, ffile := path.Split(filePath)
-					ffile = prefix + "_" + ffile
-					newName = path.Join(fdir, ffile)
-					nodeid = nodeId
-					found = true
+					if name, ok := collectInfoRenamePath(filePath, prefix); ok {
+						newName = name
+						nodeid = nodeId
+						found = true
+					}
 				}
 			}
 			if !found && cluster == "null" {
 				cluster = "unset"
 				if nnodes, ok := logs[cluster]; ok {
 					if prefix, ok := nnodes[strings.ToLower(nodeId)]; ok {
-						fdir, ffile := path.Split(filePath)
-						ffile = prefix + "_" + ffile
-						newName = path.Join(fdir, ffile)
-						nodeid = nodeId
-						found = true
+						if name, ok := collectInfoRenamePath(filePath, prefix); ok {
+							newName = name
+							nodeid = nodeId
+							found = true
+						}
 					}
 				}
 			}
 			break
+		}
+	}
+	if found {
+		if err := destInsideRoot(i.config.Directories.CollectInfo, newName); err != nil {
+			log.Printf("WARN: ProcessCollectInfo: refusing rename of %s to %s: %s", filePath, newName, err)
+			found = false
+			newName = ""
 		}
 	}
 	log.Printf("DETAIL: processCollectInfoFile: handling rename for %s", filePath)
@@ -294,7 +315,7 @@ func (i *Ingest) processCollectInfoFile(filePath string, cf *CfFile, logs map[st
 	cf.RenameAttempted = true
 	cf.NodeID = nodeid
 	i.progress.CollectinfoProcessor.changed = true
-	if found {
+	if newName != "" {
 		err = os.Rename(filePath, newName)
 		if err != nil {
 			log.Printf("ERROR: ProcessCollectInfo: failed to rename %s to %s", filePath, newName)
@@ -303,7 +324,7 @@ func (i *Ingest) processCollectInfoFile(filePath string, cf *CfFile, logs map[st
 			cf.Renamed = true
 			cf.OriginalName = filePath
 		}
-	} else {
+	} else if nodeid == "" {
 		log.Printf("DETAIL: ProcessCollectInfo: nodeID for collectinfo source not found for %s", filePath)
 	}
 	i.progress.Unlock()
@@ -370,6 +391,9 @@ func (i *Ingest) processCollectInfoFile(filePath string, cf *CfFile, logs map[st
 }
 
 func (i *Ingest) processCollectInfoFileAsadm(filePath string, ct *cfContents, logs map[string]map[string]string) error {
+	if err := regularFileInsideRoot(i.config.Directories.CollectInfo, filePath); err != nil {
+		return fmt.Errorf("refusing asadm on %s: %w", filePath, err)
+	}
 	for _, comm := range []string{"health", "summary"} {
 		log.Printf("DETAIL: processCollectInfoFileAsadm: run file:%s comm:%s", filePath, comm)
 		ctx, cancelFunc := context.WithTimeout(context.Background(), i.config.CollectInfoAsadmTimeout)
