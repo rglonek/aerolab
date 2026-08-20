@@ -74,9 +74,11 @@ Software installation utilities for various tools and dependencies.
 - **compilers** - Programming language compiler installation (Go, Python, .NET)
 - **easytc** - EasyTC installation
 - **eksctl** - AWS EKS CLI installation
-- **goproxy** - Go proxy server installation
+- **filebrowser** - Filebrowser installation
 - **grafana** - Grafana installation
+- **nodeexporter** - Prometheus node_exporter installation
 - **prometheus** - Prometheus installation
+- **ttyd** - ttyd web terminal installation
 - **vscode** - Visual Studio Code installation
 
 **Key Features:**

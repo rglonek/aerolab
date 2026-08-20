@@ -16,7 +16,6 @@ import (
 	"github.com/aerospike/aerolab/pkg/sshexec"
 	"github.com/aerospike/aerolab/pkg/utils/parallelize"
 	"github.com/aerospike/aerolab/pkg/utils/scriptlog"
-	"github.com/docker/docker/api/types/strslice"
 	flags "github.com/rglonek/go-flags"
 	"github.com/rglonek/logger"
 )
@@ -578,5 +577,4 @@ func (c *ClientCreateGraphCmd) printCloudInstructions(logger *logger.Logger) {
 func init() {
 	// Register any necessary hooks for the graph command
 	_ = bdocker.CreateInstanceParams{}
-	_ = strslice.StrSlice{}
 }

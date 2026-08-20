@@ -268,7 +268,7 @@ from it. No external database daemon is involved.
 - `GetLatestVersion(stable bool) (*github.Release, error)` - Get latest Aerolab version
 - `GetLinuxInstallScript(version *string, prerelease *bool) ([]byte, error)` - Generate install script
 
-**Subpackages**: aerolab, aerospike, compilers, easytc, eksctl, goproxy, grafana, prometheus, vscode
+**Subpackages**: aerolab, aerospike, compilers, easytc, eksctl, filebrowser, grafana, nodeexporter, prometheus, ttyd, vscode
 
 #### `utils/jobqueue`
 **Key Exported Functions**:

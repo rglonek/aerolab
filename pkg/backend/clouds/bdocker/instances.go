@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"maps"
+	"net/netip"
 	"os"
 	"path"
 	"runtime"
@@ -25,18 +26,16 @@ import (
 	"github.com/aerospike/aerolab/pkg/utils/parallelize"
 	"github.com/aerospike/aerolab/pkg/utils/structtags"
 	"github.com/charmbracelet/x/term"
-	"github.com/docker/docker/api/types/build"
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/filters"
-	"github.com/docker/docker/api/types/image"
-	"github.com/docker/docker/api/types/mount"
-	"github.com/docker/docker/api/types/network"
-	"github.com/docker/docker/api/types/registry"
-	"github.com/docker/docker/api/types/strslice"
-	"github.com/docker/docker/client"
-	"github.com/docker/go-connections/nat"
 	"github.com/google/uuid"
 	"github.com/lithammer/shortuuid"
+	"github.com/moby/moby/api/pkg/stdcopy"
+	"github.com/moby/moby/api/types"
+	"github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/image"
+	"github.com/moby/moby/api/types/mount"
+	"github.com/moby/moby/api/types/network"
+	"github.com/moby/moby/api/types/registry"
+	"github.com/moby/moby/client"
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
@@ -70,23 +69,23 @@ type CreateInstanceParams struct {
 	// --no-logfile    - No journal logging
 	//
 	// --no-pidtrack   - Disable execve capture for cgroup-free PID tracking
-	Cmd               strslice.StrSlice   `yaml:"cmd" json:"cmd"`
+	Cmd               []string            `yaml:"cmd" json:"cmd"`
 	StopTimeout       *int                `yaml:"stopTimeout" json:"stopTimeout"` // seconds
-	CapAdd            strslice.StrSlice   `yaml:"capAdd" json:"capAdd"`
-	CapDrop           strslice.StrSlice   `yaml:"capDrop" json:"capDrop"`
-	DNS               strslice.StrSlice   `yaml:"dns" json:"dns"`
-	DNSOptions        strslice.StrSlice   `yaml:"dnsOptions" json:"dnsOptions"`
-	DNSSearch         strslice.StrSlice   `yaml:"dnsSearch" json:"dnsSearch"`
+	CapAdd            []string            `yaml:"capAdd" json:"capAdd"`
+	CapDrop           []string            `yaml:"capDrop" json:"capDrop"`
+	DNS               []string            `yaml:"dns" json:"dns"`
+	DNSOptions        []string            `yaml:"dnsOptions" json:"dnsOptions"`
+	DNSSearch         []string            `yaml:"dnsSearch" json:"dnsSearch"`
 	Privileged        bool                `yaml:"privileged" json:"privileged"`
-	SecurityOpt       strslice.StrSlice   `yaml:"securityOpt" json:"securityOpt"`
+	SecurityOpt       []string            `yaml:"securityOpt" json:"securityOpt"`
 	Tmpfs             map[string]string   `yaml:"tmpfs" json:"tmpfs"`
 	RestartPolicy     string              `yaml:"restartPolicy" json:"restartPolicy"` // Always,None,OnFailure,UnlessStopped
 	MaxRestartRetries int                 `yaml:"maxRestartRetries" json:"maxRestartRetries"`
 	ShmSize           int64               `yaml:"shmSize" json:"shmSize"`
 	Sysctls           map[string]string   `yaml:"sysctls" json:"sysctls"` // format: key=value of sysctl commands, like net.ipv4.ip_forward=1
 	Resources         container.Resources `yaml:"resources" json:"resources"`
-	MaskedPaths       strslice.StrSlice   `yaml:"maskedPaths" json:"maskedPaths"`
-	ReadonlyPaths     strslice.StrSlice   `yaml:"readonlyPaths" json:"readonlyPaths"`
+	MaskedPaths       []string            `yaml:"maskedPaths" json:"maskedPaths"`
+	ReadonlyPaths     []string            `yaml:"readonlyPaths" json:"readonlyPaths"`
 	SkipSshReadyCheck bool                `yaml:"skipSshReadyCheck" json:"skipSshReadyCheck"` // if set, will not test for ssh readiness
 	// optional: registry authentication for pulling private images
 	RegistryUser string `yaml:"registryUser" json:"registryUser"` // username for docker registry authentication
@@ -170,21 +169,20 @@ func (s *b) GetInstances(volumes backends.VolumeList, networkList backends.Netwo
 				return
 			}
 
-			f := filters.NewArgs()
+			f := make(client.Filters)
 			if !s.listAllProjects {
 				f.Add("label", TAG_AEROLAB_PROJECT+"="+s.project)
 			}
-			containers, err := cli.ContainerList(context.Background(), container.ListOptions{
+			containers, err := cli.ContainerList(context.Background(), client.ContainerListOptions{
 				Size:    true,
 				All:     true,
-				Latest:  true,
 				Filters: f,
 			})
 			if err != nil {
 				errs = errors.Join(errs, err)
 				return
 			}
-			for _, container := range containers {
+			for _, container := range containers.Items {
 				if container.Labels[TAG_AEROLAB_VERSION] == "" {
 					continue
 				}
@@ -223,8 +221,8 @@ func (s *b) GetInstances(volumes backends.VolumeList, networkList backends.Netwo
 					}
 				}
 				ip := ""
-				if net != nil {
-					ip = net.IPAddress
+				if net != nil && net.IPAddress.IsValid() {
+					ip = net.IPAddress.String()
 				}
 				istate := backends.LifeCycleStateRunning
 				switch container.State {
@@ -244,7 +242,11 @@ func (s *b) GetInstances(volumes backends.VolumeList, networkList backends.Netwo
 				fw := []string{}
 				for _, port := range container.Ports {
 					// fw format: host={hostIP:hostPORT},container={containerPORT} ; example: host=0.0.0.0:8080,container=80
-					fw = append(fw, fmt.Sprintf("host=%s:%d,container=%d", port.IP, port.PublicPort, port.PrivatePort))
+					hostIP := ""
+					if port.IP.IsValid() {
+						hostIP = port.IP.String()
+					}
+					fw = append(fw, fmt.Sprintf("host=%s:%d,container=%d", hostIP, port.PublicPort, port.PrivatePort))
 				}
 				// Compute AccessURL based on client type and port mappings
 				accessURL := computeAccessURL(container.Labels["aerolab.client.type"], container.Ports)
@@ -374,7 +376,7 @@ func (s *b) InstancesTerminate(instances backends.InstanceList, waitDur time.Dur
 			go func(id string) {
 				defer wg.Done()
 				log.Detail("removing container %s", id)
-				err := cli.ContainerRemove(context.Background(), id, container.RemoveOptions{
+				_, err := cli.ContainerRemove(context.Background(), id, client.ContainerRemoveOptions{
 					Force: true,
 				})
 				if err != nil {
@@ -430,7 +432,7 @@ func (s *b) InstancesStop(instances backends.InstanceList, force bool, waitDur t
 				defer wg.Done()
 				log.Detail("stopping container %s", id)
 				timeout := int(waitDur.Seconds())
-				err := cli.ContainerStop(context.Background(), id, container.StopOptions{
+				_, err := cli.ContainerStop(context.Background(), id, client.ContainerStopOptions{
 					Signal:  "SIGTERM",
 					Timeout: &timeout,
 				})
@@ -446,11 +448,11 @@ func (s *b) InstancesStop(instances backends.InstanceList, force bool, waitDur t
 		if waitDur > 0 {
 			for _, id := range ids {
 				for {
-					inspected, err := cli.ContainerInspect(context.Background(), id)
+					inspected, err := cli.ContainerInspect(context.Background(), id, client.ContainerInspectOptions{})
 					if err != nil {
 						return err
 					}
-					if !inspected.State.Running {
+					if !inspected.Container.State.Running {
 						break
 					}
 					time.Sleep(250 * time.Millisecond)
@@ -491,18 +493,18 @@ func (s *b) InstancesStart(instances backends.InstanceList, waitDur time.Duratio
 			go func(id string) {
 				defer wg.Done()
 				log.Detail("starting container %s", id)
-				err := cli.ContainerStart(context.Background(), id, container.StartOptions{})
+				_, err := cli.ContainerStart(context.Background(), id, client.ContainerStartOptions{})
 				if err != nil {
 					reterr = errors.Join(reterr, err)
 				}
 				log.Detail("waiting for container %s to be running", id)
 				for {
-					inspected, err := cli.ContainerInspect(context.Background(), id)
+					inspected, err := cli.ContainerInspect(context.Background(), id, client.ContainerInspectOptions{})
 					if err != nil {
 						reterr = errors.Join(reterr, err)
 						return
 					}
-					if inspected.State.Running {
+					if inspected.Container.State.Running {
 						break
 					}
 					time.Sleep(250 * time.Millisecond)
@@ -551,11 +553,11 @@ func (s *b) InstancesStart(instances backends.InstanceList, waitDur time.Duratio
 // captured while the container was stopped has an empty port list, which would
 // otherwise cause SSH connections to resolve to host port 0.
 func (s *b) refreshStartedInstances(cli *client.Client, ids []string, instances backends.InstanceList) error {
-	f := filters.NewArgs()
+	f := make(client.Filters)
 	if !s.listAllProjects {
 		f.Add("label", TAG_AEROLAB_PROJECT+"="+s.project)
 	}
-	fresh, err := cli.ContainerList(context.Background(), container.ListOptions{
+	fresh, err := cli.ContainerList(context.Background(), client.ContainerListOptions{
 		Size:    true,
 		All:     true,
 		Filters: f,
@@ -563,8 +565,8 @@ func (s *b) refreshStartedInstances(cli *client.Client, ids []string, instances 
 	if err != nil {
 		return err
 	}
-	byID := make(map[string]container.Summary, len(fresh))
-	for _, c := range fresh {
+	byID := make(map[string]container.Summary, len(fresh.Items))
+	for _, c := range fresh.Items {
 		byID[c.ID] = c
 	}
 	idSet := make(map[string]struct{}, len(ids))
@@ -582,8 +584,8 @@ func (s *b) refreshStartedInstances(cli *client.Client, ids []string, instances 
 		getInstanceDetail(inst).Docker = c
 		if c.NetworkSettings != nil {
 			for _, n := range c.NetworkSettings.Networks {
-				if n != nil && n.IPAddress != "" {
-					inst.IP.Private = n.IPAddress
+				if n != nil && n.IPAddress.IsValid() {
+					inst.IP.Private = n.IPAddress.String()
 					break
 				}
 			}
@@ -1036,20 +1038,20 @@ func (s *b) CreateInstances(input *backends.CreateInstanceInput, waitDur time.Du
 					}
 					tw.Flush() //nolint:errcheck
 					tw.Close() //nolint:errcheck
-					pf := "linux/amd64"
+					pf := v1.Platform{OS: "linux", Architecture: "amd64"}
 					switch backendSpecificParams.Image.Architecture {
 					case backends.ArchitectureARM64:
-						pf = "linux/arm64"
+						pf.Architecture = "arm64"
 					case backends.ArchitectureNative:
 						if runtime.GOARCH == "arm64" {
-							pf = "linux/arm64"
+							pf.Architecture = "arm64"
 						}
 					}
 					newNameTag := backendSpecificParams.Image.Architecture.String() + "-" + backendSpecificParams.Image.OSName + "-" + backendSpecificParams.Image.OSVersion
 					if s.isPodman[backendSpecificParams.Image.ZoneName] {
 						newNameTag = "localhost/" + newNameTag
 					}
-					builder, err := cli.ImageBuild(context.Background(), buf, build.ImageBuildOptions{
+					builder, err := cli.ImageBuild(context.Background(), buf, client.ImageBuildOptions{
 						Tags: []string{
 							newNameTag,
 						},
@@ -1060,8 +1062,8 @@ func (s *b) CreateInstances(input *backends.CreateInstanceInput, waitDur time.Du
 						Dockerfile:     "",
 						Labels:         imgLabels,
 						Squash:         false,
-						Platform:       pf,
-						Outputs:        []build.ImageBuildOutput{},
+						Platforms:      []v1.Platform{pf},
+						Outputs:        []client.ImageBuildOutput{},
 					})
 					if err != nil {
 						return fmt.Errorf("failed to build image: %v", err)
@@ -1126,7 +1128,7 @@ func (s *b) CreateInstances(input *backends.CreateInstanceInput, waitDur time.Du
 	// Pull custom image with authentication if credentials are provided
 	if !backendSpecificParams.Image.Public && backendSpecificParams.RegistryUser != "" && backendSpecificParams.RegistryPass != "" {
 		log.Detail("Pulling image %s with registry authentication", imgName)
-		pullOpts := image.PullOptions{}
+		pullOpts := client.ImagePullOptions{}
 
 		// Create auth config
 		authConfig := registry.AuthConfig{
@@ -1156,7 +1158,7 @@ func (s *b) CreateInstances(input *backends.CreateInstanceInput, waitDur time.Du
 	} else if !backendSpecificParams.Image.Public {
 		// For custom images without auth, try to pull (will use local docker credentials if configured)
 		log.Detail("Pulling image %s (using local docker credentials if configured)", imgName)
-		reader, err := cli.ImagePull(context.Background(), imgName, image.PullOptions{})
+		reader, err := cli.ImagePull(context.Background(), imgName, client.ImagePullOptions{})
 		if err != nil {
 			// If pull fails, check if image exists locally
 			_, inspectErr := cli.ImageInspect(context.Background(), imgName)
@@ -1171,10 +1173,15 @@ func (s *b) CreateInstances(input *backends.CreateInstanceInput, waitDur time.Du
 		}
 	}
 
+	dns, err := parseDNSServers(backendSpecificParams.DNS)
+	if err != nil {
+		return nil, err
+	}
+
 	// Create instances
 	log.Detail("Creating %d instances", input.Nodes)
 	// create instances
-	runResults := []container.CreateResponse{}
+	runResults := []client.ContainerCreateResult{}
 	for i := lastNodeNo; i < lastNodeNo+input.Nodes; i++ {
 		// Add node number tag
 		nodeTags := make(map[string]string, len(labels))
@@ -1271,37 +1278,43 @@ func (s *b) CreateInstances(input *backends.CreateInstanceInput, waitDur time.Du
 			containerConfig.WorkingDir = "/root"
 		}
 
-		runResult, err := cli.ContainerCreate(context.Background(), containerConfig, &container.HostConfig{
-			NetworkMode:     container.NetworkMode(networkName),
-			PortBindings:    portBindings,
-			RestartPolicy:   rp,
-			AutoRemove:      input.TerminateOnStop,
-			ConsoleSize:     [2]uint{24, 80},
-			CapAdd:          backendSpecificParams.CapAdd,
-			CapDrop:         backendSpecificParams.CapDrop,
-			DNS:             backendSpecificParams.DNS,
-			DNSOptions:      backendSpecificParams.DNSOptions,
-			DNSSearch:       backendSpecificParams.DNSSearch,
-			Privileged:      backendSpecificParams.Privileged,
-			PublishAllPorts: false, // crazy, docker will auto-map all exposed ports to random host ports
-			SecurityOpt:     backendSpecificParams.SecurityOpt,
-			Tmpfs:           backendSpecificParams.Tmpfs,
-			ShmSize:         backendSpecificParams.ShmSize,
-			Sysctls:         backendSpecificParams.Sysctls,
-			Resources:       backendSpecificParams.Resources,
-			Mounts:          mounts,
-			MaskedPaths:     backendSpecificParams.MaskedPaths,
-			ReadonlyPaths:   backendSpecificParams.ReadonlyPaths,
-			Init:            nil, // do not install docker's init system
-		}, &network.NetworkingConfig{
-			EndpointsConfig: endpoints,
-		}, &v1.Platform{
-			Architecture: backendSpecificParams.Image.Architecture.String(),
-			OS:           "linux",
-			OSVersion:    "",
-			OSFeatures:   []string{},
-			Variant:      "",
-		}, name)
+		runResult, err := cli.ContainerCreate(context.Background(), client.ContainerCreateOptions{
+			Config: containerConfig,
+			HostConfig: &container.HostConfig{
+				NetworkMode:     container.NetworkMode(networkName),
+				PortBindings:    portBindings,
+				RestartPolicy:   rp,
+				AutoRemove:      input.TerminateOnStop,
+				ConsoleSize:     [2]uint{24, 80},
+				CapAdd:          backendSpecificParams.CapAdd,
+				CapDrop:         backendSpecificParams.CapDrop,
+				DNS:             dns,
+				DNSOptions:      backendSpecificParams.DNSOptions,
+				DNSSearch:       backendSpecificParams.DNSSearch,
+				Privileged:      backendSpecificParams.Privileged,
+				PublishAllPorts: false, // crazy, docker will auto-map all exposed ports to random host ports
+				SecurityOpt:     backendSpecificParams.SecurityOpt,
+				Tmpfs:           backendSpecificParams.Tmpfs,
+				ShmSize:         backendSpecificParams.ShmSize,
+				Sysctls:         backendSpecificParams.Sysctls,
+				Resources:       backendSpecificParams.Resources,
+				Mounts:          mounts,
+				MaskedPaths:     backendSpecificParams.MaskedPaths,
+				ReadonlyPaths:   backendSpecificParams.ReadonlyPaths,
+				Init:            nil, // do not install docker's init system
+			},
+			NetworkingConfig: &network.NetworkingConfig{
+				EndpointsConfig: endpoints,
+			},
+			Platform: &v1.Platform{
+				Architecture: backendSpecificParams.Image.Architecture.String(),
+				OS:           "linux",
+				OSVersion:    "",
+				OSFeatures:   []string{},
+				Variant:      "",
+			},
+			Name: name,
+		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create instance %d: %v", i+1, err)
 		}
@@ -1311,7 +1324,7 @@ func (s *b) CreateInstances(input *backends.CreateInstanceInput, waitDur time.Du
 			}
 			log.Warn("DOCKER: name=%s, warnings=%v", name, w)
 		}
-		if err := cli.ContainerStart(context.Background(), runResult.ID, container.StartOptions{}); err != nil {
+		if _, err := cli.ContainerStart(context.Background(), runResult.ID, client.ContainerStartOptions{}); err != nil {
 			return nil, fmt.Errorf("failed to start instance %d: %v", i+1, err)
 		}
 		runResults = append(runResults, runResult)
@@ -1460,20 +1473,64 @@ func (s *b) InstancesUpdateHostsFile(instances backends.InstanceList, hostsEntri
 	return errs
 }
 
-func (s *b) getExposedPorts(firewalls []string) (nat.PortSet, nat.PortMap, []int, error) {
+// parseDNSServers converts the user-supplied DNS server list (kept as strings
+// in the YAML/JSON params) into the netip.Addr slice HostConfig.DNS now wants.
+func parseDNSServers(servers []string) ([]netip.Addr, error) {
+	if len(servers) == 0 {
+		return nil, nil
+	}
+	out := make([]netip.Addr, 0, len(servers))
+	for _, server := range servers {
+		addr, err := netip.ParseAddr(strings.TrimSpace(server))
+		if err != nil {
+			return nil, fmt.Errorf("invalid dns server %q: %w", server, err)
+		}
+		out = append(out, addr)
+	}
+	return out, nil
+}
+
+// tcpPort builds the network.Port key for a container TCP port given as a
+// decimal string.
+func tcpPort(port string) (network.Port, error) {
+	p, err := network.ParsePort(port + "/tcp")
+	if err != nil {
+		return network.Port{}, fmt.Errorf("invalid container port %q: %w", port, err)
+	}
+	return p, nil
+}
+
+// anyIPv4 is 0.0.0.0, the default host address port bindings are published on.
+var anyIPv4 = netip.AddrFrom4([4]byte{})
+
+// parseHostIP converts the host side of a port mapping into the netip.Addr the
+// API now expects, defaulting to 0.0.0.0 when unspecified.
+func parseHostIP(ip string) (netip.Addr, error) {
+	if ip == "" {
+		return anyIPv4, nil
+	}
+	addr, err := netip.ParseAddr(ip)
+	if err != nil {
+		return netip.Addr{}, fmt.Errorf("invalid host IP %q: %w", ip, err)
+	}
+	return addr, nil
+}
+
+func (s *b) getExposedPorts(firewalls []string) (network.PortSet, network.PortMap, []int, error) {
 	portList := []int{}
 	nextPort := s.usedPorts.getNextFree(2200)
 	if nextPort == -1 {
 		return nil, nil, nil, fmt.Errorf("no free ports available")
 	}
 	portList = append(portList, nextPort)
-	exposedPorts := nat.PortSet{
-		"22/tcp": {},
+	sshPort := network.MustParsePort("22/tcp")
+	exposedPorts := network.PortSet{
+		sshPort: {},
 	}
-	portBindings := nat.PortMap{
-		"22/tcp": {
+	portBindings := network.PortMap{
+		sshPort: {
 			{
-				HostIP:   "0.0.0.0",
+				HostIP:   anyIPv4,
 				HostPort: fmt.Sprintf("%d", nextPort),
 			},
 		},
@@ -1533,10 +1590,18 @@ func (s *b) getExposedPorts(firewalls []string) (nat.PortSet, nat.PortMap, []int
 					return nil, nil, nil, fmt.Errorf("port %d is already used", hp)
 				}
 			}
-			exposedPorts[nat.Port(container+"/tcp")] = struct{}{}
-			portBindings[nat.Port(container+"/tcp")] = []nat.PortBinding{
+			cPort, err := tcpPort(container)
+			if err != nil {
+				return nil, nil, nil, err
+			}
+			hostAddr, err := parseHostIP(hostip)
+			if err != nil {
+				return nil, nil, nil, err
+			}
+			exposedPorts[cPort] = struct{}{}
+			portBindings[cPort] = []network.PortBinding{
 				{
-					HostIP:   hostip,
+					HostIP:   hostAddr,
 					HostPort: hostport,
 				},
 			}
@@ -1572,10 +1637,18 @@ func (s *b) getExposedPorts(firewalls []string) (nat.PortSet, nat.PortMap, []int
 					return nil, nil, nil, fmt.Errorf("port %d is already used", hp)
 				}
 			}
-			exposedPorts[nat.Port(split[1]+"/tcp")] = struct{}{}
-			portBindings[nat.Port(split[1]+"/tcp")] = []nat.PortBinding{
+			cPort, err := tcpPort(split[1])
+			if err != nil {
+				return nil, nil, nil, err
+			}
+			hostAddr, err := parseHostIP(ipPort[0])
+			if err != nil {
+				return nil, nil, nil, err
+			}
+			exposedPorts[cPort] = struct{}{}
+			portBindings[cPort] = []network.PortBinding{
 				{
-					HostIP:   ipPort[0],
+					HostIP:   hostAddr,
 					HostPort: ipPort[1],
 				},
 			}
@@ -1607,10 +1680,14 @@ func (s *b) getExposedPorts(firewalls []string) (nat.PortSet, nat.PortMap, []int
 					return nil, nil, nil, fmt.Errorf("port %d is already used", hp)
 				}
 			}
-			exposedPorts[nat.Port(split[1]+"/tcp")] = struct{}{}
-			portBindings[nat.Port(split[1]+"/tcp")] = []nat.PortBinding{
+			cPort, err := tcpPort(split[1])
+			if err != nil {
+				return nil, nil, nil, err
+			}
+			exposedPorts[cPort] = struct{}{}
+			portBindings[cPort] = []network.PortBinding{
 				{
-					HostIP:   "0.0.0.0",
+					HostIP:   anyIPv4,
 					HostPort: split[0],
 				},
 			}
@@ -1637,10 +1714,10 @@ func ExecWithCLI(
 	tty bool,
 ) (int, error) {
 	// 1) create the exec
-	createResp, err := cli.ContainerExecCreate(ctx, containerID, container.ExecOptions{
-		Cmd:          strslice.StrSlice(cmd),
+	createResp, err := cli.ExecCreate(ctx, containerID, client.ExecCreateOptions{
+		Cmd:          cmd,
 		Env:          env,
-		Tty:          tty,
+		TTY:          tty,
 		AttachStdin:  stdin != nil,
 		AttachStdout: stdout != nil,
 		AttachStderr: stderr != nil && !tty, // TTY merges stderr into stdout
@@ -1651,14 +1728,18 @@ func ExecWithCLI(
 	execID := createResp.ID
 
 	// 2) attach & start via docker/cli
-	opts := container.ExecAttachOptions{
-		Tty: tty,
+	opts := client.ExecAttachOptions{
+		TTY: tty,
 		// DetachKeys: "ctrl-p,ctrl-q", // set if you care
 	}
-	resp, err := cli.ContainerExecAttach(ctx, execID, opts)
+	resp, err := cli.ExecAttach(ctx, execID, opts)
 	if err != nil {
 		return -1, err
 	}
+	// The connection is torn down here and nowhere else: the copy goroutine
+	// below must not close it, or an in-flight read on the shared reader dies
+	// with it.
+	defer resp.Close()
 	if tty {
 		sshexec.AddRestoreRequest()
 		defer sshexec.RestoreTerminal()
@@ -1666,46 +1747,72 @@ func ExecWithCLI(
 			term.MakeRaw(os.Stdin.Fd()) //nolint:errcheck
 		}
 	}
+	if stdout == nil {
+		stdout = io.Discard
+	}
+	if stderr == nil {
+		stderr = io.Discard
+	}
+
+	// Without a TTY the daemon frames stdout and stderr into one stream, so the
+	// bytes have to be demultiplexed rather than copied through. The media type
+	// reported on the hijacked connection is authoritative; fall back to what we
+	// asked for if the daemon did not send one.
+	rawStream := tty
+	if mediaType, ok := resp.MediaType(); ok {
+		rawStream = mediaType == types.MediaTypeRawStream
+	}
+
+	// A single reader: resp.Reader is a *bufio.Reader and is not safe for
+	// concurrent use.
+	copyDone := make(chan struct{})
 	go func() {
-		io.Copy(stdout, resp.Reader) //nolint:errcheck
-		resp.Close()
-		resp.CloseWrite() //nolint:errcheck
-		resp.Conn.Close()
+		defer close(copyDone)
 		if stdin != nil {
-			stdin.Close()
+			// Matches the documented contract: the caller's stdin is closed once
+			// the command has stopped producing output.
+			defer stdin.Close() //nolint:errcheck
 		}
-	}()
-	go func() {
-		io.Copy(stderr, resp.Reader) //nolint:errcheck
-		resp.Close()
-		resp.CloseWrite() //nolint:errcheck
-		resp.Conn.Close()
-		if stdin != nil {
-			stdin.Close()
-		}
-	}()
-	go func() {
-		if stdin != nil {
-			io.Copy(resp.Conn, stdin) //nolint:errcheck
+		if rawStream {
+			io.Copy(stdout, resp.Reader) //nolint:errcheck
+		} else {
+			stdcopy.StdCopy(stdout, stderr, resp.Reader) //nolint:errcheck
 		}
 	}()
 
-	// 3) wait for completion and collect exit code
+	if stdin != nil {
+		go func() {
+			io.Copy(resp.Conn, stdin) //nolint:errcheck
+			resp.CloseWrite()         //nolint:errcheck
+		}()
+	}
+
+	// 3) wait for the output to drain, then collect the exit code. Waiting for
+	// EOF before returning matters for more than completeness: callers read the
+	// buffers they passed in as soon as this returns.
+	select {
+	case <-copyDone:
+	case <-ctx.Done():
+		return -1, ctx.Err()
+	}
+
+	// The daemon closes the stream when the exec process exits, so EOF normally
+	// means it is done. A detach would also close the stream, so poll in that
+	// case rather than reporting a bogus exit code.
 	t := time.NewTicker(200 * time.Millisecond)
 	defer t.Stop()
-
 	for {
+		inspect, err := cli.ExecInspect(ctx, execID, client.ExecInspectOptions{})
+		if err != nil {
+			return -1, err
+		}
+		if !inspect.Running {
+			return inspect.ExitCode, nil
+		}
 		select {
 		case <-ctx.Done():
 			return -1, ctx.Err()
 		case <-t.C:
-			inspect, err := cli.ContainerExecInspect(ctx, execID)
-			if err != nil {
-				return -1, err
-			}
-			if !inspect.Running {
-				return inspect.ExitCode, nil
-			}
 		}
 	}
 }
@@ -1728,7 +1835,7 @@ func encodeAuthToBase64(authConfig registry.AuthConfig) (string, error) {
 //
 // Returns:
 //   - string: the computed access URL, or empty string if not applicable
-func computeAccessURL(clientType string, ports []container.Port) string {
+func computeAccessURL(clientType string, ports []container.PortSummary) string {
 	if clientType == "" {
 		return ""
 	}

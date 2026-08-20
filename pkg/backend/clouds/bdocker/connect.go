@@ -3,7 +3,7 @@ package bdocker
 import (
 	"fmt"
 
-	"github.com/docker/docker/client"
+	"github.com/moby/moby/client"
 )
 
 func (s *b) getDockerClient(region string) (*client.Client, error) {

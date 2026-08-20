@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/registry"
+	"github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/registry"
 )
 
 func TestImageNaming(t *testing.T) {
@@ -45,13 +45,13 @@ func TestImageNaming(t *testing.T) {
 }
 
 func TestComputeAccessURL(t *testing.T) {
-	ports := []container.Port{
+	ports := []container.PortSummary{
 		{PrivatePort: 8080, PublicPort: 49153},
 		{PrivatePort: 3000, PublicPort: 0}, // not published
 	}
 	cases := []struct {
 		clientType string
-		ports      []container.Port
+		ports      []container.PortSummary
 		want       string
 	}{
 		{"", ports, ""},
