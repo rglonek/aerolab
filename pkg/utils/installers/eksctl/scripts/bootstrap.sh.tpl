@@ -33,8 +33,10 @@ echo "Configuring AWS CLI and kubectl..."
 ARCH=$(uname -m)
 if [ "$ARCH" = "x86_64" ]; then
   AWSCLI_ARCH="x86_64"
-elif [ "$ARCH" = "aarch64" ]; then
+  K8S_ARCH="amd64"
+elif [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then
   AWSCLI_ARCH="aarch64"
+  K8S_ARCH="arm64"
 else
   echo "Unsupported architecture: $ARCH" >&2
   exit 1
@@ -55,15 +57,6 @@ cd -
 # Install kubectl if not present
 if ! command -v kubectl &> /dev/null; then
   echo "Installing kubectl..."
-  if [ "$ARCH" = "x86_64" ]; then
-    K8S_ARCH="amd64"
-  elif [ "$ARCH" = "aarch64" ]; then
-    K8S_ARCH="arm64"
-  else
-    echo "Unsupported architecture: $ARCH" >&2
-    exit 1
-  fi
-  
   retry_cmd curl -sLO "https://dl.k8s.io/release/$(retry_cmd curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/${K8S_ARCH}/kubectl"
   chmod +x kubectl
   mv kubectl /usr/local/bin/

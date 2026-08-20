@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"runtime"
 	"sync"
 	"time"
 
@@ -55,15 +54,7 @@ func (c *AerospikeUpgradeCmd) upgradeJFrog(cluster backends.InstanceList, system
 	var cacheMu sync.Mutex
 
 	resolveFor := func(instance *backends.Instance) (*resolved, error) {
-		arch := "x86_64"
-		switch instance.Architecture {
-		case backends.ArchitectureNative:
-			if runtime.GOARCH == "arm64" {
-				arch = "aarch64"
-			}
-		case backends.ArchitectureARM64:
-			arch = "aarch64"
-		}
+		arch := string(aerospikeArch(instance.Architecture))
 		osName := instance.OperatingSystem.Name
 		if osName == "rocky" {
 			osName = "centos"

@@ -146,7 +146,9 @@ func (c *ClusterAddExporterCmd) AddExporterCluster(system *System, inventory *ba
 	}
 	var hasErr error
 	parallelize.ForEachLimit(cluster.Describe(), c.ParallelThreads, func(inst *backends.Instance) {
-		installScript, err := files.GetInstallScript(aerospike.ArchitectureTypeX86_64, aerospike.OSName(inst.OperatingSystem.Name), inst.OperatingSystem.Version, system.logLevel >= 5, true, true, true)
+		arch := aerospikeArch(inst.Architecture)
+		logger.Detail("Architecture: %s, OS Name: %s, OS Version: %s", arch, inst.OperatingSystem.Name, inst.OperatingSystem.Version)
+		installScript, err := files.GetInstallScript(arch, aerospike.OSName(inst.OperatingSystem.Name), inst.OperatingSystem.Version, system.logLevel >= 5, true, true, true)
 		if err != nil {
 			hasErr = errors.Join(hasErr, fmt.Errorf("%s:%d: %s", inst.ClusterName, inst.NodeNo, err))
 			return

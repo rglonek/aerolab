@@ -55,10 +55,8 @@ func resolveJFrogPlan(system *System, log *logger.Logger, aerospikeVersion, dist
 	}
 	log.Info("Found %d artifacts on build", len(files))
 
-	jfArch := arch
-	if arch == "amd64" {
-		jfArch = "x86_64"
-	} else if arch == "arm64" {
+	jfArch := "x86_64"
+	if isARMArch(arch) {
 		jfArch = "aarch64"
 	}
 	osName := distro

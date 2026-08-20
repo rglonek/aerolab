@@ -55,7 +55,7 @@ type CreateInstanceParams struct {
 	Disks []string `yaml:"disks" json:"disks" required:"true"`
 	// optional: names of firewalls to assign to the instances(nodes)
 	//
-	// will always create a project-wide firewall and assign it to the instances(nodes); this firewall allows communication between the instances(nodes) and port 22/tcp from the outside
+	// will always create a project-wide firewall and assign it to the instances(nodes); this firewall allows communication between the instances(nodes) and all ports from the caller's address
 	Firewalls []string `yaml:"firewalls" json:"firewalls"`
 	// optional: if true, the instances(nodes) will be created as spot instances
 	SpotInstance bool `yaml:"spotInstance" json:"spotInstance"`

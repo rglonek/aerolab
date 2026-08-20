@@ -72,13 +72,7 @@ func (c *ClientCreateToolsCmd) createToolsClient(system *System, inventory *back
 	logger.Info("Installing Aerospike tools version %s", c.ToolsVersion)
 
 	for _, client := range clients.Describe() {
-		// Determine architecture
-		var arch aerospike.ArchitectureType
-		if client.Architecture == backends.ArchitectureARM64 {
-			arch = aerospike.ArchitectureTypeAARCH64
-		} else {
-			arch = aerospike.ArchitectureTypeX86_64
-		}
+		arch := aerospikeArch(client.Architecture)
 
 		// Get aerospike tools products and versions
 		products, err := aerospike.GetProducts(30 * time.Second)

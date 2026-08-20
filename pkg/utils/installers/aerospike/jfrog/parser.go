@@ -194,10 +194,10 @@ func osTag(osName, osVersion string) string {
 // debArch maps Debian's package arch labels to the rpm/aerolab labels so
 // the matcher only ever has to think in one vocabulary.
 func debArch(in string) string {
-	switch in {
-	case "amd64":
+	switch strings.ToLower(in) {
+	case "amd64", "x86_64":
 		return "x86_64"
-	case "arm64":
+	case "arm64", "aarch64":
 		return "aarch64"
 	}
 	return in

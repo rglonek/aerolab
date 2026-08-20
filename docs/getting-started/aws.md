@@ -117,9 +117,9 @@ aerolab config backend -t aws --check-access
 ## AWS-Specific Configuration
 
 Instances you create are attached to a security group of your own which allows
-SSH only from the address you are connecting from, so several people can share
-one account safely. AeroLab keeps that group in step with your address as you
-move between networks. See
+every port from the address you are connecting from, and lets those instances
+talk to each other, so several people can share one account safely. AeroLab
+keeps that group in step with your address as you move between networks. See
 [per-user security groups](../commands/config.md#per-user-security-groups) for
 how to override the discovered address behind a NAT gateway or VPN, and how to
 turn the automatic handling off.

@@ -96,11 +96,11 @@ func TestOwnedCallerRulesIgnoresRulesAeroLabDidNotAdd(t *testing.T) {
 func TestCallerIngressDiffOnAddressChange(t *testing.T) {
 	fw := &backends.Firewall{
 		Ports: backends.PortsOut{
-			callerPort(backends.ProtocolTCP, 22, 22, "203.0.113.7/32", backends.CallerRuleDescription),
+			callerPort(backends.ProtocolAll, -1, -1, "203.0.113.7/32", backends.CallerRuleDescription),
 			callerPort(backends.ProtocolTCP, 22, 22, "198.51.100.0/24", "opened by hand"),
 		},
 	}
-	desired := backends.BuildCallerRules(backends.CallerSSHPorts(), []string{"192.0.2.9/32"})
+	desired := backends.BuildCallerRules(backends.CallerAllPorts(), []string{"192.0.2.9/32"})
 	add, remove := backends.DiffCallerRules(ownedCallerRules(fw), desired)
 	if len(add) != 1 || add[0].Cidr != "192.0.2.9/32" {
 		t.Errorf("add = %v, want the new address", add)
@@ -126,16 +126,58 @@ func TestCallerIngressDiffOnAddressChange(t *testing.T) {
 	}
 }
 
-func TestCallerIngressDiffIsEmptyWhenAddressUnchanged(t *testing.T) {
+func TestCallerIngressDiffWidensSSHToAllPorts(t *testing.T) {
 	fw := &backends.Firewall{
 		Ports: backends.PortsOut{
 			callerPort(backends.ProtocolTCP, 22, 22, "203.0.113.7/32", backends.CallerRuleDescription),
+			callerPort(backends.ProtocolAll, -1, -1, "", ""),
 		},
 	}
-	desired := backends.BuildCallerRules(backends.CallerSSHPorts(), []string{"203.0.113.7/32"})
+	desired := backends.BuildCallerRules(backends.CallerAllPorts(), []string{"203.0.113.7/32"})
+	add, remove := backends.DiffCallerRules(ownedCallerRules(fw), desired)
+	if len(add) != 1 || add[0].Protocol != backends.ProtocolAll {
+		t.Errorf("add = %v, want an all-ports rule", add)
+	}
+	if len(remove) != 1 || remove[0].FromPort != 22 {
+		t.Errorf("remove = %v, want the old SSH rule", remove)
+	}
+}
+
+func TestCallerIngressDiffIsEmptyWhenAddressUnchanged(t *testing.T) {
+	fw := &backends.Firewall{
+		Ports: backends.PortsOut{
+			callerPort(backends.ProtocolAll, -1, -1, "203.0.113.7/32", backends.CallerRuleDescription),
+		},
+	}
+	desired := backends.BuildCallerRules(backends.CallerAllPorts(), []string{"203.0.113.7/32"})
 	add, remove := backends.DiffCallerRules(ownedCallerRules(fw), desired)
 	if len(add) != 0 || len(remove) != 0 {
 		t.Errorf("an unchanged address should need no API calls, got add=%v remove=%v", add, remove)
+	}
+}
+
+func TestHasSelfAllIngress(t *testing.T) {
+	fw := fwFixture("sg-1", "mine", "rglonek", backends.FirewallRoleDefault, "vpc-1")
+	if hasSelfAllIngress(fw) {
+		t.Error("empty group should not report self-ingress")
+	}
+	fw.Ports = backends.PortsOut{
+		{Port: backends.Port{FromPort: -1, ToPort: -1, SourceId: "self", Protocol: backends.ProtocolAll}},
+	}
+	if !hasSelfAllIngress(fw) {
+		t.Error("create-time SourceId=self should count")
+	}
+	fw.Ports = backends.PortsOut{
+		{Port: backends.Port{FromPort: -1, ToPort: -1, SourceId: "sg-1", Protocol: backends.ProtocolAll}},
+	}
+	if !hasSelfAllIngress(fw) {
+		t.Error("SourceId matching the group ID should count")
+	}
+	fw.Ports = backends.PortsOut{
+		callerPort(backends.ProtocolTCP, 22, 22, "203.0.113.7/32", backends.CallerRuleDescription),
+	}
+	if hasSelfAllIngress(fw) {
+		t.Error("a CIDR SSH rule is not self-ingress")
 	}
 }
 

@@ -154,10 +154,10 @@ aerolab config backend -t gcp --check-access
 
 ## GCP-Specific Configuration
 
-Instances you create carry firewall rules of your own which allow SSH only from
-the address you are connecting from, so several people can share one project
-safely. AeroLab keeps those rules in step with your address as you move between
-networks. See
+Instances you create carry firewall rules of your own which allow every port
+from the address you are connecting from, and let those instances talk to each
+other, so several people can share one project safely. AeroLab keeps those
+rules in step with your address as you move between networks. See
 [per-user firewall rules](../commands/config.md#per-user-firewall-rules) for how
 to override the discovered address behind a NAT gateway or VPN, and how to turn
 the automatic handling off.
