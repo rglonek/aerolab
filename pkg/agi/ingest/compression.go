@@ -17,7 +17,7 @@ import (
 	"github.com/rglonek/sbs"
 	"github.com/xi2/xz"
 
-	"github.com/nwaples/rardecode"
+	"github.com/nwaples/rardecode/v2"
 )
 
 // safeJoinLocal resolves an archive entry name against destDir and
@@ -326,7 +326,7 @@ func untar(dst string, r io.Reader) error {
 
 func unrar(src string, dst string) error {
 
-	tr, err := rardecode.OpenReader(src, "")
+	tr, err := rardecode.OpenReader(src)
 	if err != nil {
 		return err
 	}

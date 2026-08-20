@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"hash/crc32"
 	"io"
+	"math"
 )
 
 const (
@@ -13,8 +14,6 @@ const (
 	vmGlobalAddr      = 0x3C000
 	vmGlobalSize      = 0x02000
 	vmFixedGlobalSize = 0x40
-
-	maxUint32 = 1<<32 - 1
 )
 
 // v3Filter is the interface type for RAR V3 filters.
@@ -79,12 +78,12 @@ func e8e9FilterV3(r map[int]uint32, global, buf []byte, offset int64) ([]byte, e
 func getBits(buf []byte, pos, count uint) uint32 {
 	n := binary.LittleEndian.Uint32(buf[pos/8:])
 	n >>= pos & 7
-	mask := uint32(maxUint32) >> (32 - count)
+	mask := uint32(math.MaxUint32) >> (32 - count)
 	return n & mask
 }
 
 func setBits(buf []byte, pos, count uint, bits uint32) {
-	mask := uint32(maxUint32) >> (32 - count)
+	mask := uint32(math.MaxUint32) >> (32 - count)
 	mask <<= pos & 7
 	bits <<= pos & 7
 	n := binary.LittleEndian.Uint32(buf[pos/8:])
@@ -297,7 +296,7 @@ type vmFilter struct {
 // execute implements v3filter type for VM based RAR 3 filters.
 func (f *vmFilter) execute(r map[int]uint32, global, buf []byte, offset int64) ([]byte, error) {
 	if len(buf) > vmGlobalAddr {
-		return buf, errInvalidFilter
+		return buf, ErrInvalidFilter
 	}
 	v := newVM(buf)
 
@@ -396,12 +395,17 @@ func getV3Filter(code []byte) (v3Filter, error) {
 		return nil, err
 	}
 	if n > 0 {
-		m, err := r.readUint32()
+		var m uint32
+		m, err = r.readUint32()
 		if err != nil {
 			return nil, err
 		}
-		f.static = make([]byte, m+1)
-		err = r.readFull(f.static)
+		m++
+		if m > vmGlobalSize-vmFixedGlobalSize {
+			return nil, ErrInvalidFilter
+		}
+		f.static = make([]byte, m)
+		_, err = io.ReadFull(r, f.static)
 		if err != nil {
 			return nil, err
 		}

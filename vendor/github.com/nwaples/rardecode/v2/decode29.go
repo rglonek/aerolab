@@ -13,9 +13,9 @@ const (
 
 var (
 	// Errors marking the end of the decoding block and/or file
-	endOfFile         = errors.New("rardecode: end of file")
-	endOfBlock        = errors.New("rardecode: end of block")
-	endOfBlockAndFile = errors.New("rardecode: end of block and file")
+	errEndOfFile         = errors.New("rardecode: end of file")
+	errEndOfBlock        = errors.New("rardecode: end of block")
+	errEndOfBlockAndFile = errors.New("rardecode: end of block and file")
 )
 
 // decoder29 implements the decoder interface for RAR 3.0 compression (unpack version 29)
@@ -25,22 +25,21 @@ var (
 // block marker in the data.
 type decoder29 struct {
 	br      *rarBitReader
+	hdrRead bool       // block header has been read
+	isPPM   bool       // current block is PPM
 	eof     bool       // at file eof
 	fnum    int        // current filter number (index into filters)
 	flen    []int      // filter block length history
 	filters []v3Filter // list of current filters used by archive encoding
 
-	// current decode function (lz or ppm).
-	// When called it should perform a single decode operation, and either apply the
-	// data to the window or return they raw bytes for a filter.
-	decode func(w *window) ([]byte, error)
-
-	lz  lz29Decoder  // lz decoder
-	ppm ppm29Decoder // ppm decoder
+	lz  *lz29Decoder  // lz decoder
+	ppm *ppm29Decoder // ppm decoder
 }
 
+func (d *decoder29) version() int { return decode29Ver }
+
 // init intializes the decoder for decoding a new file.
-func (d *decoder29) init(r io.ByteReader, reset bool) error {
+func (d *decoder29) init(r byteReader, reset bool, size int64, ver int) {
 	if d.br == nil {
 		d.br = newRarBitReader(r)
 	} else {
@@ -49,14 +48,14 @@ func (d *decoder29) init(r io.ByteReader, reset bool) error {
 	d.eof = false
 	if reset {
 		d.initFilters()
-		d.lz.reset()
-		d.ppm.reset()
-		d.decode = nil
+		if d.lz != nil {
+			d.lz.reset()
+		}
+		if d.ppm != nil {
+			d.ppm.reset()
+		}
+		d.hdrRead = false
 	}
-	if d.decode == nil {
-		return d.readBlockHeader()
-	}
-	return nil
 }
 
 func (d *decoder29) initFilters() {
@@ -72,10 +71,10 @@ func readVMCode(br *rarBitReader) ([]byte, error) {
 		return nil, err
 	}
 	if n > maxCodeSize || n == 0 {
-		return nil, errInvalidFilter
+		return nil, ErrInvalidFilter
 	}
 	buf := make([]byte, n)
-	err = br.readFull(buf)
+	_, err = io.ReadFull(br, buf)
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +84,7 @@ func readVMCode(br *rarBitReader) ([]byte, error) {
 	}
 	// simple xor checksum on data
 	if x != buf[0] {
-		return nil, errInvalidFilter
+		return nil, ErrInvalidFilter
 	}
 	return buf, nil
 }
@@ -104,14 +103,13 @@ func (d *decoder29) parseVMFilter(buf []byte) (*filterBlock, error) {
 		}
 		if n == 0 {
 			d.initFilters()
-			fb.reset = true
 		} else {
 			n--
 			if n > maxUniqueFilters {
-				return nil, errInvalidFilter
+				return nil, ErrInvalidFilter
 			}
 			if int(n) > len(d.filters) {
-				return nil, errInvalidFilter
+				return nil, ErrInvalidFilter
 			}
 		}
 		d.fnum = int(n)
@@ -181,10 +179,10 @@ func (d *decoder29) parseVMFilter(buf []byte) (*filterBlock, error) {
 			return nil, err
 		}
 		if n > vmGlobalSize-vmFixedGlobalSize {
-			return nil, errInvalidFilter
+			return nil, ErrInvalidFilter
 		}
 		g = make([]byte, n)
-		err = br.readFull(g)
+		_, err = io.ReadFull(br, g)
 		if err != nil {
 			return nil, err
 		}
@@ -205,60 +203,70 @@ func (d *decoder29) readBlockHeader() error {
 	n, err := d.br.readBits(1)
 	if err == nil {
 		if n > 0 {
-			d.decode = d.ppm.decode
+			d.isPPM = true
+			if d.ppm == nil {
+				d.ppm = newPPM29Decoder()
+			}
 			err = d.ppm.init(d.br)
 		} else {
-			d.decode = d.lz.decode
+			d.isPPM = false
+			if d.lz == nil {
+				d.lz = new(lz29Decoder)
+			}
 			err = d.lz.init(d.br)
 		}
 	}
 	if err == io.EOF {
-		err = errDecoderOutOfData
+		err = ErrDecoderOutOfData
 	}
+	d.hdrRead = true
 	return err
-
 }
 
-func (d *decoder29) fill(w *window) ([]*filterBlock, error) {
+func (d *decoder29) fill(dr *decodeReader) error {
 	if d.eof {
-		return nil, io.EOF
+		return io.EOF
 	}
 
-	var fl []*filterBlock
-
-	for w.available() > 0 {
-		b, err := d.decode(w) // perform a single decode operation
+	for dr.notFull() {
+		var err error
+		if !d.hdrRead {
+			if err = d.readBlockHeader(); err != nil {
+				return err
+			}
+		}
+		var b []byte
+		if d.isPPM {
+			b, err = d.ppm.fill(dr)
+		} else {
+			b, err = d.lz.fill(dr)
+		}
 		if len(b) > 0 && err == nil {
 			// parse raw data for filter and add to list of filters
 			var f *filterBlock
 			f, err = d.parseVMFilter(b)
 			if f != nil {
-				// make offset relative to read index (from write index)
-				f.offset += w.buffered()
-				fl = append(fl, f)
+				err = dr.queueFilter(f)
 			}
 		}
 
 		switch err {
 		case nil:
 			continue
-		case endOfBlock:
-			err = d.readBlockHeader()
-			if err == nil {
-				continue
-			}
-		case endOfFile:
+		case errEndOfBlock:
+			d.hdrRead = false
+			continue
+		case errEndOfFile:
 			d.eof = true
 			err = io.EOF
-		case endOfBlockAndFile:
+		case errEndOfBlockAndFile:
 			d.eof = true
-			d.decode = nil // clear decoder, it will be setup by next init()
+			d.hdrRead = false
 			err = io.EOF
 		case io.EOF:
-			err = errDecoderOutOfData
+			err = ErrDecoderOutOfData
 		}
-		return fl, err
+		return err
 	}
-	// return filters
-	return fl, nil
+	return nil
 }

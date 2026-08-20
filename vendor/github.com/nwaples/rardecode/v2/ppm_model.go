@@ -3,6 +3,7 @@ package rardecode
 import (
 	"errors"
 	"io"
+	"math"
 )
 
 const (
@@ -26,12 +27,11 @@ const (
 	// A unit can store one context or two states.
 	unitSize = 12
 
-	maxUint16 = 1<<16 - 1
-	freeMark  = -1
+	freeMark = -1
 )
 
 var (
-	errCorruptPPM = errors.New("rardecode: corrupt ppm data")
+	ErrCorruptPPM = errors.New("rardecode: corrupt ppm data")
 
 	expEscape  = []byte{25, 14, 9, 7, 5, 5, 4, 4, 4, 3, 3, 3, 2, 2, 2, 2}
 	initBinEsc = []uint16{0x3CDD, 0x1F3F, 0x59BF, 0x48F3, 0x64A1, 0x5ABC, 0x6632, 0x6051}
@@ -251,9 +251,7 @@ func (a *subAllocator) restart() {
 	a.heap2Lo = a.heap1Hi / unitSize * 2
 	a.heap2Hi = int32(len(a.states))
 	a.glueCount = 0
-	for i := range a.freeList {
-		a.freeList[i] = 0
-	}
+	clear(a.freeList[:])
 }
 
 // pushByte puts a byte on the heap and returns a state.succ index that
@@ -354,7 +352,7 @@ func (a *subAllocator) glueFreeBlocks() {
 		states := a.states[i+u<<1:]
 		for len(states) > 0 && states[0].succ == freeMark {
 			u += int32(states[0].uint16())
-			if u > maxUint16 {
+			if u > math.MaxUint16 {
 				break
 			}
 			states[0].succ = 0
@@ -564,9 +562,7 @@ type model struct {
 }
 
 func (m *model) restart() {
-	for i := range m.charMask {
-		m.charMask[i] = 0
-	}
+	clear(m.charMask[:])
 	m.escCount = 1
 
 	if m.maxOrder < 12 {
@@ -616,7 +612,7 @@ func (m *model) init(br io.ByteReader, reset bool, maxOrder, maxMB int) error {
 	m.a.init(maxMB)
 
 	if maxOrder == 1 {
-		return errCorruptPPM
+		return ErrCorruptPPM
 	}
 	m.maxOrder = maxOrder
 	m.prevSym = 0
@@ -718,7 +714,7 @@ func (m *model) decodeSymbol1(c context) (*state, error) {
 	// protect against divide by zero
 	// TODO: look at why this happens, may be problem elsewhere
 	if scale == 0 {
-		return nil, errCorruptPPM
+		return nil, ErrCorruptPPM
 	}
 	count := m.rc.currentCount(scale)
 	m.prevSuccess = 0
@@ -799,7 +795,7 @@ func (m *model) decodeSymbol2(c context, numMasked int) (*state, error) {
 	count := m.rc.currentCount(scale)
 
 	if count >= scale {
-		return nil, errCorruptPPM
+		return nil, ErrCorruptPPM
 	}
 	if count >= hi {
 		err := m.rc.decode(hi, scale)
@@ -900,9 +896,7 @@ func (m *model) update(minC, maxC context, s *state) context {
 
 	if m.escCount == 0 {
 		m.escCount = 1
-		for i := range m.charMask {
-			m.charMask[i] = 0
-		}
+		clear(m.charMask[:])
 	}
 
 	var ss *state // matching minC.suffix state
@@ -1044,7 +1038,7 @@ func (m *model) ReadByte() (byte, error) {
 			m.orderFall++
 			minC = m.a.contextSuffix(minC)
 			if minC <= 0 {
-				return 0, errCorruptPPM
+				return 0, ErrCorruptPPM
 			}
 		}
 		s, err = m.decodeSymbol2(minC, n)
